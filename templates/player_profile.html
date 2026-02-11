@@ -1,0 +1,214 @@
+{{define "title"}}{{.Player.FirstName}} {{.Player.LastName}}{{end}}
+
+{{define "content"}}
+<div class="player-profile">
+    <h2>{{.Player.FirstName}} {{.Player.LastName}}</h2>
+    <div class="player-meta-grid">
+        <div class="meta-card">
+            <p><strong>Position:</strong> {{.Player.Position}}</p>
+            <p><strong>MLB Team:</strong> {{.Player.MLBTeam}}</p>
+            <p><strong>Status:</strong> {{.Player.Status}}</p>
+            {{if .IsRostered}}<p><strong>Fantasy Team:</strong> {{.TeamName}}</p>{{end}}
+        </div>
+        <div class="meta-card">
+            <p><strong>40-Man:</strong> {{if .Player.Status40Man}}Yes{{else}}No{{end}}</p>
+            <p><strong>26-Man:</strong> {{if .Player.Status26Man}}Yes{{else}}No{{end}}</p>
+            <p><strong>Option Years:</strong> {{.Player.OptionYears}}</p>
+        </div>
+    </div>
+
+    <h3>Contract Details (2026 - 2040)</h3>
+    <div class="table-container">
+        <table class="fantasy-table-base">
+            <thead>
+                <tr>{{range $year, $val := .Player.Contracts}}<th>{{$year}}</th>{{end}}</tr>
+            </thead>
+            <tbody>
+                <tr>
+                    {{range $year, $val := .Player.Contracts}}
+                        <td>{{if $val}}{{if eq $val "TC"}}TC{{else if eq $val "ARB"}}ARB{{else}}${{formatMoney $val}}{{end}}{{else}}--{{end}}</td>
+                    {{end}}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    {{if .IsOwner}}
+        <!-- OWNER ACTIONS -->
+        <div class="owner-tools">
+            <div class="tool-section">
+                <h3>Contract Extension Calculator</h3>
+                <form id="extensionForm">
+                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                    <div class="form-group">
+                        <label>3-Year WAR Total:</label>
+                        <input type="number" id="ext_war" step="0.1" placeholder="0.0" required>
+                    </div>
+                    <button type="button" class="button button-info" onclick="calcExtension()">Calculate Offers</button>
+                    
+                    <div id="ext_results" style="margin-top: 15px;"></div>
+                </form>
+            </div>
+
+            <div class="tool-section">
+                <h3>Contract Restructure</h3>
+                <p class="note">Move up to 50% of salary from one year to another.</p>
+                <form id="restructureForm">
+                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                    <input type="hidden" name="team_id" value="{{.TeamID}}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>From Year:</label>
+                            <select name="from_year">
+                                {{range $year, $val := .Player.Contracts}}{{if ne $val ""}}<option value="{{$year}}">{{$year}}</option>{{end}}{{end}}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>To Year:</label>
+                            <select name="to_year">
+                                {{range $year, $val := .Player.Contracts}}{{if ne $val ""}}<option value="{{$year}}">{{$year}}</option>{{end}}{{end}}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount ($):</label>
+                            <input type="number" name="amount" min="0" step="10000">
+                        </div>
+                    </div>
+                    <button type="button" class="button" onclick="submitRestructure()">Process Restructure</button>
+                </form>
+            </div>
+        </div>
+
+    {{else if .IsRostered}}
+        <!-- TRADE ACTION -->
+        <div class="action-bar">
+            <h3>Interested in this player?</h3>
+            <a href="/trades/new?team_id={{.TeamID}}" class="button button-primary">Propose Trade to {{.TeamName}}</a>
+        </div>
+
+    {{else}}
+        <!-- FREE AGENT BIDDING -->
+        <div class="bid-section">
+            <h3>Make an Offer</h3>
+            <form action="/bid" method="POST" class="bid-form">
+                <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                <div class="form-group">
+                    <label>Contract Length:</label>
+                    <select name="years" id="bid_years">
+                        <option value="1">1 Year</option>
+                        <option value="2">2 Years</option>
+                        <option value="3">3 Years</option>
+                        <option value="4">4 Years</option>
+                        <option value="5">5 Years</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>AAV ($):</label>
+                    <input type="number" name="aav" id="bid_aav" value="760000" min="760000" step="10000">
+                </div>
+                <p><strong>Bid Points:</strong> <span id="bid_points">1.52</span></p>
+                <button type="submit" class="button">Submit Bid</button>
+            </form>
+        </div>
+    {{end}}
+</div>
+
+<script>
+// --- EXTENSION LOGIC ---
+function calcExtension() {
+    const war = parseFloat(document.getElementById('ext_war').value);
+    if (!war) return;
+
+    // Pricing Model (Simplified from legacy JS)
+    // 1 Year: $1.5M + ($350k * WAR)
+    // 2 Years: $2.5M + ($450k * WAR)
+    // ... etc (You can tune this to match legacy exact math)
+    const offers = [
+        { years: 1, base: 1500000, warMult: 350000 },
+        { years: 2, base: 2500000, warMult: 450000 },
+        { years: 3, base: 4000000, warMult: 550000 },
+        { years: 4, base: 6000000, warMult: 650000 },
+        { years: 5, base: 8500000, warMult: 750000 }
+    ];
+
+    let html = '<table class="fantasy-table-base"><thead><tr><th>Years</th><th>AAV</th><th>Total</th><th>Action</th></tr></thead><tbody>';
+    
+    offers.forEach(o => {
+        const aav = o.base + (o.warMult * war);
+        const total = aav * o.years;
+        html += `<tr>
+            <td>${o.years}</td>
+            <td>$${aav.toLocaleString()}</td>
+            <td>$${total.toLocaleString()}</td>
+            <td><button class="button button-small" onclick="submitExtension(${o.years}, ${aav})">Select</button></td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('ext_results').innerHTML = html;
+}
+
+async function submitExtension(years, aav) {
+    if (!confirm(`Submit request for ${years} years at $${aav.toLocaleString()}?`)) return;
+    
+    const formData = new FormData();
+    formData.append('player_id', '{{.Player.ID}}');
+    formData.append('years', years);
+    formData.append('aav', aav);
+
+    const res = await fetch('/extension', { method: 'POST', body: formData });
+    const json = await res.json();
+    alert(json.message);
+}
+
+// --- RESTRUCTURE LOGIC ---
+async function submitRestructure() {
+    const form = document.getElementById('restructureForm');
+    const formData = new FormData(form);
+    
+    try {
+        const res = await fetch('/restructure', { method: 'POST', body: formData });
+        const json = await res.json();
+        
+        if (res.ok) {
+            alert(json.message);
+            location.reload();
+        } else {
+            alert("Error: " + json.error);
+        }
+    } catch (e) {
+        alert("Request failed");
+    }
+}
+
+// --- BIDDING LOGIC ---
+if (document.getElementById('bid_years')) {
+    const multipliers = { 1: 2.0, 2: 1.8, 3: 1.6, 4: 1.4, 5: 1.2 };
+    function calculatePoints() {
+        const years = parseInt(document.getElementById('bid_years').value);
+        const aav = parseFloat(document.getElementById('bid_aav').value);
+        const points = (years * aav * multipliers[years]) / 1000000;
+        document.getElementById('bid_points').innerText = points.toFixed(2);
+    }
+    document.getElementById('bid_years').addEventListener('change', calculatePoints);
+    document.getElementById('bid_aav').addEventListener('input', calculatePoints);
+}
+</script>
+
+<style>
+    .player-profile { background: white; padding: 20px; border-radius: 8px; }
+    .player-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+    .meta-card { background: var(--fod-gray-light); padding: 15px; border-radius: 6px; }
+    
+    .owner-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
+    .tool-section { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd; }
+    .note { font-size: 0.85rem; color: #666; margin-bottom: 15px; }
+    .form-row { display: flex; gap: 10px; margin-bottom: 15px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+    .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    
+    .action-bar { margin-top: 30px; text-align: center; background: #eef; padding: 30px; border-radius: 8px; }
+    .table-container { overflow-x: auto; margin-bottom: 2rem; }
+    .fantasy-table-base { width: 100%; min-width: 800px; margin: 0; }
+</style>
+{{end}}

@@ -1,0 +1,96 @@
+{{define "title"}}Arbitration{{end}}
+
+{{define "content"}}
+<h2>Arbitration Management ({{.TargetYear}})</h2>
+
+<div class="team-selector">
+    <form method="GET" action="/arbitration">
+        <label>Select Team:</label>
+        <select name="team_id" onchange="this.form.submit()">
+            {{range .MyTeams}}
+            <option value="{{.ID}}" {{if eq .ID $.SelectedTeam.ID}}selected{{end}}>{{.Name}}</option>
+            {{end}}
+        </select>
+    </form>
+</div>
+
+{{if .Players}}
+<table class="fantasy-table-base">
+    <thead>
+        <tr>
+            <th>Player</th>
+            <th>Current Status</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Players}}
+        <tr>
+            <td><strong>{{.Name}}</strong></td>
+            <td>{{.CurrentStatus}}</td>
+            <td>
+                {{if eq .PendingStatus "PENDING"}}
+                    <span style="color: #e69c00; font-weight: bold;">Pending Approval</span>
+                {{else}}
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Standard Arb Form -->
+                        <form action="/arbitration/submit" method="POST" style="display: flex; gap: 10px; align-items: center;">
+                            <input type="hidden" name="player_id" value="{{.ID}}">
+                            <input type="hidden" name="team_id" value="{{.TeamID}}">
+                            <input type="hidden" name="league_id" value="{{.LeagueID}}">
+                            <input type="hidden" name="year" value="{{$.TargetYear}}">
+                            
+                            <input type="number" name="amount" placeholder="Arb Salary" step="0.01" min="0" required style="width: 120px;">
+                            <button type="submit" class="button">Submit Arb</button>
+                            
+                            <button type="submit" name="decline" value="true" class="button button-danger" formnovalidate onclick="return confirm('Are you sure? This will release the player.');">Decline</button>
+                            
+                            <button type="button" class="button button-info" onclick="toggleExtension('ext-{{.ID}}')">Extension</button>
+                        </form>
+
+                        <!-- Extension Form (Hidden by default) -->
+                        <div id="ext-{{.ID}}" style="display: none; background: #f0f7ff; padding: 15px; border-radius: 8px; border: 1px solid #b6d4fe;">
+                            <form action="/extension/submit" method="POST">
+                                <input type="hidden" name="player_id" value="{{.ID}}">
+                                <input type="hidden" name="team_id" value="{{.TeamID}}">
+                                <input type="hidden" name="league_id" value="{{.LeagueID}}">
+                                
+                                <h4>Propose Extension</h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;">
+                                    {{range $y := seq 2026 2030}}
+                                    <div class="input-group">
+                                        <label style="font-size: 0.8rem; display: block;">{{$y}} Salary</label>
+                                        <input type="number" name="salary_{{$y}}" step="0.01" style="width: 100%;">
+                                    </div>
+                                    {{end}}
+                                </div>
+                                <div style="margin-top: 10px; text-align: right;">
+                                    <button type="submit" class="button">Submit Extension</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                {{end}}
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p>No arbitration-eligible players found for this team.</p>
+{{end}}
+
+<script>
+function toggleExtension(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+
+<style>
+    .team-selector { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }
+    .button-danger { background-color: #dc3545; border-color: #dc3545; }
+    .button-info { background-color: #0dcaf0; border-color: #0dcaf0; color: white; }
+    .input-group label { margin-bottom: 2px; color: #555; }
+</style>
+{{end}}

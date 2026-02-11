@@ -1,0 +1,36 @@
+{{define "title"}}Manual Assignment{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Manual Player Assignment</h2>
+    
+    {{if .Success}}
+    <div class="notice notice-success">Assignment updated successfully.</div>
+    {{end}}
+
+    <div class="card" style="padding: 20px; background: #f9f9f9; border: 1px solid #ddd;">
+        <form action="/admin/player-assign" method="POST">
+            <div class="form-group">
+                <label>1. Player UUID or Name Search:</label>
+                <input type="text" name="player_id" placeholder="Paste Player ID..." required style="width: 100%; padding: 8px;">
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label>2. Assign to Team:</label>
+                <select name="team_id" required style="width: 100%; padding: 8px;">
+                    <option value="none">-- Release to Free Agency --</option>
+                    {{range .Leagues}}
+                        <optgroup label="{{.Name}}">
+                            {{range .Teams}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </optgroup>
+                    {{end}}
+                </select>
+            </div>
+
+            <button type="submit" class="button" style="margin-top: 20px;">Process Assignment</button>
+        </form>
+    </div>
+</div>
+{{end}}

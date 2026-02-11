@@ -1,0 +1,83 @@
+{{define "title"}}Propose Trade{{end}}
+
+{{define "content"}}
+<h2>Propose Trade to {{.TargetTeam.Name}}</h2>
+
+<form action="/trades/submit" method="POST">
+    <input type="hidden" name="receiver_team_id" value="{{.TargetTeam.ID}}">
+    
+    <div class="trade-setup">
+        <div class="setup-col">
+            <h3>1. Select Your Team</h3>
+            <select name="proposer_team_id" id="proposer_team_id" required onchange="updateProposerRoster()">
+                {{range .MyTeams}}
+                <option value="{{.ID}}">{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+    </div>
+
+    <div class="trade-grid">
+        <div class="trade-col">
+            <h3>Your Players (Offered)</h3>
+            <div id="proposer_roster" class="player-select-list">
+                <!-- Populated by JS -->
+            </div>
+            <div class="cash-input">
+                <label>ISBP Offered ($):</label>
+                <input type="number" name="isbp_offered" value="0" min="0" step="50000">
+            </div>
+        </div>
+
+        <div class="trade-col">
+            <h3>Their Players (Requested)</h3>
+            <div class="player-select-list">
+                {{range .TargetTeam.Players}}
+                <label><input type="checkbox" name="requested_players" value="{{.ID}}"> {{.FirstName}} {{.LastName}} ({{.Position}})</label><br>
+                {{end}}
+            </div>
+            <div class="cash-input">
+                <label>ISBP Requested ($):</label>
+                <input type="number" name="isbp_requested" value="0" min="0" step="50000">
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 30px; text-align: center;">
+        <button type="submit" class="button">Propose Trade</button>
+    </div>
+</form>
+
+<script>
+const myTeams = {{if .MyTeamsJSON}}JSON.parse(`{{.MyTeamsJSON}}`){{else}}[]{{end}};
+
+function updateProposerRoster() {
+    const teamID = document.getElementById('proposer_team_id').value;
+    const team = myTeams.find(t => t.id === teamID);
+    const container = document.getElementById('proposer_roster');
+    
+    container.innerHTML = '';
+    if (team && team.players) {
+        team.players.forEach(p => {
+            const label = document.createElement('label');
+            label.innerHTML = `<input type="checkbox" name="offered_players" value="${p.id}"> ${p.first_name} ${p.last_name} (${p.position})`;
+            container.appendChild(label);
+            container.appendChild(document.createElement('br'));
+        });
+    } else {
+        container.innerHTML = '<p>No players found for this team.</p>';
+    }
+}
+
+// Initial Load
+updateProposerRoster();
+</script>
+
+<style>
+    .trade-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }
+    .player-select-list { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: white; margin-bottom: 15px; }
+    .trade-col label { display: block; padding: 5px 0; border-bottom: 1px solid #f9f9f9; }
+    .cash-input { background: #f0f7ff; padding: 10px; border-radius: 4px; border: 1px solid #bcd; }
+    .cash-input input { width: 100%; padding: 5px; margin-top: 5px; }
+</style>
+{{end}}

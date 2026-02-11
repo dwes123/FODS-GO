@@ -1,0 +1,72 @@
+{{define "title"}}Weekly Rotations{{end}}
+
+{{define "content"}}
+<div class="rotations-header">
+    <h2>Weekly Pitching Rotations</h2>
+    <a href="/rotations/submit" class="button">Submit My Rotation</a>
+</div>
+
+<div class="filters">
+    <form method="GET" action="/rotations" style="display: flex; gap: 20px;">
+        <div>
+            <label>League:</label>
+            <select name="league_id" onchange="this.form.submit()">
+                {{$sel := .SelectedLID}}
+                {{range .Leagues}}
+                <option value="{{.ID}}" {{if eq .ID $sel}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+        <div>
+            <label>Week:</label>
+            <input type="text" name="week" value="{{.SelectedWeek}}" style="width: 100px;">
+            <button type="submit" class="button button-info">Go</button>
+        </div>
+    </form>
+</div>
+
+<div class="table-container">
+    <table class="fantasy-table-base compact">
+        <thead>
+            <tr>
+                <th>Team</th>
+                {{range .Days}}<th>{{.}}</th>{{end}}
+            </tr>
+        </thead>
+        <tbody>
+            {{$days := .Days}}
+            {{range $teamName, $teamDays := .Submissions}}
+            <tr>
+                <td><strong>{{$teamName}}</strong></td>
+                {{range $days}}
+                    <td>
+                        {{$entry := index $teamDays .}}
+                        {{if $entry}}
+                            <div class="rotation-cell">
+                                <div class="pitcher">{{$entry.Pitcher1Name}} {{if $entry.Pitcher1Date}}({{$entry.Pitcher1Date}}){{end}}</div>
+                                <div class="pitcher">{{$entry.Pitcher2Name}} {{if $entry.Pitcher2Date}}({{$entry.Pitcher2Date}}){{end}}</div>
+                                <small class="time">Updated: {{$entry.UpdatedAt.Format "3:04 PM"}}</small>
+                            </div>
+                        {{else}}
+                            <span class="empty">--</span>
+                        {{end}}
+                    </td>
+                {{end}}
+            </tr>
+            {{else}}
+            <tr><td colspan="8">No rotations submitted for this week.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .rotations-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .filters { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }
+    .rotation-cell { font-size: 0.8rem; line-height: 1.2; }
+    .pitcher { font-weight: 600; color: var(--fod-blue-primary); }
+    .time { color: #999; font-size: 0.7rem; }
+    .empty { color: #ccc; }
+    .compact td, .compact th { padding: 8px !important; }
+</style>
+{{end}}

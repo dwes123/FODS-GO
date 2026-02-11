@@ -1,0 +1,67 @@
+{{define "title"}}Commissioner Queue{{end}}
+
+{{define "content"}}
+<h2>Commissioner Dashboard</h2>
+
+<div class="admin-tools-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px;">
+    <div class="tool-card" style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid var(--fod-blue-primary);">
+        <h3>Master Tools</h3>
+        <p>Edit player data, assignments, and contracts.</p>
+        <a href="/admin/player-editor" class="button button-small">Player Editor</a>
+        <a href="/admin/player-assign" class="button button-small" style="margin-top: 5px;">Manual Assign</a>
+    </div>
+    
+    <div class="tool-card" style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid var(--fod-orange-accent);">
+        <h3>Financials</h3>
+        <p>Dead Cap adjustments and ISBP.</p>
+        <a href="/admin/dead-cap/" class="button button-small">Financial Admin</a>
+    </div>
+
+    <div class="tool-card" style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid #5cb85c;">
+        <h3>Imports & Review</h3>
+        <p>Bulk updates and trade approval.</p>
+        <a href="/admin/csv-import" class="button button-small">CSV Importer</a>
+        <a href="/admin/trades" class="button button-small" style="margin-top: 5px; background: #5bc0de;">Trade Queue</a>
+    </div>
+</div>
+
+<h3>Pending Arbitration & Extensions</h3>
+{{if .Actions}}
+<table class="fantasy-table-base">
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Player</th>
+            <th>Team</th>
+            <th>Year</th>
+            <th>Proposed Amount</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Actions}}
+        <tr>
+            <td>{{.ActionType}}</td>
+            <td><strong>{{.PlayerName}}</strong></td>
+            <td>{{.TeamName}}</td>
+            <td>{{.TargetYear}}</td>
+            <td>${{formatMoney .SalaryAmount}}</td>
+            <td>
+                <form action="/admin/process" method="POST" style="display: inline;">
+                    <input type="hidden" name="action_id" value="{{.ID}}">
+                    <button type="submit" name="status" value="APPROVED" class="button">Approve</button>
+                    <button type="submit" name="status" value="REJECTED" class="button button-danger">Reject</button>
+                </form>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p>No pending actions requiring approval.</p>
+{{end}}
+
+<style>
+    .button-danger { background-color: #dc3545; border-color: #dc3545; }
+</style>
+{{end}}

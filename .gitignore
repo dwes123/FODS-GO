@@ -1,0 +1,29 @@
+# Binaries
+*.exe
+server_linux
+*_linux
+api.exe
+final_server.exe
+ultra_server.exe
+
+# Logs
+*.log
+stdout.log
+stderr.log
+
+# Temporary SQL fixes
+fix_*.sql
+link_*.sql
+add_*.sql
+mass_link.sql
+force_link.sql
+make_admin.sql
+update_limits.sql
+check_*.sql
+
+# Dependencies
+node_modules/
+web/.next/
+
+# Environment
+.env

@@ -1,0 +1,60 @@
+{{define "title"}}League Salary Summary{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px;">
+        <h2>League Salary Summary: {{.LeagueName}} ({{.Year}})</h2>
+        <div class="filters" style="display: flex; gap: 10px;">
+            <form action="/league/financials" method="GET" style="display: flex; gap: 10px;">
+                <select name="league_id" onchange="this.form.submit()" style="padding: 5px; border-radius: 4px;">
+                    {{$currentLg := .LeagueID}}
+                    {{range .Leagues}}
+                    <option value="{{.ID}}" {{if eq .ID $currentLg}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
+                </select>
+                <select name="year" onchange="this.form.submit()" style="padding: 5px; border-radius: 4px;">
+                    {{$currentYr := .Year}}
+                    {{range $y := seq 2026 2030}}
+                    <option value="{{$y}}" {{if eq $y $currentYr}}selected{{end}}>{{$y}}</option>
+                    {{end}}
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-container" style="overflow-x: auto;">
+        <table class="fantasy-table-base">
+            <thead>
+                <tr>
+                    <th>Team</th>
+                    <th>Manager</th>
+                    <th>Active Payroll</th>
+                    <th>Dead Cap</th>
+                    <th>Total Salary</th>
+                    <th>Luxury Tax Space</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .TeamRows}}
+                <tr {{if lt .Summary.TaxSpace 0.0}}style="background-color: #fff1f0;"{{end}}>
+                    <td><strong><a href="/team/financials/{{.TeamID}}">{{.TeamName}}</a></strong></td>
+                    <td>{{.Owner}}</td>
+                    <td>${{formatMoney .Summary.ActivePayroll}}</td>
+                    <td>${{formatMoney .Summary.DeadCap}}</td>
+                    <td><strong>${{formatMoney .Summary.TotalPayroll}}</strong></td>
+                    <td {{if lt .Summary.TaxSpace 0.0}}style="color: #cf1322; font-weight: bold;"{{else}}style="color: #3f8600; font-weight: bold;"{{end}}>
+                        {{if lt .Summary.TaxSpace 0.0}}-{{end}}${{formatMoney .Summary.TaxSpace}}
+                    </td>
+                </tr>
+                {{else}}
+                <tr><td colspan="6">No team data found for this league.</td></tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    
+    <div style="margin-top: 20px; font-size: 0.9rem; color: #666;">
+        <p>* Click a team name to view their full 15-year financial breakdown.</p>
+    </div>
+</div>
+{{end}}

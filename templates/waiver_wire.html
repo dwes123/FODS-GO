@@ -1,0 +1,75 @@
+{{define "title"}}Waiver Wire{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Waiver Wire</h2>
+    
+    <div class="league-selector">
+        <form action="/waivers" method="GET">
+            <label>League:</label>
+            <select name="league_id" onchange="this.form.submit()">
+                {{$currentLg := .LeagueID}}
+                {{range .Leagues}}
+                <option value="{{.ID}}" {{if eq .ID $currentLg}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </form>
+    </div>
+
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Position</th>
+                <th>MLB Team</th>
+                <th>Expires</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Players}}
+            <tr>
+                <td><a href="/player/{{.ID}}"><strong>{{.FirstName}} {{.LastName}}</strong></a></td>
+                <td>{{.Position}}</td>
+                <td>{{.MLBTeam}}</td>
+                <td>{{.WaiverEndTime.Format "Mon, Jan 02 3:04 PM"}}</td>
+                <td>
+                    <button class="button button-small button-primary" onclick="submitClaim('{{.ID}}', '{{.FirstName}} {{.LastName}}')">
+                        Claim Player
+                    </button>
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="5">No players currently on waivers in this league.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+<script>
+async function submitClaim(id, name) {
+    if (!confirm(`Are you sure you want to submit a waiver claim for ${name}?`)) return;
+
+    const formData = new FormData();
+    formData.append('player_id', id);
+
+    try {
+        const res = await fetch('/claim-waiver', { method: 'POST', body: formData });
+        const json = await res.json();
+        
+        if (res.ok) {
+            alert(json.message);
+            location.reload();
+        } else {
+            alert("Error: " + json.error);
+        }
+    } catch (e) {
+        alert("Request failed");
+    }
+}
+</script>
+
+<style>
+    .league-selector { margin-bottom: 20px; padding: 10px; background: #f0f0f1; border-radius: 4px; }
+</style>
+{{end}}

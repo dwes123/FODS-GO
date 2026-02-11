@@ -1,0 +1,61 @@
+{{define "title"}}Free Agents{{end}}
+
+{{define "content"}}
+<h2>Free Agent Search</h2>
+
+<form action="/free-agents" method="GET" class="search-form">
+    <select name="league_id">
+        {{$selectedLeague := .LeagueID}}
+        {{range .Leagues}}
+        <option value="{{.ID}}" {{if eq .ID $selectedLeague}}selected{{end}}>{{.Name}} Free Agents</option>
+        {{end}}
+    </select>
+    <input type="text" name="q" placeholder="Player name..." value="{{.Search}}">
+    <select name="pos">
+        <option value="">All Positions</option>
+        <option value="C" {{if eq .Pos "C"}}selected{{end}}>Catcher</option>
+        <option value="1B" {{if eq .Pos "1B"}}selected{{end}}>1B</option>
+        <option value="2B" {{if eq .Pos "2B"}}selected{{end}}>2B</option>
+        <option value="3B" {{if eq .Pos "3B"}}selected{{end}}>3B</option>
+        <option value="SS" {{if eq .Pos "SS"}}selected{{end}}>SS</option>
+        <option value="OF" {{if eq .Pos "OF"}}selected{{end}}>OF</option>
+        <option value="SP" {{if eq .Pos "SP"}}selected{{end}}>SP</option>
+        <option value="RP" {{if eq .Pos "RP"}}selected{{end}}>RP</option>
+    </select>
+    <button type="submit" class="button">Search</button>
+</form>
+
+<table class="fantasy-table-base">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Position</th>
+            <th>MLB Team</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Players}}
+        <tr>
+            <td><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></td>
+            <td>{{.Position}}</td>
+            <td>{{.MLBTeam}}</td>
+            <td>{{.Status}}</td>
+            <td>
+                <a href="/player/{{.ID}}" class="button">View / Bid</a>
+            </td>
+        </tr>
+        {{else}}
+        <tr>
+            <td colspan="5">No free agents found matching your criteria.</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+
+<style>
+    .search-form { margin-bottom: 2rem; display: flex; gap: 10px; background: var(--fod-gray-light); padding: 15px; border-radius: 8px; }
+    .search-form input, .search-form select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+</style>
+{{end}}

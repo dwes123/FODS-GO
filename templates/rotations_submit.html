@@ -1,0 +1,85 @@
+{{define "title"}}Submit Rotation{{end}}
+
+{{define "content"}}
+<h2>Submit Rotation</h2>
+
+<form action="/rotations/save" method="POST" class="submit-form">
+    <div class="form-group">
+        <label>Select Team:</label>
+        <select name="team_id" id="team_select" required onchange="loadPitchers()">
+            <option value="">-- Choose a Team --</option>
+            {{range .MyTeams}}
+            <option value="{{.ID}}">{{.Name}}</option>
+            {{end}}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Day of Week:</label>
+        <select name="day" required>
+            {{range .Days}}<option value="{{.}}">{{.}}</option>{{end}}
+        </select>
+    </div>
+
+    <div id="pitcher_fields" style="display: none;">
+        <div class="pitcher-box">
+            <h4>Starting Pitcher 1</h4>
+            <div class="form-group">
+                <select name="p1_id" id="p1_select" class="pitcher-list"><option value="">-- None --</option></select>
+                <input type="date" name="p1_date">
+            </div>
+        </div>
+
+        <div class="pitcher-box">
+            <h4>Starting Pitcher 2</h4>
+            <div class="form-group">
+                <select name="p2_id" id="p2_select" class="pitcher-list"><option value="">-- None --</option></select>
+                <input type="date" name="p2_date">
+            </div>
+        </div>
+
+        <button type="submit" class="button">Submit Rotation</button>
+    </div>
+    
+    <div id="loading" style="display: none;">Loading roster...</div>
+</form>
+
+<script>
+async function loadPitchers() {
+    const teamID = document.getElementById('team_select').value;
+    if (!teamID) return;
+
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('pitcher_fields').style.display = 'none';
+
+    try {
+        const res = await fetch(`/api/team/pitchers?team_id=${teamID}`);
+        const pitchers = await res.json();
+
+        const selects = document.querySelectorAll('.pitcher-list');
+        selects.forEach(s => {
+            s.innerHTML = '<option value="">-- None --</option>';
+            pitchers.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.innerText = `${p.first_name} ${p.last_name} (${p.position})`;
+                s.appendChild(opt);
+            });
+        });
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('pitcher_fields').style.display = 'block';
+    } catch (e) {
+        alert("Failed to load pitchers");
+    }
+}
+</script>
+
+<style>
+    .submit-form { max-width: 500px; background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; }
+    .pitcher-box { background: #f0f7ff; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #bcd; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+    .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+</style>
+{{end}}

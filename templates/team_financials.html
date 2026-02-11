@@ -1,0 +1,54 @@
+{{define "title"}}Financials - {{.Team.Name}}{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Financial Summary: {{.Team.Name}}</h2>
+
+    <div class="financial-grid">
+        <div class="card">
+            <h3>Team Information</h3>
+            <p><strong>Manager:</strong> {{.Team.Owner}}</p>
+            <p><strong>League:</strong> {{.Team.LeagueName}}</p>
+            <p><strong>ISBP Balance:</strong> ${{formatMoney .Team.IsbpBalance}}</p>
+        </div>
+    </div>
+
+    <h3>Salary Cap & Luxury Tax Breakdown</h3>
+    <div class="table-container" style="overflow-x: auto;">
+        <table class="fantasy-table-base">
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Active Payroll</th>
+                    <th>Dead Cap</th>
+                    <th>Total Salary</th>
+                    <th>Luxury Tax Limit</th>
+                    <th>Tax Space</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Team.SalarySummary}}
+                <tr {{if lt .TaxSpace 0.0}}style="background-color: #fff1f0;"{{end}}>
+                    <td><strong>{{.Year}}</strong></td>
+                    <td>${{formatMoney .ActivePayroll}}</td>
+                    <td>${{formatMoney .DeadCap}}</td>
+                    <td><strong>${{formatMoney .TotalPayroll}}</strong></td>
+                    <td>${{formatMoney .LuxuryTaxLimit}}</td>
+                    <td {{if lt .TaxSpace 0.0}}style="color: #cf1322; font-weight: bold;"{{else}}style="color: #3f8600; font-weight: bold;"{{end}}>
+                        {{if lt .TaxSpace 0.0}}-{{end}}${{formatMoney .TaxSpace}}
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+
+    <p><small>* Red rows indicate team is over the luxury tax limit for that season.</small></p>
+</div>
+
+<style>
+    .financial-grid { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 30px; }
+    .card { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd; }
+    .card h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+</style>
+{{end}}

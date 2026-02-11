@@ -1,0 +1,40 @@
+{{define "title"}}League Standings{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <h2>League Standings - {{.LeagueName}}</h2>
+        <form action="/standings" method="GET">
+            <select name="league_id" onchange="this.form.submit()" style="padding: 5px; border-radius: 4px;">
+                {{$current := .LeagueID}}
+                {{range .Leagues}}
+                <option value="{{.ID}}" {{if eq .ID $current}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </form>
+    </div>
+
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th style="width: 80px;">Rank</th>
+                <th>Team</th>
+                <th>Win %</th>
+                <th>GB</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Standings}}
+            <tr>
+                <td style="text-align: center;"><strong>{{.Rank}}</strong></td>
+                <td>{{.TeamName}}</td>
+                <td>{{printf "%.3f" .WinPercentage}}</td>
+                <td>{{.GamesBack}}</td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No standings data found or league not linked to Fantrax.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}

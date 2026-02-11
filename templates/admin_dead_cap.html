@@ -1,0 +1,85 @@
+{{define "title"}}Dead Cap Admin{{end}}
+
+{{define "content"}}
+<h2>Dead Cap Administration</h2>
+
+<div class="admin-tools-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px;">
+    <!-- Add Form -->
+    <div class="card" style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
+        <h3>Add New Penalty</h3>
+        <form method="POST" action="/admin/dead-cap/save">
+            <label>Team:</label>
+            <select name="team_id" required>
+                <option value="">-- Select Team --</option>
+                {{range .Leagues}}
+                    <optgroup label="{{.Name}}">
+                        {{range .Teams}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </optgroup>
+                {{end}}
+            </select>
+
+            <label>Player (Optional):</label>
+            <input type="text" name="player_id" placeholder="Player UUID (Optional)">
+
+            <label>Amount ($):</label>
+            <input type="number" name="amount" required step="10000">
+
+            <label>Year:</label>
+            <select name="year" required>
+                {{range $y := seq 2026 2040}}
+                <option value="{{$y}}">{{$y}}</option>
+                {{end}}
+            </select>
+
+            <label>Note:</label>
+            <input type="text" name="note" placeholder="Reason for penalty...">
+
+            <button type="submit" class="button" style="margin-top: 15px; width: 100%;">Add Penalty</button>
+        </form>
+    </div>
+
+    <!-- List -->
+    <div>
+        <h3>Existing Dead Cap Entries</h3>
+        <table class="fantasy-table-base">
+            <thead>
+                <tr>
+                    <th>Team</th>
+                    <th>Player</th>
+                    <th>Year</th>
+                    <th>Amount</th>
+                    <th>Note</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Entries}}
+                <tr>
+                    <td>{{.TeamName}}</td>
+                    <td>{{.PlayerName}}</td>
+                    <td>{{.Year}}</td>
+                    <td>${{formatMoney .Amount}}</td>
+                    <td><small>{{.Note}}</small></td>
+                    <td>
+                        <form action="/admin/dead-cap/delete" method="POST" onsubmit="return confirm('Delete this penalty?')">
+                            <input type="hidden" name="id" value="{{.ID}}">
+                            <button type="submit" class="button button-danger button-small">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {{else}}
+                <tr><td colspan="6">No dead cap entries found.</td></tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    label { display: block; font-weight: bold; margin-top: 10px; margin-bottom: 5px; }
+    input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .button-danger { background-color: #dc3545; }
+</style>
+{{end}}

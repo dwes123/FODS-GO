@@ -1,0 +1,56 @@
+{{define "title"}}Trade Center{{end}}
+
+{{define "content"}}
+<h2>Trade Center</h2>
+
+<h3>Pending Offers</h3>
+{{if .PendingTrades}}
+    {{$userID := .User.ID}}
+    {{range .PendingTrades}}
+    <div class="trade-card">
+        <div class="trade-header">
+            <strong>{{.ProposingTeamName}}</strong> ↔ <strong>{{.ReceivingTeamName}}</strong>
+            <span class="trade-status">{{.Status}}</span>
+        </div>
+        <div class="trade-assets">
+            <div class="asset-col">
+                <strong>From {{.ProposingTeamName}}:</strong>
+                <ul>
+                    {{$proposerID := .ProposingTeamID}}
+                    {{range .Items}}
+                        {{if eq .SenderTeamID $proposerID}}<li>{{.PlayerName}}</li>{{end}}
+                    {{end}}
+                </ul>
+            </div>
+            <div class="asset-col">
+                <strong>From {{.ReceivingTeamName}}:</strong>
+                <ul>
+                    {{$receiverID := .ReceivingTeamID}}
+                    {{range .Items}}
+                        {{if eq .SenderTeamID $receiverID}}<li>{{.PlayerName}}</li>{{end}}
+                    {{end}}
+                </ul>
+            </div>
+        </div>
+        <div class="trade-actions">
+            <button class="button button-danger">Cancel / Reject</button>
+            <form action="/trades/accept" method="POST" style="display:inline;">
+                <input type="hidden" name="trade_id" value="{{.ID}}">
+                <button type="submit" class="button">Accept Trade</button>
+            </form>
+        </div>
+    </div>
+    {{end}}
+{{else}}
+    <p>No pending trade offers.</p>
+{{end}}
+
+<style>
+    .trade-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .trade-header { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; }
+    .trade-assets { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .asset-col ul { padding-left: 20px; }
+    .trade-status { background: var(--fod-orange-accent); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .trade-actions { margin-top: 20px; border-top: 1px solid #eee; pt: 15px; text-align: right; }
+</style>
+{{end}}

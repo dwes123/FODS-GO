@@ -1,0 +1,146 @@
+{{define "title"}}Home{{end}}
+
+{{define "content"}}
+<div class="home-grid">
+    <!-- Main Column -->
+    <div class="home-main">
+        <div class="welcome-banner">
+            <h1>Welcome back{{if .User}}, {{.User.Username}}{{end}}!</h1>
+            <p>Your Front Office at a glance.</p>
+        </div>
+
+        {{if .MyTeams}}
+        <section class="home-section">
+            <h2 class="section-title">My Managed Teams</h2>
+            <div class="teams-grid">
+                {{range .MyTeams}}
+                <div class="team-card highlight-card">
+                    <div class="card-header">
+                        <h3>{{.Name}}</h3>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Owner:</strong> {{.Owner}}</p>
+                        <p><strong>League:</strong> {{.LeagueName}}</p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/roster/{{.ID}}" class="button">Manage Roster</a>
+                        <a href="/team/financials/{{.ID}}" class="button button-info" style="background-color: var(--fod-blue-primary);">Financials</a>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </section>
+        {{end}}
+
+        <section class="home-section">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 3px solid var(--fod-orange-accent); margin-bottom: 20px; padding-bottom: 5px;">
+                <h2 class="section-title" style="border-bottom: none; margin-bottom: 0;">Upcoming League Dates</h2>
+                <div class="league-filter">
+                    <form method="GET" action="/home" id="leagueFilterForm">
+                        <select name="league" onchange="this.form.submit()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9rem;">
+                            <option value="">All Leagues</option>
+                            {{$selected := .SelectedLeague}}
+                            {{range .Leagues}}
+                            <option value="{{.ID}}" {{if eq .ID $selected}}selected{{end}}>{{.Name}}</option>
+                            {{end}}
+                        </select>
+                        <button type="submit" class="button button-small" style="padding: 4px 10px; margin-left: 5px;">Filter</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="dates-grid">
+                {{if .KeyDates}}
+                    {{$currentLeague := ""}}
+                    {{range .KeyDates}}
+                        {{if ne .LeagueName $currentLeague}}
+                            {{if ne $currentLeague ""}}</div></div>{{end}}
+                            <div class="league-date-card">
+                                <h3 style="color: var(--fod-blue-primary); margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">{{.LeagueName}} Key Dates</h3>
+                                <div class="date-list">
+                            {{$currentLeague = .LeagueName}}
+                        {{end}}
+                        <div class="date-row">
+                            <span class="event-date">{{safeHTML .EventDate}}</span>
+                            <span class="event-name">{{safeHTML .EventName}}</span>
+                        </div>
+                    {{end}}
+                    </div></div>
+                {{else}}
+                    <div class="empty-state" style="padding: 40px; background: #f9f9f9; border-radius: 12px; text-align: center; border: 2px dashed #ddd;">
+                        <p style="font-size: 1.1rem; color: #888;">No upcoming dates found for this selection.</p>
+                    </div>
+                {{end}}
+            </div>
+        </section>
+    </div>
+
+    <!-- Sidebar Column -->
+    <div class="home-sidebar">
+        <div class="sidebar-widget">
+            <h3>Quick Actions</h3>
+            <div class="action-links">
+                <a href="/free-agents" class="action-btn">🔍 Search Free Agents</a>
+                <a href="/trades" class="action-btn">🤝 Trade Center</a>
+                <a href="/team-options" class="action-btn">📝 Team Options</a>
+                <a href="/rotations" class="action-btn">📅 Weekly Rotations</a>
+                <a href="/profile" class="action-btn">👤 My Profile</a>
+            </div>
+        </div>
+
+        <div class="sidebar-widget">
+            <h3>Recent Activity</h3>
+            <div class="activity-teaser">
+                {{range .Activities}}
+                <div class="activity-item">
+                    <span class="activity-date">{{.CreatedAt.Format "Jan 02"}}</span>
+                    <p>{{.Summary}}</p>
+                </div>
+                {{else}}
+                <p class="empty-text">No recent activity found.</p>
+                {{end}}
+                <a href="/activity" class="view-all">View Full Feed →</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .home-grid { display: grid; grid-template-columns: 1fr 350px; gap: 30px; }
+    .welcome-banner { background: var(--fod-blue-primary); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(46, 109, 164, 0.2); }
+    .welcome-banner h1 { color: white; margin: 0; font-size: 2.2rem; }
+    .welcome-banner p { margin: 10px 0 0 0; opacity: 0.9; font-size: 1.1rem; }
+    .home-section { margin-bottom: 40px; }
+    .section-title { font-size: 1.5rem; margin-bottom: 20px; border-bottom: 3px solid var(--fod-orange-accent); display: inline-block; padding-bottom: 5px; }
+    .teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .team-card { background: white; border-radius: 10px; border: 1px solid #ddd; overflow: hidden; transition: transform 0.2s; }
+    .team-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+    .highlight-card { border-top: 5px solid var(--fod-orange-accent); }
+    .card-header { padding: 15px 20px; background: #fcfcfc; border-bottom: 1px solid #eee; }
+    .card-header h3 { margin: 0; font-size: 1.2rem; }
+    .card-body { padding: 15px 20px; }
+    .card-body p { margin: 5px 0; font-size: 0.95rem; }
+    .card-footer { padding: 15px 20px; text-align: center; }
+    .dates-grid { display: grid; grid-template-columns: 1fr; gap: 25px; }
+    .league-date-card { background: white; border-radius: 10px; padding: 25px; border: 1px solid #ddd; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .date-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
+    .date-row { display: grid; grid-template-columns: 200px 1fr; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid #f5f5f5; align-items: baseline; }
+    .date-row:last-child { border-bottom: none; }
+    .event-date { font-weight: bold; color: var(--fod-orange-accent); font-size: 0.95rem; }
+    .event-name { color: var(--fod-gray-dark); font-size: 0.95rem; line-height: 1.4; }
+    .sidebar-widget { background: white; border-radius: 10px; padding: 20px; border: 1px solid #ddd; margin-bottom: 25px; }
+    .sidebar-widget h3 { margin-top: 0; font-size: 1.1rem; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+    .action-links { display: flex; flex-direction: column; gap: 10px; }
+    .action-btn { display: block; padding: 12px; background: #f8f9fa; border-radius: 8px; color: var(--fod-blue-primary); font-weight: 600; text-decoration: none; border: 1px solid #eee; }
+    .action-btn:hover { background: var(--fod-orange-accent); color: white; border-color: var(--fod-orange-accent); }
+    .activity-item { padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+    .activity-date { font-size: 0.75rem; color: #999; font-weight: bold; text-transform: uppercase; }
+    .activity-item p { margin: 3px 0 0 0; font-size: 0.85rem; line-height: 1.3; }
+    .view-all { display: block; margin-top: 15px; font-size: 0.9rem; font-weight: bold; color: var(--fod-orange-accent); text-align: center; text-decoration: none; }
+    .empty-state { padding: 40px; background: #f9f9f9; border-radius: 12px; text-align: center; border: 2px dashed #ddd; }
+    @media (max-width: 1000px) {
+        .home-grid { grid-template-columns: 1fr; }
+        .date-row { grid-template-columns: 1fr; gap: 5px; }
+    }
+</style>
+{{end}}

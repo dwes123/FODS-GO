@@ -1,0 +1,23 @@
+{{define "title"}}CSV Importer{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Bulk CSV Player Importer</h2>
+    <p>Upload a CSV file to create or update players in bulk.</p>
+    
+    <div class="card" style="padding: 20px; background: #f9f9f9; border: 1px solid #ddd;">
+        <form action="/admin/csv-import" method="POST" enctype="multipart/form-data">
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label>Select CSV File:</label><br>
+                <input type="file" name="csv_file" accept=".csv" required>
+            </div>
+            
+            <div class="help-text" style="margin-bottom: 20px; font-size: 0.9rem; color: #666;">
+                <strong>Expected Headers:</strong> first_name, last_name, position, mlb_team, league_id
+            </div>
+
+            <button type="submit" class="button">Upload and Process</button>
+        </form>
+    </div>
+</div>
+{{end}}

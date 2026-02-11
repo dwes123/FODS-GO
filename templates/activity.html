@@ -1,0 +1,57 @@
+{{define "title"}}League Activity{{end}}
+
+{{define "content"}}
+<div class="header-with-filter">
+    <h2>Recent Activity</h2>
+    
+    <div class="filters">
+        <form method="GET" action="/activity" id="leagueFilterForm">
+            <label for="league_id">View League:</label>
+            <select name="league_id" id="league_id" onchange="document.getElementById('leagueFilterForm').submit()">
+                <option value="">-- All Leagues --</option>
+                {{$selected := .SelectedLID}}
+                {{range .Leagues}}
+                <option value="{{.ID}}" {{if eq .ID $selected}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </form>
+    </div>
+</div>
+
+<table class="fantasy-table-base">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>League</th>
+            <th>Team</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Activities}}
+        <tr>
+            <td>{{.CreatedAt.Format "Jan 02, 2006 3:04 PM"}}</td>
+            <td>{{.LeagueName}}</td>
+            <td><strong>{{.TeamName}}</strong></td>
+            <td>
+                {{if .Summary}}
+                    {{.Summary}}
+                {{else}}
+                    {{.PlayerName}} {{.Status}}
+                {{end}}
+            </td>
+        </tr>
+        {{else}}
+        <tr>
+            <td colspan="4">No recent activity found.</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+
+<style>
+    .header-with-filter { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .filters { background: var(--fod-gray-light); padding: 10px 15px; border-radius: 6px; border: 1px solid #ddd; }
+    .filters select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+</style>
+{{end}}

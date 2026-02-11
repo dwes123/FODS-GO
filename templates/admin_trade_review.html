@@ -1,0 +1,37 @@
+{{define "title"}}Trade Review Queue{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Trade Review Queue</h2>
+    <p>The following trades have been accepted by both managers and are awaiting final Commissioner approval.</p>
+
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Proposer</th>
+                <th>Receiver</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Trades}}
+            <tr>
+                <td>{{.Proposer}}</td>
+                <td>{{.Receiver}}</td>
+                <td><span class="badge">{{.Status}}</span></td>
+                <td>
+                    <form action="/admin/trade-approve" method="POST" style="display: inline;">
+                        <input type="hidden" name="trade_id" value="{{.ID}}">
+                        <button name="action" value="approve" class="button button-small">Approve</button>
+                        <button name="action" value="reject" class="button button-small" style="background: #d9534f;">Reject</button>
+                    </form>
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No trades currently awaiting review.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}

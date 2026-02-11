@@ -1,0 +1,214 @@
+{{define "title"}}{{.Team.Name}} Roster{{end}}
+
+{{define "content"}}
+<div class="team-header">
+    <h2>{{.Team.Name}}</h2>
+    <p>Owner: {{.Team.Owner}} | ISBP Balance: ${{formatMoney .Team.IsbpBalance}}</p>
+    {{if .User}}
+        {{if ne .User.ID .Team.UserID}}
+            <a href="/trades/new?team_id={{.Team.ID}}" class="button button-info">Propose Trade</a>
+        {{end}}
+    {{end}}
+</div>
+
+<h3>Team Financials</h3>
+<div class="table-container">
+    <table class="fantasy-table-base sticky-col">
+        <thead>
+            <tr>
+                <th>Year</th>
+                {{range .Team.Years}}<th>{{.}}</th>{{end}}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Active Payroll</strong></td>
+                {{range .Team.SalarySummary}}<td>${{formatMoney .ActivePayroll}}</td>{{end}}
+            </tr>
+            <tr>
+                <td><strong>Dead Cap</strong></td>
+                {{range .Team.SalarySummary}}<td>${{formatMoney .DeadCap}}</td>{{end}}
+            </tr>
+            <tr class="total-row">
+                <td><strong>Total Payroll</strong></td>
+                {{range .Team.SalarySummary}}<td><strong>${{formatMoney .TotalPayroll}}</strong></td>{{end}}
+            </tr>
+            <tr>
+                <td><strong>Luxury Tax Limit</strong></td>
+                {{range .Team.SalarySummary}}<td>${{formatMoney .LuxuryTaxLimit}}</td>{{end}}
+            </tr>
+            <tr>
+                <td><strong>Tax Space (+/-)</strong></td>
+                {{range .Team.SalarySummary}}
+                <td style="color: {{if lt .TaxSpace 0.0}}red{{else}}green{{end}};">
+                    <strong>${{formatMoney .TaxSpace}}</strong>
+                </td>
+                {{end}}
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+{{$isOwner := false}}
+{{if .User}}
+    {{if eq .User.ID .Team.UserID}}
+        {{$isOwner = true}}
+    {{end}}
+{{end}}
+{{$years := .Team.Years}}
+{{$posOrder := .PosOrder}}
+
+<div class="roster-section">
+    <h2 class="section-title">26-Man Roster</h2>
+    {{template "roster_table" dict "Grouped" .Roster26 "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID}}
+</div>
+
+<div class="roster-section">
+    <h2 class="section-title">40-Man Roster (Minors)</h2>
+    {{template "roster_table" dict "Grouped" .Roster40 "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID}}
+</div>
+
+<div class="roster-section">
+    <h2 class="section-title">Minor Leagues (Non-40)</h2>
+    {{template "roster_table" dict "Grouped" .Minors "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID}}
+</div>
+
+<!-- Modals -->
+<dialog id="ilModal" class="modal">
+    <h3>Move to Injured List</h3>
+    <form method="dialog">
+        <label>Duration:</label>
+        <select id="ilDuration">
+            <option value="10">10-Day IL</option>
+            <option value="15">15-Day IL</option>
+            <option value="60">60-Day IL (Removes from 40-man)</option>
+        </select>
+        <div class="modal-actions">
+            <button value="cancel">Cancel</button>
+            <button id="confirmILBtn" value="confirm">Confirm</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+let currentPlayerID = null;
+let currentTeamID = null;
+
+async function movePlayer(type, playerID, teamID) {
+    if (!confirm('Are you sure?')) return;
+    await sendRequest(`/roster/move/${type}`, { player_id: playerID, team_id: teamID });
+}
+
+function openILModal(playerID, teamID) {
+    currentPlayerID = playerID;
+    currentTeamID = teamID;
+    document.getElementById('ilModal').showModal();
+}
+
+document.getElementById('confirmILBtn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const duration = document.getElementById('ilDuration').value;
+    await sendRequest('/roster/move/il', { player_id: currentPlayerID, team_id: currentTeamID, duration: duration });
+    document.getElementById('ilModal').close();
+});
+
+async function sendRequest(url, data) {
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const res = await response.json();
+        if (response.ok) {
+            alert(res.message);
+            location.reload();
+        } else {
+            alert("Error: " + res.error);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Request failed");
+    }
+}
+</script>
+
+<style>
+    .section-title { margin-top: 3rem; background: var(--fod-blue-primary); color: white; padding: 10px 20px; border-radius: 8px 8px 0 0; }
+    .table-container { width: 100%; margin-bottom: 2rem; border: 1px solid #ddd; border-radius: 0 0 8px 8px; }
+    .fantasy-table-base { width: 100%; margin: 0; border: none; }
+    .total-row { background-color: #eee !important; font-size: 1.1rem; }
+    .action-buttons { display: flex; gap: 3px; }
+    .action-buttons .button { padding: 4px 8px; font-size: 0.75rem; min-width: 40px; text-align: center; }
+    .button-secondary { background-color: #6c757d; }
+    .button-danger { background-color: #dc3545; }
+    .button-info { background-color: #17a2b8; }
+    .modal { padding: 20px; border-radius: 8px; border: 1px solid #ccc; }
+    a.button { text-decoration: none; display: inline-block; }
+</style>
+{{end}}
+
+<!-- Define a reusable roster table template outside the content block -->
+{{define "roster_table"}}
+    {{$grouped := .Grouped}}
+    {{$years := .Years}}
+    {{$isOwner := .IsOwner}}
+    {{$teamID := .TeamID}}
+    
+    <div class="table-container">
+        <table class="fantasy-table-base">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Pos</th>
+                    <th>MLB</th>
+                    <th>Status</th>
+                    {{range $years}}<th>{{.}}</th>{{end}}
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .PosOrder}}
+                    {{$players := index $grouped .}}
+                    {{range $players}}
+                    <tr>
+                        <td><strong><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></strong></td>
+                        <td>{{.Position}}</td>
+                        <td>{{.MLBTeam}}</td>
+                        <td>{{.Status}}</td>
+                        {{$p := .}}
+                        {{range $years}}
+                            <td>
+                                {{$val := index $p.Contracts .}}
+                                {{if $val}}{{if or (eq $val "TC") (eq $val "ARB") (eq $val "UFA")}} {{$val}} {{else}}${{formatMoney $val}}{{end}}{{else}}--{{end}}
+                            </td>
+                        {{end}}
+                        <td>
+                            <div class="action-buttons">
+                                <a href="/player/{{.ID}}" class="button button-info">View</a>
+                                {{if $isOwner}}
+                                    {{if .StatusIL}}
+                                        <button class="button" onclick="movePlayer('activate', '{{.ID}}', '{{$teamID}}')">Activate</button>
+                                    {{else}}
+                                        {{if .Status40Man}}
+                                            {{if not .Status26Man}}
+                                                <button class="button" onclick="movePlayer('26man', '{{.ID}}', '{{$teamID}}')">26</button>
+                                            {{else}}
+                                                <button class="button" onclick="movePlayer('option', '{{.ID}}', '{{$teamID}}')">Opt</button>
+                                            {{end}}
+                                        {{else}}
+                                            <button class="button" onclick="movePlayer('40man', '{{.ID}}', '{{$teamID}}')">40</button>
+                                        {{end}}
+                                        <button class="button button-secondary" onclick="openILModal('{{.ID}}', '{{$teamID}}')">IL</button>
+                                        <button class="button button-danger" onclick="movePlayer('dfa', '{{.ID}}', '{{$teamID}}')">DFA</button>
+                                    {{end}}
+                                {{end}}
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+{{end}}

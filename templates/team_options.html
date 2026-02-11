@@ -1,0 +1,62 @@
+{{define "title"}}Team Options{{end}}
+
+{{define "content"}}
+<div class="welcome-banner" style="background: #2E6DA4; color: white; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
+    <h1 style="color: white; margin: 0;">Team Option Decisions</h1>
+    <p>Decide whether to Exercise (Keep) or Decline (Release) players with upcoming contract options.</p>
+</div>
+
+<div class="card" style="background: white; border: 1px solid #ddd; padding: 25px; border-radius: 10px;">
+    {{if .Options}}
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Team</th>
+                <th>Option Year</th>
+                <th>Salary</th>
+                <th style="color: #d9534f;">Buyout (30%)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Options}}
+            <tr>
+                <td><strong>{{.Name}}</strong></td>
+                <td>{{.TeamName}}</td>
+                <td><span class="badge-Draft">{{.Year}}</span></td>
+                <td>${{formatMoney .Salary}}</td>
+                <td style="color: #d9534f;">${{formatMoney .Buyout}}</td>
+                <td>
+                    <div style="display: flex; gap: 10px;">
+                        <form method="POST" action="/team-options/decision" onsubmit="return confirm('Exercise this option? The salary will become fully guaranteed.')">
+                            <input type="hidden" name="player_id" value="{{.ID}}">
+                            <input type="hidden" name="year" value="{{.Year}}">
+                            <input type="hidden" name="action" value="exercise">
+                            <button type="submit" class="button">Exercise</button>
+                        </form>
+
+                        <form method="POST" action="/team-options/decision" onsubmit="return confirm('Decline this option? The player will be released and you will pay a 30% buyout.')">
+                            <input type="hidden" name="player_id" value="{{.ID}}">
+                            <input type="hidden" name="year" value="{{.Year}}">
+                            <input type="hidden" name="action" value="decline">
+                            <button type="submit" class="button button-danger">Decline</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div style="text-align: center; padding: 40px;">
+        <p style="font-size: 1.2rem; color: #888;">No pending team options found for your organization.</p>
+    </div>
+    {{end}}
+</div>
+
+<style>
+    .button-danger { background-color: #d9534f; }
+    .button-danger:hover { background-color: #c9302c; }
+</style>
+{{end}}

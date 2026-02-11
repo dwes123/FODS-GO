@@ -1,0 +1,9 @@
+{{define "title"}}Test Page{{end}}
+
+{{define "content"}}
+<div style="padding: 20px; border: 2px solid green;">
+    <h1>Template Test</h1>
+    <p>{{.Message}}</p>
+    <p>Safe HTML Test: {{safeHTML .HTMLContent}}</p>
+</div>
+{{end}}

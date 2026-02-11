@@ -1,0 +1,37 @@
+{{define "title"}}Report a Bug{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Report a Bug</h2>
+    
+    {{if .Success}}
+    <div class="notice notice-success">
+        Thank you! Your bug report has been submitted.
+    </div>
+    {{end}}
+
+    <p>Found something broken? Let us know specifically what happened.</p>
+
+    <form action="/bug-report" method="POST" class="standard-form">
+        <div class="form-group">
+            <label>Issue Title</label>
+            <input type="text" name="title" required placeholder="e.g. Cannot submit trade offer">
+        </div>
+        
+        <div class="form-group">
+            <label>Description (Steps to Reproduce)</label>
+            <textarea name="description" rows="5" required placeholder="1. Go to trade page&#10;2. Select player..."></textarea>
+        </div>
+
+        <button type="submit" class="button button-primary">Submit Report</button>
+    </form>
+</div>
+
+<style>
+    .content-container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .standard-form .form-group { margin-bottom: 20px; }
+    .standard-form label { display: block; font-weight: bold; margin-bottom: 8px; }
+    .standard-form input, .standard-form textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    .notice-success { background: #d4edda; color: #155724; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #c3e6cb; }
+</style>
+{{end}}
