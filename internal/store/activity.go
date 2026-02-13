@@ -9,14 +9,15 @@ import (
 )
 
 type Activity struct {
-	ID              string    `json:"id"`
-	TeamName        string    `json:"team_name"`
-	PlayerName      string    `json:"player_name"`
-	TransactionType string    `json:"transaction_type"`
-	Status          string    `json:"status"`
-	CreatedAt       time.Time `json:"created_at"`
-	LeagueName      string    `json:"league_name"`
-	Summary         string    `json:"summary"`
+	ID                string    `json:"id"`
+	TeamName          string    `json:"team_name"`
+	PlayerName        string    `json:"player_name"`
+	TransactionType   string    `json:"transaction_type"`
+	Status            string    `json:"status"`
+	CreatedAt         time.Time `json:"created_at"`
+	LeagueName        string    `json:"league_name"`
+	Summary           string    `json:"summary"`
+	FantraxProcessed  bool      `json:"fantrax_processed"`
 }
 
 func LogActivity(db *pgxpool.Pool, leagueID, teamID, transType, summary string) error {
@@ -29,9 +30,9 @@ func LogActivity(db *pgxpool.Pool, leagueID, teamID, transType, summary string) 
 
 func GetRecentActivity(db *pgxpool.Pool, limit int, leagueID string) ([]Activity, error) {
 	query := `
-		SELECT t.id, COALESCE(teams.name, 'League'), COALESCE(p.first_name || ' ' || p.last_name, ''), 
+		SELECT t.id, COALESCE(teams.name, 'League'), COALESCE(p.first_name || ' ' || p.last_name, ''),
 		       t.transaction_type, t.status, t.created_at, COALESCE(l.name, 'All'),
-		       COALESCE(t.summary, '')
+		       COALESCE(t.summary, ''), COALESCE(t.fantrax_processed, FALSE)
 		FROM transactions t
 		LEFT JOIN teams ON t.team_id = teams.id
 		LEFT JOIN players p ON t.player_id = p.id
@@ -55,7 +56,7 @@ func GetRecentActivity(db *pgxpool.Pool, limit int, leagueID string) ([]Activity
 	var activities []Activity
 	for rows.Next() {
 		var a Activity
-		if err := rows.Scan(&a.ID, &a.TeamName, &a.PlayerName, &a.TransactionType, &a.Status, &a.CreatedAt, &a.LeagueName, &a.Summary); err != nil {
+		if err := rows.Scan(&a.ID, &a.TeamName, &a.PlayerName, &a.TransactionType, &a.Status, &a.CreatedAt, &a.LeagueName, &a.Summary, &a.FantraxProcessed); err != nil {
 			continue
 		}
 

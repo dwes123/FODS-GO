@@ -58,6 +58,7 @@ func PromoteTo40ManHandler(db *pgxpool.Pool) gin.HandlerFunc {
                         return
                 }
 
+                store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Promoted to 40-Man")
                 c.JSON(http.StatusOK, gin.H{"message": "Promoted to 40-man"})
         }
 }
@@ -101,6 +102,7 @@ func PromoteTo26ManHandler(db *pgxpool.Pool) gin.HandlerFunc {
                         return
                 }
 
+                store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Promoted to 26-Man")
                 c.JSON(http.StatusOK, gin.H{"message": "Promoted to 26-man"})
         }
 }
@@ -128,6 +130,7 @@ func OptionToMinorsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Optioned to Minors")
 		c.JSON(http.StatusOK, gin.H{"message": "Optioned to minors"})
 	}
 }
@@ -154,10 +157,10 @@ func MoveToILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		_, err := db.Exec(context.Background(),
-			`UPDATE players SET 
-				status_il = $1, 
-				il_start_date = NOW(), 
-				status_26_man = FALSE, 
+			`UPDATE players SET
+				status_il = $1,
+				il_start_date = NOW(),
+				status_26_man = FALSE,
 				status_40_man = $2
 			WHERE id = $3 AND team_id = $4`,
 			statusIL, status40Man, req.PlayerID, req.TeamID)
@@ -167,6 +170,7 @@ func MoveToILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Placed on "+statusIL)
 		c.JSON(http.StatusOK, gin.H{"message": "Player moved to IL"})
 	}
 }
@@ -195,13 +199,19 @@ func ActivateFromILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Activated from IL")
 		c.JSON(http.StatusOK, gin.H{"message": "Player activated from IL"})
 	}
 }
 
+type DFARequest struct {
+	MoveRequest
+	ClearAction string `json:"dfa_clear_action"` // "release" or "minors"
+}
+
 func DFAPlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req MoveRequest
+		var req DFARequest
 		if err := c.BindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 			return
@@ -214,23 +224,29 @@ func DFAPlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		if req.ClearAction == "" {
+			req.ClearAction = "release"
+		}
+
 		waiverEnd := time.Now().Add(48 * time.Hour)
 
 		_, err := db.Exec(context.Background(),
-			`UPDATE players SET 
+			`UPDATE players SET
 				fa_status = 'on waivers',
 				waiver_end_time = $1,
 				waiving_team_id = $2,
+				dfa_clear_action = $3,
 				status_26_man = FALSE,
 				status_40_man = FALSE
-			WHERE id = $3 AND team_id = $2`,
-			waiverEnd, req.TeamID, req.PlayerID)
+			WHERE id = $4 AND team_id = $2`,
+			waiverEnd, req.TeamID, req.ClearAction, req.PlayerID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
 		}
 
+		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Designated for Assignment")
 		c.JSON(http.StatusOK, gin.H{"message": "Player designated for assignment (DFA)"})
 	}
 }

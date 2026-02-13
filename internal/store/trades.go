@@ -29,6 +29,38 @@ type TradeProposal struct {
 	Items             []TradeItem `json:"items"`
 }
 
+// IsTradeWindowOpen checks if trades are allowed for the given league.
+// Offseason (Oct 15 – Mar 15) always allows trades.
+// During the season, checks league_dates for a trade_deadline entry.
+func IsTradeWindowOpen(db *pgxpool.Pool, leagueID string) (bool, string) {
+	now := time.Now()
+	month := now.Month()
+	day := now.Day()
+
+	// Offseason: Oct 15 – Mar 15 → always open
+	if month > 10 || month < 3 || (month == 10 && day >= 15) || (month == 3 && day <= 15) {
+		return true, ""
+	}
+
+	// Check league_dates for trade_deadline this year
+	var deadlineDate time.Time
+	err := db.QueryRow(context.Background(), `
+		SELECT event_date FROM league_dates
+		WHERE league_id = $1 AND year = $2 AND date_type = 'trade_deadline'
+	`, leagueID, now.Year()).Scan(&deadlineDate)
+
+	if err != nil {
+		// No deadline configured → allow trades
+		return true, ""
+	}
+
+	if now.After(deadlineDate) {
+		return false, fmt.Sprintf("The trade deadline for this league was %s. Trades are closed until the offseason.", deadlineDate.Format("January 2, 2006"))
+	}
+
+	return true, ""
+}
+
 func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offeredPlayers, requestedPlayers []string, isbpOffered, isbpRequested int) error {
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
@@ -249,6 +281,89 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 		INSERT INTO transactions (team_id, transaction_type, status, related_transaction_id)
 		VALUES ($1, 'TRADE', 'COMPLETED', $2)
 	`, proposerID, tradeID)
+
+	return tx.Commit(ctx)
+}
+
+func ReverseTrade(db *pgxpool.Pool, tradeID string) error {
+	ctx := context.Background()
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Verify trade is in ACCEPTED status
+	var proposerID, receiverID, status string
+	var isbpOffered, isbpRequested int
+	err = tx.QueryRow(ctx, `
+		SELECT proposing_team_id, receiving_team_id, status, isbp_offered, isbp_requested
+		FROM trades WHERE id = $1
+	`, tradeID).Scan(&proposerID, &receiverID, &status, &isbpOffered, &isbpRequested)
+	if err != nil {
+		return fmt.Errorf("trade not found: %w", err)
+	}
+	if status != "ACCEPTED" {
+		return fmt.Errorf("trade is not in ACCEPTED status (current: %s)", status)
+	}
+
+	// 2. Swap all traded players back to their original teams
+	rows, err := tx.Query(ctx, `SELECT player_id, sender_team_id FROM trade_items WHERE trade_id = $1`, tradeID)
+	if err != nil {
+		return err
+	}
+
+	type tradeMove struct {
+		PlayerID     string
+		SenderTeamID string
+	}
+	var moves []tradeMove
+	for rows.Next() {
+		var m tradeMove
+		if err := rows.Scan(&m.PlayerID, &m.SenderTeamID); err != nil {
+			continue
+		}
+		moves = append(moves, m)
+	}
+	rows.Close()
+
+	for _, m := range moves {
+		_, err = tx.Exec(ctx, `UPDATE players SET team_id = $1 WHERE id = $2`, m.SenderTeamID, m.PlayerID)
+		if err != nil {
+			return err
+		}
+	}
+
+	// 3. Reverse ISBP transfers
+	if isbpOffered > 0 {
+		tx.Exec(ctx, `UPDATE teams SET isbp_balance = isbp_balance + $1 WHERE id = $2`, isbpOffered, proposerID)
+		tx.Exec(ctx, `UPDATE teams SET isbp_balance = isbp_balance - $1 WHERE id = $2`, isbpOffered, receiverID)
+	}
+	if isbpRequested > 0 {
+		tx.Exec(ctx, `UPDATE teams SET isbp_balance = isbp_balance + $1 WHERE id = $2`, isbpRequested, receiverID)
+		tx.Exec(ctx, `UPDATE teams SET isbp_balance = isbp_balance - $1 WHERE id = $2`, isbpRequested, proposerID)
+	}
+
+	// 4. Remove trade-specific dead cap penalties
+	var tradeCreatedAt time.Time
+	tx.QueryRow(ctx, `SELECT created_at FROM trades WHERE id = $1`, tradeID).Scan(&tradeCreatedAt)
+	tx.Exec(ctx, `
+		DELETE FROM dead_cap_penalties
+		WHERE (note ILIKE '%Trade Retention%' OR note ILIKE '%Pro-Rated%' OR note ILIKE '%Retained%')
+		AND created_at >= $1
+	`, tradeCreatedAt)
+
+	// 5. Set trade status to REVERSED
+	_, err = tx.Exec(ctx, `UPDATE trades SET status = 'REVERSED' WHERE id = $1`, tradeID)
+	if err != nil {
+		return err
+	}
+
+	// 6. Log as Admin Correction
+	tx.Exec(ctx, `
+		INSERT INTO transactions (team_id, transaction_type, status, summary)
+		VALUES ($1, 'COMMISSIONER', 'COMPLETED', 'Trade reversed by Commissioner')
+	`, proposerID)
 
 	return tx.Commit(ctx)
 }

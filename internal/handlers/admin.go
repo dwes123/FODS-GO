@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
@@ -121,6 +122,53 @@ func AdminSavePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+// --- Account Approval Queue (Feature 9) ---
+
+func AdminApprovalsHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+		reqs, _ := store.GetPendingRegistrations(db)
+		RenderTemplate(c, "admin_approvals.html", gin.H{
+			"User":      user,
+			"Requests":  reqs,
+			"IsCommish": true,
+		})
+	}
+}
+
+func AdminProcessRegistrationHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		requestID := c.PostForm("request_id")
+		action := c.PostForm("action")
+
+		var err error
+		if action == "approve" {
+			err = store.ApproveRegistration(db, requestID, user.ID)
+		} else {
+			err = store.DenyRegistration(db, requestID, user.ID)
+		}
+
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Error processing registration: %v", err)
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/admin/approvals")
+	}
+}
+
 // --- DEAD CAP ADMIN ---
 
 func AdminDeadCapHandler(db *pgxpool.Pool) gin.HandlerFunc {
@@ -165,5 +213,71 @@ func AdminDeleteDeadCapHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		id := c.PostForm("id")
 		store.DeleteDeadCapPenalty(db, id)
 		c.Redirect(http.StatusFound, "/admin/dead-cap")
+	}
+}
+
+// --- League Settings (Feature 16) ---
+
+func AdminSettingsHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		yearStr := c.Query("year")
+		year, err := strconv.Atoi(yearStr)
+		if err != nil {
+			year = time.Now().Year()
+		}
+
+		leagues, _ := store.GetLeaguesWithTeams(db)
+		dates, _ := store.GetLeagueDates(db, year)
+
+		// Build a lookup map: "leagueID_dateType" -> "event_date"
+		dateMap := make(map[string]string)
+		for _, d := range dates {
+			key := fmt.Sprintf("%s_%s", d.LeagueID, d.DateType)
+			dateMap[key] = d.EventDate
+		}
+
+		RenderTemplate(c, "admin_settings.html", gin.H{
+			"User":        user,
+			"Leagues":     leagues,
+			"Year":        year,
+			"DateMap":     dateMap,
+			"SaveSuccess": c.Query("saved") == "1",
+			"IsCommish":   true,
+		})
+	}
+}
+
+func AdminSaveSettingsHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		year, _ := strconv.Atoi(c.PostForm("year"))
+		leagues, _ := store.GetLeaguesWithTeams(db)
+
+		for _, l := range leagues {
+			tradeDeadline := c.PostForm("trade_deadline_" + l.ID)
+			openingDay := c.PostForm("opening_day_" + l.ID)
+
+			if tradeDeadline != "" {
+				store.UpsertLeagueDate(db, l.ID, year, "trade_deadline", tradeDeadline)
+			}
+			if openingDay != "" {
+				store.UpsertLeagueDate(db, l.ID, year, "opening_day", openingDay)
+			}
+		}
+
+		c.Redirect(http.StatusFound, fmt.Sprintf("/admin/settings?year=%d&saved=1", year))
 	}
 }

@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/dwes123/fantasy-baseball-go/internal/notification"
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -74,10 +72,31 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		// --- SLACK NOTIFICATION ---
-		msg := fmt.Sprintf("⚾ *New Bid!* %s has bid %.2f points on *%s* (%d years @ $%s AAV). Auction ends in 24 hours.", 
-			teamName, bidPoints, playerName, years, strconv.FormatFloat(aav, 'f', 0, 64))
-		notification.SendSlackNotification(db, leagueID, "transaction", msg)
+		// msg := fmt.Sprintf("⚾ *New Bid!* %s has bid %.2f points on *%s* (%d years @ $%s AAV). Auction ends in 24 hours.", 
+		// 	teamName, bidPoints, playerName, years, strconv.FormatFloat(aav, 'f', 0, 64))
+		// notification.SendSlackNotification(db, leagueID, "transaction", msg)
 
 		c.Redirect(http.StatusFound, "/player/"+playerID)
+	}
+}
+
+func BidHistoryHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		leagueID := c.Query("league_id")
+		teamID := c.Query("team_id")
+
+		records, _ := store.GetBidHistory(db, leagueID, teamID)
+		leagues, _ := store.GetLeaguesWithTeams(db)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+
+		RenderTemplate(c, "bid_history.html", gin.H{
+			"User":       user,
+			"BidRecords": records,
+			"Leagues":    leagues,
+			"LeagueID":   leagueID,
+			"TeamID":     teamID,
+			"IsCommish":  len(adminLeagues) > 0,
+		})
 	}
 }

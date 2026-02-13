@@ -1,0 +1,37 @@
+{{define "title"}}Account Approvals{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Account Approval Queue</h2>
+    <p>Review and approve pending user registrations.</p>
+
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Submitted</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Requests}}
+            <tr>
+                <td><strong>{{.Username}}</strong></td>
+                <td>{{.Email}}</td>
+                <td>{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}</td>
+                <td>
+                    <form action="/admin/approve-registration" method="POST" style="display: inline;">
+                        <input type="hidden" name="request_id" value="{{.ID}}">
+                        <button type="submit" name="action" value="approve" class="button button-small">Approve</button>
+                        <button type="submit" name="action" value="deny" class="button button-small" style="background: #d9534f;">Deny</button>
+                    </form>
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No pending registrations.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}

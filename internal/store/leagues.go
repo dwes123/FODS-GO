@@ -63,6 +63,48 @@ func GetLeaguesWithTeams(db *pgxpool.Pool) ([]League, error) {
 	return leagues, nil
 }
 
+// --- League Dates for Settings (Feature 16) ---
+
+type LeagueDate struct {
+	ID        string `json:"id"`
+	LeagueID  string `json:"league_id"`
+	Year      int    `json:"year"`
+	DateType  string `json:"date_type"`
+	EventDate string `json:"event_date"`
+}
+
+func GetLeagueDates(db *pgxpool.Pool, year int) ([]LeagueDate, error) {
+	rows, err := db.Query(context.Background(), `
+		SELECT id, league_id, year, date_type, event_date::text
+		FROM league_dates
+		WHERE year = $1
+		ORDER BY league_id, date_type
+	`, year)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var dates []LeagueDate
+	for rows.Next() {
+		var d LeagueDate
+		if err := rows.Scan(&d.ID, &d.LeagueID, &d.Year, &d.DateType, &d.EventDate); err != nil {
+			continue
+		}
+		dates = append(dates, d)
+	}
+	return dates, nil
+}
+
+func UpsertLeagueDate(db *pgxpool.Pool, leagueID string, year int, dateType, eventDate string) error {
+	_, err := db.Exec(context.Background(), `
+		INSERT INTO league_dates (league_id, year, date_type, event_date)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (league_id, year, date_type) DO UPDATE SET event_date = EXCLUDED.event_date
+	`, leagueID, year, dateType, eventDate)
+	return err
+}
+
 func GetKeyDates(db *pgxpool.Pool, leagueID string) ([]KeyDate, error) {
 	query := `
 		SELECT kd.id, kd.league_id, l.name, kd.event_date, kd.event_name

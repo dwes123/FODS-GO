@@ -3,6 +3,12 @@
 {{define "content"}}
 <div class="auth-container">
     <h2>Register</h2>
+    {{if .Success}}
+    <div class="alert alert-success" style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+        <strong>Registration submitted!</strong> Your account is pending approval by a Commissioner. You'll be able to log in once approved.
+    </div>
+    <p><a href="/login">Back to Login</a></p>
+    {{else}}
     <form action="/register" method="POST">
         <div class="form-group">
             <label for="username">Username:</label>
@@ -19,6 +25,7 @@
         <button type="submit" class="button">Register</button>
     </form>
     <p>Already have an account? <a href="/login">Login here</a></p>
+    {{end}}
 </div>
 
 <style>

@@ -23,6 +23,27 @@
         <a href="/admin/csv-import" class="button button-small">CSV Importer</a>
         <a href="/admin/trades" class="button button-small" style="margin-top: 5px; background: #5bc0de;">Trade Queue</a>
     </div>
+
+    <div class="tool-card" style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid #d9534f;">
+        <h3>Account Approvals</h3>
+        <p>Review and approve pending user registrations.</p>
+        <a href="/admin/approvals" class="button button-small">Approval Queue</a>
+    </div>
+
+    <div class="tool-card" style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid #6f42c1;">
+        <h3>League Settings</h3>
+        <p>Trade deadlines, opening day, luxury tax.</p>
+        <a href="/admin/settings" class="button button-small">Settings</a>
+    </div>
+
+    <div class="tool-card" style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid #20c997;">
+        <h3>Power Tools</h3>
+        <p>FOD IDs, bid exports, and more.</p>
+        <form action="/admin/generate-fod-ids" method="POST" style="display:inline;">
+            <button type="submit" class="button button-small">Generate FOD IDs</button>
+        </form>
+        <a href="/admin/export-bids" class="button button-small" style="margin-top: 5px;">Export Bids CSV</a>
+    </div>
 </div>
 
 <h3>Pending Arbitration & Extensions</h3>

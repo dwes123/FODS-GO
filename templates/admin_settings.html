@@ -1,0 +1,51 @@
+{{define "title"}}League Settings{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>League Settings</h2>
+    <p>Configure trade deadlines, opening day, and financial settings per league.</p>
+
+    {{if .SaveSuccess}}
+    <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px;">
+        Settings saved successfully.
+    </div>
+    {{end}}
+
+    <form action="/admin/settings/save" method="POST">
+        <input type="hidden" name="year" value="{{.Year}}">
+
+        <div style="margin-bottom: 20px;">
+            <label><strong>Year:</strong></label>
+            <select onchange="window.location.href='/admin/settings?year='+this.value">
+                {{range seq 2025 2035}}
+                <option value="{{.}}" {{if eq . $.Year}}selected{{end}}>{{.}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        {{range .Leagues}}
+        <div style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0;">{{.Name}}</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>Trade Deadline:</label>
+                    <input type="date" name="trade_deadline_{{.ID}}" value="{{index $.DateMap (printf "%s_trade_deadline" .ID)}}">
+                </div>
+                <div class="form-group">
+                    <label>Opening Day:</label>
+                    <input type="date" name="opening_day_{{.ID}}" value="{{index $.DateMap (printf "%s_opening_day" .ID)}}">
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+        <button type="submit" class="button">Save Settings</button>
+    </form>
+</div>
+
+<style>
+    .form-group { margin-bottom: 10px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+    .form-group input { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; }
+</style>
+{{end}}

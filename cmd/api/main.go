@@ -8,6 +8,7 @@ import (
 	"github.com/dwes123/fantasy-baseball-go/internal/db"
 	"github.com/dwes123/fantasy-baseball-go/internal/handlers"
 	"github.com/dwes123/fantasy-baseball-go/internal/middleware"
+	"github.com/dwes123/fantasy-baseball-go/internal/notification"
 	"github.com/dwes123/fantasy-baseball-go/internal/worker"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -18,9 +19,14 @@ func main() {
 	database := db.InitDB()
 	defer database.Close()
 
+	// 1b. Initialize Email Notifications
+	notification.InitEmail()
+
 	        // 2. Start Background Workers
 	        worker.StartBidWorker(database)
 	        worker.StartWaiverWorker(database)
+	        worker.StartSeasonalWorker(database)
+	        worker.StartHRMonitor(database)
 	// 3. Initialize Router
 	r := gin.Default()
 
@@ -73,6 +79,7 @@ func main() {
 		// Profile & Team Management
 		authorized.GET("/profile", handlers.ProfileHandler(database))
 		authorized.POST("/claim-team", handlers.ClaimTeamHandler(database))
+		authorized.POST("/profile/update-password", handlers.UpdatePasswordHandler(database))
 
 		// Bug Reporting
 		authorized.GET("/bug-report", handlers.BugReportFormHandler(database))
@@ -89,6 +96,10 @@ func main() {
 		authorized.POST("/trades/submit", handlers.SubmitTradeHandler(database))
 		authorized.POST("/trades/accept", handlers.AcceptTradeHandler(database))
 
+		// Trade Block & Bid History
+		authorized.GET("/trade-block", handlers.TradeBlockHandler(database))
+		authorized.GET("/bids/history", handlers.BidHistoryHandler(database))
+
 		// Activity Feed
 		authorized.GET("/activity", handlers.ActivityFeedHandler(database))
 
@@ -100,6 +111,7 @@ func main() {
 		authorized.POST("/roster/move/activate", handlers.ActivateFromILHandler(database))
 		authorized.POST("/roster/move/dfa", handlers.DFAPlayerHandler(database))
 		authorized.POST("/roster/move/trade-block", handlers.ToggleTradeBlockHandler(database))
+		authorized.POST("/roster/depth-order", handlers.SaveDepthOrderHandler(database))
 
 		// Arbitration
 		authorized.GET("/arbitration", handlers.ArbitrationHandler(database))
@@ -126,11 +138,19 @@ func main() {
 		                authorized.POST("/admin/dead-cap/delete", handlers.AdminDeleteDeadCapHandler(database))
 		
 		                // Commissioner Power Tools
+		                authorized.POST("/admin/trade-reverse", handlers.AdminReverseTradeHandler(database))
+		                authorized.POST("/admin/fantrax-toggle", handlers.ToggleFantraxHandler(database))
+		                authorized.POST("/admin/generate-fod-ids", handlers.AdminGenerateFODIDsHandler(database))
+		                authorized.GET("/admin/export-bids", handlers.BidExportHandler(database))
 		                authorized.GET("/admin/csv-import", handlers.AdminCSVImporterHandler(database))
 		                authorized.POST("/admin/csv-import", handlers.AdminProcessCSVHandler(database))
 		                authorized.GET("/admin/player-assign", handlers.AdminPlayerAssignHandler(database))
 		                authorized.POST("/admin/player-assign", handlers.AdminProcessAssignHandler(database))
-		                authorized.GET("/admin/trades", handlers.AdminTradeReviewHandler(database))	}
+		                authorized.GET("/admin/trades", handlers.AdminTradeReviewHandler(database))
+		                authorized.GET("/admin/approvals", handlers.AdminApprovalsHandler(database))
+		                authorized.POST("/admin/approve-registration", handlers.AdminProcessRegistrationHandler(database))
+		                authorized.GET("/admin/settings", handlers.AdminSettingsHandler(database))
+		                authorized.POST("/admin/settings/save", handlers.AdminSaveSettingsHandler(database))	}
 
 	// --- API ROUTES ---
 	r.GET("/ping", func(c *gin.Context) {

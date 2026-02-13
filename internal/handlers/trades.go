@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -89,11 +90,31 @@ func SubmitTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		// Check trade deadline
+		var leagueID string
+		db.QueryRow(c, `SELECT league_id FROM teams WHERE id = $1`, proposerID).Scan(&leagueID)
+		if open, msg := store.IsTradeWindowOpen(db, leagueID); !open {
+			c.String(http.StatusForbidden, msg)
+			return
+		}
+
 		err := store.CreateTradeProposal(db, proposerID, receiverID, offered, requested, isbpOffered, isbpRequested)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "Error creating trade: %v", err)
 			return
 		}
+
+		// Email notification to receiving team
+		go func() {
+			var proposerName, receiverName string
+			db.QueryRow(context.Background(), `SELECT name FROM teams WHERE id = $1`, proposerID).Scan(&proposerName)
+			db.QueryRow(context.Background(), `SELECT name FROM teams WHERE id = $1`, receiverID).Scan(&receiverName)
+			emails, _ := store.GetTeamOwnerEmails(db, receiverID)
+			for _, email := range emails {
+				body := fmt.Sprintf("<h2>New Trade Proposal</h2><p><strong>%s</strong> has sent a trade proposal to <strong>%s</strong>.</p><p><a href=\"https://frontofficedynastysports.com/trades\">View Trade</a></p>", proposerName, receiverName)
+				notification.SendEmail(email, "New Trade Proposal from "+proposerName, body)
+			}
+		}()
 
 		c.Redirect(http.StatusFound, "/trades")
 	}

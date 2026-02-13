@@ -1,13 +1,10 @@
 package handlers
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"html/template"
-	"io"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -44,47 +41,26 @@ func RegisterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		user, err := store.CreateUser(db, username, email, string(hashedPassword))
+		err = store.CreateRegistrationRequest(db, username, email, string(hashedPassword))
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Failed to create user: %v", err)
+			c.String(http.StatusInternalServerError, "Failed to submit registration: %v", err)
 			return
 		}
 
-		// --- AUTO-LINK LEGACY TEAMS ---
-		go func() {
-			url := "https://frontofficedynastysports.com/wp-json/wp/v2/users?search=" + username
-			resp, err := http.Get(url)
-			if err != nil { return }
-			defer resp.Body.Close()
-
-			body, _ := io.ReadAll(resp.Body)
-			var wpUsers []struct {
-				ID   int    `json:"id"`
-				Name string `json:"name"`
-			}
-			json.Unmarshal(body, &wpUsers)
-
-			for _, wpu := range wpUsers {
-				if wpu.Name == username {
-					db.Exec(context.Background(), "UPDATE users SET wp_id = $1 WHERE id = $2", wpu.ID, user.ID)
-					db.Exec(context.Background(), "UPDATE teams SET user_id = $1, owner_name = $2 WHERE wp_id = $3", user.ID, username, wpu.ID)
-					break
-				}
-			}
-		}()
-
-		c.Redirect(http.StatusFound, "/login")
+		RenderTemplate(c, "register.html", gin.H{
+			"Success": true,
+		})
 	}
 }
 
 func LoginHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		email := c.PostForm("email")
+		identifier := c.PostForm("email")
 		password := c.PostForm("password")
 
-		user, err := store.GetUserByEmail(db, email)
+		user, err := store.GetUserByEmailOrUsername(db, identifier)
 		if err != nil {
-			c.String(http.StatusUnauthorized, "Invalid email or password")
+			c.String(http.StatusUnauthorized, "Invalid username/email or password")
 			return
 		}
 

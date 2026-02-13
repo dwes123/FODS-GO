@@ -9,21 +9,29 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type RosterMoveEntry struct {
+	Type   string `json:"type"`
+	Date   string `json:"date"`
+	TeamID string `json:"team_id"`
+}
+
 type RosterPlayer struct {
-	ID          string         `json:"id"`
-	FirstName   string         `json:"first_name"`
-	LastName    string         `json:"last_name"`
-	Position    string         `json:"position"`
-	MLBTeam     string         `json:"mlb_team"`
-	Status      string         `json:"status"`
-	Status40Man bool           `json:"status_40_man"`
-	Status26Man bool           `json:"status_26_man"`
-	StatusIL    string         `json:"status_il"`
-	OptionYears int            `json:"option_years_used"`
-	LeagueID    string         `json:"league_id"`
-	LeagueName  string         `json:"league_name"`
-	TeamID      string         `json:"team_id"`
-	Contracts   map[int]string `json:"contracts"` // Year -> Amount
+	ID             string            `json:"id"`
+	FirstName      string            `json:"first_name"`
+	LastName       string            `json:"last_name"`
+	Position       string            `json:"position"`
+	MLBTeam        string            `json:"mlb_team"`
+	Status         string            `json:"status"`
+	Status40Man    bool              `json:"status_40_man"`
+	Status26Man    bool              `json:"status_26_man"`
+	StatusIL       string            `json:"status_il"`
+	OptionYears    int               `json:"option_years_used"`
+	LeagueID       string            `json:"league_id"`
+	LeagueName     string            `json:"league_name"`
+	TeamID         string            `json:"team_id"`
+	Contracts      map[int]string    `json:"contracts"`
+	Rule5Year      int               `json:"rule_5_eligibility_year"`
+	RosterMovesLog []RosterMoveEntry `json:"roster_moves_log"`
 }
 
 type SalaryYearSummary struct {
@@ -82,6 +90,7 @@ func GetTeamWithRoster(db *pgxpool.Pool, teamID string) (*TeamDetail, error) {
 	query := `
 		SELECT id, first_name, last_name, position, mlb_team,
 		       status_40_man, status_26_man, COALESCE(status_il, ''), option_years_used,
+		       COALESCE(rule_5_eligibility_year, 0),
 		       COALESCE(contract_2026, ''), COALESCE(contract_2027, ''), COALESCE(contract_2028, ''),
 		       COALESCE(contract_2029, ''), COALESCE(contract_2030, ''), COALESCE(contract_2031, ''),
 		       COALESCE(contract_2032, ''), COALESCE(contract_2033, ''), COALESCE(contract_2034, ''),
@@ -89,6 +98,7 @@ func GetTeamWithRoster(db *pgxpool.Pool, teamID string) (*TeamDetail, error) {
 		       COALESCE(contract_2038, ''), COALESCE(contract_2039, ''), COALESCE(contract_2040, '')
 		FROM players
 		WHERE team_id = $1
+		ORDER BY depth_rank ASC, last_name ASC
 	`
 
 	rows, err := db.Query(ctx, query, teamID)
@@ -102,6 +112,7 @@ func GetTeamWithRoster(db *pgxpool.Pool, teamID string) (*TeamDetail, error) {
 			dest := []interface{}{
 				&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam,
 				&p.Status40Man, &p.Status26Man, &p.StatusIL, &p.OptionYears,
+				&p.Rule5Year,
 			}
 			for i := range contracts {
 				dest = append(dest, &contracts[i])

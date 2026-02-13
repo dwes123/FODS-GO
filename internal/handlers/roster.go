@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
@@ -49,5 +50,34 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		RenderTemplate(c, "roster.html", data)
+	}
+}
+
+func SaveDepthOrderHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			TeamID string   `json:"team_id"`
+			Order  []string `json:"order"`
+		}
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		user := c.MustGet("user").(*store.User)
+		isOwner, _ := store.IsTeamOwner(db, req.TeamID, user.ID)
+		if !isOwner {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not own this team"})
+			return
+		}
+
+		ctx := context.Background()
+		for i, playerID := range req.Order {
+			db.Exec(ctx,
+				`UPDATE players SET depth_rank = $1 WHERE id = $2 AND team_id = $3`,
+				i+1, playerID, req.TeamID)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Depth order saved"})
 	}
 }

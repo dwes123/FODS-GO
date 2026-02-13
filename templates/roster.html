@@ -90,6 +90,23 @@
     </form>
 </dialog>
 
+<dialog id="dfaModal" class="modal">
+    <h3>Designate for Assignment</h3>
+    <p>If this player clears waivers (no claims), what should happen?</p>
+    <form method="dialog">
+        <label>Clear Action:</label>
+        <select id="dfaClearAction">
+            <option value="release">Release (dead cap: 75% current year, 50% future)</option>
+            <option value="minors">Send to Minors (off 40-man, stays on team)</option>
+        </select>
+        <div class="modal-actions">
+            <button value="cancel">Cancel</button>
+            <button id="confirmDFABtn" value="confirm" class="button button-danger">Confirm DFA</button>
+        </div>
+    </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 let currentPlayerID = null;
 let currentTeamID = null;
@@ -105,11 +122,24 @@ function openILModal(playerID, teamID) {
     document.getElementById('ilModal').showModal();
 }
 
+function openDFAModal(playerID, teamID) {
+    currentPlayerID = playerID;
+    currentTeamID = teamID;
+    document.getElementById('dfaModal').showModal();
+}
+
 document.getElementById('confirmILBtn').addEventListener('click', async (e) => {
     e.preventDefault();
     const duration = document.getElementById('ilDuration').value;
     await sendRequest('/roster/move/il', { player_id: currentPlayerID, team_id: currentTeamID, duration: duration });
     document.getElementById('ilModal').close();
+});
+
+document.getElementById('confirmDFABtn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const clearAction = document.getElementById('dfaClearAction').value;
+    await sendRequest('/roster/move/dfa', { player_id: currentPlayerID, team_id: currentTeamID, dfa_clear_action: clearAction });
+    document.getElementById('dfaModal').close();
 });
 
 async function sendRequest(url, data) {
@@ -131,6 +161,45 @@ async function sendRequest(url, data) {
         alert("Request failed");
     }
 }
+
+// --- Depth Chart Sorting (Feature 21) ---
+{{if $isOwner}}
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.roster-sortable tbody').forEach(function(tbody) {
+        new Sortable(tbody, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'sortable-ghost',
+            onEnd: function() {
+                // Collect new order from all sortable tables
+                saveDepthOrder();
+            }
+        });
+    });
+});
+
+async function saveDepthOrder() {
+    const order = [];
+    document.querySelectorAll('.roster-sortable tbody tr[data-player-id]').forEach(function(row, idx) {
+        order.push(row.getAttribute('data-player-id'));
+    });
+    if (order.length === 0) return;
+
+    try {
+        const response = await fetch('/roster/depth-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ team_id: '{{.Team.ID}}', order: order })
+        });
+        const res = await response.json();
+        if (!response.ok) {
+            alert("Error saving order: " + res.error);
+        }
+    } catch (e) {
+        console.error('Failed to save depth order:', e);
+    }
+}
+{{end}}
 </script>
 
 <style>
@@ -145,6 +214,8 @@ async function sendRequest(url, data) {
     .button-info { background-color: #17a2b8; }
     .modal { padding: 20px; border-radius: 8px; border: 1px solid #ccc; }
     a.button { text-decoration: none; display: inline-block; }
+    .sortable-ghost { background-color: #e3f2fd !important; opacity: 0.8; }
+    .drag-handle:hover { color: var(--fod-blue-primary); }
 </style>
 {{end}}
 
@@ -156,9 +227,10 @@ async function sendRequest(url, data) {
     {{$teamID := .TeamID}}
     
     <div class="table-container">
-        <table class="fantasy-table-base">
+        <table class="fantasy-table-base roster-sortable">
             <thead>
                 <tr>
+                    {{if $isOwner}}<th style="width:30px"></th>{{end}}
                     <th>Name</th>
                     <th>Pos</th>
                     <th>MLB</th>
@@ -171,7 +243,8 @@ async function sendRequest(url, data) {
                 {{range .PosOrder}}
                     {{$players := index $grouped .}}
                     {{range $players}}
-                    <tr>
+                    <tr data-player-id="{{.ID}}">
+                        {{if $isOwner}}<td class="drag-handle" style="cursor: grab; text-align: center;">&#9776;</td>{{end}}
                         <td><strong><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></strong></td>
                         <td>{{.Position}}</td>
                         <td>{{.MLBTeam}}</td>
@@ -200,7 +273,7 @@ async function sendRequest(url, data) {
                                             <button class="button" onclick="movePlayer('40man', '{{.ID}}', '{{$teamID}}')">40</button>
                                         {{end}}
                                         <button class="button button-secondary" onclick="openILModal('{{.ID}}', '{{$teamID}}')">IL</button>
-                                        <button class="button button-danger" onclick="movePlayer('dfa', '{{.ID}}', '{{$teamID}}')">DFA</button>
+                                        <button class="button button-danger" onclick="openDFAModal('{{.ID}}', '{{$teamID}}')">DFA</button>
                                     {{end}}
                                 {{end}}
                             </div>

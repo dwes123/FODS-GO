@@ -1,0 +1,66 @@
+{{define "title"}}Trade Block{{end}}
+
+{{define "content"}}
+<h2>Trade Block</h2>
+
+<form method="GET" action="/trade-block" class="filter-bar">
+    <select name="league_id" onchange="this.form.submit()">
+        <option value="">All Leagues</option>
+        {{range .Leagues}}
+            <option value="{{.ID}}" {{if eq .ID $.LeagueID}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+    </select>
+</form>
+
+{{if .Groups}}
+    {{range .Groups}}
+    <div class="trade-block-team">
+        <div class="team-header">
+            <h3>{{.TeamName}}</h3>
+            {{$owned := index $.OwnedTeams .TeamID}}
+            {{if not $owned}}
+                <a href="/trades/new?team_id={{.TeamID}}" class="button button-small">Propose Trade</a>
+            {{end}}
+        </div>
+        <table class="fantasy-table-base">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Pos</th>
+                    <th>MLB Team</th>
+                    <th>2026</th>
+                    <th>2027</th>
+                    <th>2028</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Players}}
+                <tr>
+                    <td><a href="/player/{{.PlayerID}}">{{.PlayerName}}</a></td>
+                    <td>{{.Position}}</td>
+                    <td>{{.MLBTeam}}</td>
+                    <td>{{if .Contract2026}}${{formatMoney .Contract2026}}{{else}}--{{end}}</td>
+                    <td>{{if .Contract2027}}${{formatMoney .Contract2027}}{{else}}--{{end}}</td>
+                    <td>{{if .Contract2028}}${{formatMoney .Contract2028}}{{else}}--{{end}}</td>
+                    <td class="notes-cell">{{.TradeBlockNotes}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{end}}
+{{else}}
+    <p style="padding: 20px; color: #888;">No players currently on the trade block{{if .LeagueID}} for this league{{end}}.</p>
+{{end}}
+
+<style>
+    .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+    .filter-bar select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; }
+    .trade-block-team { margin-bottom: 30px; }
+    .team-header { display: flex; justify-content: space-between; align-items: center; }
+    .team-header h3 { margin-bottom: 5px; }
+    .button-small { padding: 5px 12px; font-size: 0.85rem; }
+    .notes-cell { max-width: 250px; font-size: 0.9rem; color: #555; }
+</style>
+{{end}}

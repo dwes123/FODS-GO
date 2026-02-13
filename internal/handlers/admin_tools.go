@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
@@ -95,6 +96,98 @@ func AdminProcessAssignHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 		}
 		c.Redirect(http.StatusFound, "/admin/player-assign?success=1")
+	}
+}
+
+// --- Trade Reversal (Feature 5) ---
+func AdminReverseTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+		tradeID := c.PostForm("trade_id")
+		err := store.ReverseTrade(db, tradeID)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Error reversing trade: %v", err)
+			return
+		}
+		c.Redirect(http.StatusFound, "/admin/trades")
+	}
+}
+
+// --- Fantrax Toggle (Feature 6) ---
+func ToggleFantraxHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Commissioner Only"})
+			return
+		}
+		id := c.PostForm("transaction_id")
+		_, err := db.Exec(context.Background(),
+			"UPDATE transactions SET fantrax_processed = NOT COALESCE(fantrax_processed, FALSE) WHERE id = $1", id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Toggled"})
+	}
+}
+
+// --- FOD ID Generator (Feature 10) ---
+func AdminGenerateFODIDsHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		if user.Role != "admin" {
+			c.String(http.StatusForbidden, "Admin Only")
+			return
+		}
+		count, err := store.GenerateFODIDs(db, 1000)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Error generating IDs: %v", err)
+			return
+		}
+		c.Redirect(http.StatusFound, "/admin/?fod_msg=Generated+"+strconv.Itoa(count)+"+FOD+IDs")
+	}
+}
+
+// --- Bid Export CSV (Feature 11) ---
+func BidExportHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+		leagueID := c.Query("league_id")
+		teamID := c.Query("team_id")
+
+		records, err := store.GetBidHistory(db, leagueID, teamID)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Error: %v", err)
+			return
+		}
+
+		c.Header("Content-Type", "text/csv")
+		c.Header("Content-Disposition", "attachment; filename=bid_history.csv")
+
+		writer := csv.NewWriter(c.Writer)
+		writer.Write([]string{"Player", "League", "Team", "Bid Points", "Years", "AAV", "Date"})
+		for _, r := range records {
+			writer.Write([]string{
+				r.PlayerName, r.LeagueName, r.TeamName,
+				fmt.Sprintf("%.2f", r.Amount),
+				strconv.Itoa(r.Years),
+				fmt.Sprintf("%.0f", r.AAV),
+				r.BidDate,
+			})
+		}
+		writer.Flush()
 	}
 }
 

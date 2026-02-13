@@ -14,6 +14,7 @@
             <p><strong>40-Man:</strong> {{if .Player.Status40Man}}Yes{{else}}No{{end}}</p>
             <p><strong>26-Man:</strong> {{if .Player.Status26Man}}Yes{{else}}No{{end}}</p>
             <p><strong>Option Years:</strong> {{.Player.OptionYears}}</p>
+            {{if .Player.Rule5Year}}<p><strong>Rule 5 Eligibility:</strong> {{.Player.Rule5Year}}</p>{{end}}
         </div>
     </div>
 
@@ -40,12 +41,30 @@
                 <h3>Contract Extension Calculator</h3>
                 <form id="extensionForm">
                     <input type="hidden" name="player_id" value="{{.Player.ID}}">
-                    <div class="form-group">
-                        <label>3-Year WAR Total:</label>
-                        <input type="number" id="ext_war" step="0.1" placeholder="0.0" required>
+
+                    <div class="position-tabs">
+                        <button type="button" class="pos-tab active" data-pos="auto" onclick="setPositionType(this)">Auto ({{.Player.Position}})</button>
+                        <button type="button" class="pos-tab" data-pos="SP" onclick="setPositionType(this)">SP</button>
+                        <button type="button" class="pos-tab" data-pos="RP" onclick="setPositionType(this)">RP</button>
+                        <button type="button" class="pos-tab" data-pos="hitter" onclick="setPositionType(this)">Hitter</button>
+                    </div>
+
+                    <div class="war-inputs">
+                        <div class="form-group">
+                            <label>1-Year WAR (estimates 3yr):</label>
+                            <input type="number" id="ext_war_1yr" step="0.1" placeholder="0.0" oninput="updateWARFrom1yr()">
+                        </div>
+                        <div class="form-group">
+                            <label>2-Year WAR (estimates 3yr):</label>
+                            <input type="number" id="ext_war_2yr" step="0.1" placeholder="0.0" oninput="updateWARFrom2yr()">
+                        </div>
+                        <div class="form-group">
+                            <label><strong>3-Year WAR Total:</strong></label>
+                            <input type="number" id="ext_war" step="0.1" placeholder="0.0" required>
+                        </div>
                     </div>
                     <button type="button" class="button button-info" onclick="calcExtension()">Calculate Offers</button>
-                    
+
                     <div id="ext_results" style="margin-top: 15px;"></div>
                 </form>
             </div>
@@ -111,45 +130,84 @@
             </form>
         </div>
     {{end}}
+
+    <!-- ROSTER MOVES LOG -->
+    {{if .Player.RosterMovesLog}}
+    <div class="moves-log-section">
+        <h3>Roster History</h3>
+        <table class="fantasy-table-base">
+            <thead>
+                <tr><th>Date</th><th>Move</th></tr>
+            </thead>
+            <tbody>
+                {{range .Player.RosterMovesLog}}
+                <tr>
+                    <td>{{.Date}}</td>
+                    <td>{{.Type}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{end}}
 </div>
 
 <script>
-// --- EXTENSION LOGIC ---
-function calcExtension() {
-    const war = parseFloat(document.getElementById('ext_war').value);
-    if (!war) return;
+// --- EXTENSION CALCULATOR (WAR-based pricing from PHP) ---
+let posOverride = null;
 
-    // Pricing Model (Simplified from legacy JS)
-    // 1 Year: $1.5M + ($350k * WAR)
-    // 2 Years: $2.5M + ($450k * WAR)
-    // ... etc (You can tune this to match legacy exact math)
-    const offers = [
-        { years: 1, base: 1500000, warMult: 350000 },
-        { years: 2, base: 2500000, warMult: 450000 },
-        { years: 3, base: 4000000, warMult: 550000 },
-        { years: 4, base: 6000000, warMult: 650000 },
-        { years: 5, base: 8500000, warMult: 750000 }
-    ];
+function setPositionType(btn) {
+    document.querySelectorAll('.pos-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    posOverride = btn.dataset.pos === 'auto' ? null : btn.dataset.pos;
+}
+
+function updateWARFrom1yr() {
+    const val = parseFloat(document.getElementById('ext_war_1yr').value);
+    if (!isNaN(val)) document.getElementById('ext_war').value = (val * 3).toFixed(1);
+}
+
+function updateWARFrom2yr() {
+    const val = parseFloat(document.getElementById('ext_war_2yr').value);
+    if (!isNaN(val)) document.getElementById('ext_war').value = ((val / 2) * 3).toFixed(1);
+}
+
+function calcExtension() {
+    const war3yr = parseFloat(document.getElementById('ext_war').value);
+    if (!war3yr || war3yr <= 0) { alert('Enter a valid WAR value'); return; }
+
+    const position = posOverride || '{{.Player.Position}}';
+    let baseRate;
+    if (position === 'SP') {
+        baseRate = 3.3755;
+    } else if (position === 'RP') {
+        baseRate = 5.0131;
+    } else {
+        baseRate = 2.8354;
+    }
+
+    const decayFactors = [1.0, 0.926, 0.852, 0.796, 0.741, 0.704, 0.667, 0.667];
+    const minAAV = 700000;
 
     let html = '<table class="fantasy-table-base"><thead><tr><th>Years</th><th>AAV</th><th>Total</th><th>Action</th></tr></thead><tbody>';
-    
-    offers.forEach(o => {
-        const aav = o.base + (o.warMult * war);
-        const total = aav * o.years;
-        html += `<tr>
-            <td>${o.years}</td>
-            <td>$${aav.toLocaleString()}</td>
-            <td>$${total.toLocaleString()}</td>
-            <td><button class="button button-small" onclick="submitExtension(${o.years}, ${aav})">Select</button></td>
-        </tr>`;
-    });
+
+    for (let years = 1; years <= 8; years++) {
+        const aav = Math.max(war3yr * baseRate * decayFactors[years - 1] * 1000000, minAAV);
+        const total = aav * years;
+        html += '<tr>' +
+            '<td>' + years + '</td>' +
+            '<td>$' + Math.round(aav).toLocaleString() + '</td>' +
+            '<td>$' + Math.round(total).toLocaleString() + '</td>' +
+            '<td><button class="button button-small" onclick="submitExtension(' + years + ', ' + Math.round(aav) + ')">Select</button></td>' +
+            '</tr>';
+    }
     html += '</tbody></table>';
     document.getElementById('ext_results').innerHTML = html;
 }
 
 async function submitExtension(years, aav) {
-    if (!confirm(`Submit request for ${years} years at $${aav.toLocaleString()}?`)) return;
-    
+    if (!confirm('Submit request for ' + years + ' years at $' + aav.toLocaleString() + '?')) return;
+
     const formData = new FormData();
     formData.append('player_id', '{{.Player.ID}}');
     formData.append('years', years);
@@ -164,11 +222,11 @@ async function submitExtension(years, aav) {
 async function submitRestructure() {
     const form = document.getElementById('restructureForm');
     const formData = new FormData(form);
-    
+
     try {
         const res = await fetch('/restructure', { method: 'POST', body: formData });
         const json = await res.json();
-        
+
         if (res.ok) {
             alert(json.message);
             location.reload();
@@ -198,7 +256,7 @@ if (document.getElementById('bid_years')) {
     .player-profile { background: white; padding: 20px; border-radius: 8px; }
     .player-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
     .meta-card { background: var(--fod-gray-light); padding: 15px; border-radius: 6px; }
-    
+
     .owner-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
     .tool-section { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd; }
     .note { font-size: 0.85rem; color: #666; margin-bottom: 15px; }
@@ -206,9 +264,17 @@ if (document.getElementById('bid_years')) {
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
     .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    
+
+    .position-tabs { display: flex; gap: 8px; margin-bottom: 15px; }
+    .pos-tab { padding: 6px 14px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    .pos-tab.active { background: var(--fod-blue-primary); color: white; border-color: var(--fod-blue-primary); }
+    .war-inputs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
     .action-bar { margin-top: 30px; text-align: center; background: #eef; padding: 30px; border-radius: 8px; }
     .table-container { overflow-x: auto; margin-bottom: 2rem; }
     .fantasy-table-base { width: 100%; min-width: 800px; margin: 0; }
+
+    .moves-log-section { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
+    .moves-log-section .fantasy-table-base { min-width: auto; }
 </style>
 {{end}}
