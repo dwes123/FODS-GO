@@ -13,6 +13,7 @@ type PlayerSearchFilter struct {
 	LeagueID string
 	Position string
 	Search   string
+	IFAOnly  bool
 	Limit    int
 	Offset   int
 }
@@ -42,6 +43,10 @@ func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer,
 		query += fmt.Sprintf(" AND position = $%d", argCount)
 		args = append(args, filter.Position)
 		argCount++
+	}
+
+	if filter.IFAOnly {
+		query += " AND is_international_free_agent = TRUE"
 	}
 
 	query += " ORDER BY last_name ASC LIMIT 50"

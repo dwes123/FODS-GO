@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/dwes123/fantasy-baseball-go/internal/notification"
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -116,11 +114,11 @@ func ClaimWaiverHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		// Notify
-		var pName string
-		db.QueryRow(context.Background(), "SELECT first_name || ' ' || last_name FROM players WHERE id = $1", playerID).Scan(&pName)
+		// var pName string
+		// db.QueryRow(context.Background(), "SELECT first_name || ' ' || last_name FROM players WHERE id = $1", playerID).Scan(&pName)
 		
-		msg := fmt.Sprintf("ðŸ‘€ *Waiver Claim:* *%s* has put a claim on *%s*.", teamName, pName)
-		notification.SendSlackNotification(db, leagueID, "transaction", msg)
+		// msg := fmt.Sprintf("ðŸ‘€ *Waiver Claim:* *%s* has put a claim on *%s*.", teamName, pName)
+		// notification.SendSlackNotification(db, leagueID, "transaction", msg)
 
 		c.JSON(http.StatusOK, gin.H{"message": "Claim submitted successfully! Processing will occur when waivers expire."})
 	}

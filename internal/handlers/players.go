@@ -15,6 +15,7 @@ func FreeAgentHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		search := c.Query("q")
 		pos := c.Query("pos")
 		leagueID := c.Query("league_id")
+		ifaOnly := c.Query("ifa") == "1"
 
 		if leagueID == "" {
 			leagueID = "11111111-1111-1111-1111-111111111111"
@@ -24,6 +25,7 @@ func FreeAgentHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			Search:   search,
 			Position: pos,
 			LeagueID: leagueID,
+			IFAOnly:  ifaOnly,
 		}
 
 		players, err := store.GetFreeAgents(db, filter)
@@ -40,6 +42,7 @@ func FreeAgentHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"Search":    search,
 			"Pos":       pos,
 			"LeagueID":  leagueID,
+			"IFA":       ifaOnly,
 			"Leagues":   leagues,
 			"User":      user,
 			"IsCommish": len(adminLeagues) > 0,

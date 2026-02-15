@@ -6,12 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/dwes123/fantasy-baseball-go/internal/db"
 )
 
 type WPUserOwnedTeam struct {
@@ -27,18 +26,14 @@ type WPUserWithACF struct {
 	ID       int       `json:"id"`
 	Username string    `json:"username"`
 	Name     string    `json:"name"`
-	Email    string    `json:"email"`
 	ACF      WPUserACF `json:"acf"`
 }
 
 func main() {
-	dbUrl := "postgres://admin:password123@localhost:5433/fantasy_db"
-	db, err := pgxpool.New(context.Background(), dbUrl)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+	database := db.InitDB()
+	defer database.Close()
 
+	// Hardcoded credentials for this specific task
 	wpUser := "djwes487@gmail.com"
 	wpPass := "ab4H TPEh vyrc 9lOL T91Z Zt5L"
 	auth := base64.StdEncoding.EncodeToString([]byte(wpUser + ":" + wpPass))
@@ -50,7 +45,7 @@ func main() {
 		"High A": "44444444-4444-4444-4444-444444444444",
 	}
 
-	fmt.Println("Starting Enhanced Team Ownership Sync...")
+	fmt.Println("🚀 Starting Precise Team Ownership Sync...")
 
 	page := 1
 	totalLinked := 0
@@ -78,8 +73,8 @@ func main() {
 
 		for _, wpu := range wpUsers {
 			var goUserID string
-			// Match by WP ID OR Username
-			db.QueryRow(context.Background(), 
+			// 1. Find User
+			database.QueryRow(context.Background(), 
 				"SELECT id FROM users WHERE wp_id = $1 OR username = $2", 
 				wpu.ID, wpu.Username).Scan(&goUserID)
 
@@ -87,29 +82,56 @@ func main() {
 				continue
 			}
 
+			// 2. Loop through their assigned teams from ACF
 			for _, t := range wpu.ACF.ManagedTeams {
 				lUUID, ok := leagueMap[t.LeagueID]
-				if !ok {
-					continue
-				}
+				if !ok { continue }
 
 				teamIdentifier := strings.TrimSpace(t.FantasyTeamID)
-				
-				// Try matching by abbreviation first, then by name
-				result, err := db.Exec(context.Background(), `
-					UPDATE teams 
-					SET user_id = $1, owner_name = $2 
-					WHERE league_id = $3 AND (abbreviation = $4 OR name = $4)
-				`, goUserID, wpu.Name, lUUID, teamIdentifier)
+				if teamIdentifier == "" { continue }
 
-				if err == nil && result.RowsAffected() > 0 {
-					fmt.Printf("Linked %s to %s (%s)\n", teamIdentifier, wpu.Username, t.LeagueID)
-					totalLinked++
+				// 3. Find the Team ID
+				// Strategy: Match by raw_fantasy_team_id (from players) OR name OR abbreviation
+				var teamID string
+				
+				// Try Finding a player with this raw_id in that league, and getting their team_id
+				database.QueryRow(context.Background(), `
+					SELECT team_id FROM players 
+					WHERE raw_fantasy_team_id = $1 AND league_id = $2 AND team_id IS NOT NULL 
+					LIMIT 1
+				`, teamIdentifier, lUUID).Scan(&teamID)
+
+				// If no players linked yet, try fuzzy name match
+				if teamID == "" {
+					database.QueryRow(context.Background(), `
+						SELECT id FROM teams 
+						WHERE league_id = $1 AND (name ILIKE '%' || $2 || '%' OR abbreviation = $2)
+						LIMIT 1
+					`, lUUID, teamIdentifier).Scan(&teamID)
+				}
+
+				if teamID != "" {
+					// 4. Insert into team_owners
+					_, err := database.Exec(context.Background(), `
+						INSERT INTO team_owners (team_id, user_id)
+						VALUES ($1, $2)
+						ON CONFLICT DO NOTHING
+					`, teamID, goUserID)
+
+					if err == nil {
+						fmt.Printf("✅ Linked %s to %s (Team: %s)\n", wpu.Username, teamIdentifier, teamID)
+						
+						// Update legacy columns too just in case
+						database.Exec(context.Background(), "UPDATE teams SET owner_name = $1 WHERE id = $2", wpu.Name, teamID)
+						
+						totalLinked++
+					}
 				}
 			}
 		}
 		page++
+		fmt.Printf("Processed Page %d...\n", page-1)
 	}
 
-	fmt.Printf("\nDone! Linked %d teams to their correct managers.\n", totalLinked)
+	fmt.Printf("\n🏆 DONE! Linked %d teams to owners.\n", totalLinked)
 }

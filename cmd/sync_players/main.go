@@ -39,6 +39,7 @@ type ACFData struct {
 	Contract2034     string           `json:"contract_2034"`
 	Contract2035     string           `json:"contract_2035"`
 	FaStatus         string           `json:"fa_status"`
+	IsIFA            any              `json:"international_free_agent"`
 	DeadCapPenalties []DeadCapPenalty `json:"dead_cap_penalties"`
 }
 
@@ -109,6 +110,12 @@ func main() {
 			case string: isOn26Man = (v == "1")
 			}
 
+			isIFA := false
+			switch v := p.ACF.IsIFA.(type) {
+			case bool: isIFA = v
+			case string: isIFA = (v == "1")
+			}
+
 			var playerUUID string
 			err := database.QueryRow(context.Background(), `
 				INSERT INTO players (
@@ -116,9 +123,9 @@ func main() {
 					status_40_man, status_26_man, status_il, fa_status,
 					contract_2026, contract_2027, contract_2028, contract_2029, contract_2030,
 					contract_2031, contract_2032, contract_2033, contract_2034, contract_2035,
-					raw_fantasy_team_id
+					raw_fantasy_team_id, is_international_free_agent
 				)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 				ON CONFLICT (wp_id) DO UPDATE SET 
 					first_name = EXCLUDED.first_name,
 					position = EXCLUDED.position,
@@ -138,14 +145,15 @@ func main() {
 					contract_2033 = EXCLUDED.contract_2033,
 					contract_2034 = EXCLUDED.contract_2034,
 					contract_2035 = EXCLUDED.contract_2035,
-					raw_fantasy_team_id = EXCLUDED.raw_fantasy_team_id
+					raw_fantasy_team_id = EXCLUDED.raw_fantasy_team_id,
+					is_international_free_agent = EXCLUDED.is_international_free_agent
 				RETURNING id
 			`, 
 				p.ID, name, "", p.ACF.Position, p.ACF.MLBTeam, lID, 
 				p.ACF.Status40Man == "X", isOn26Man, p.ACF.StatusIL, p.ACF.FaStatus,
 				p.ACF.Contract2026, p.ACF.Contract2027, p.ACF.Contract2028, p.ACF.Contract2029, p.ACF.Contract2030,
 				p.ACF.Contract2031, p.ACF.Contract2032, p.ACF.Contract2033, p.ACF.Contract2034, p.ACF.Contract2035,
-				p.ACF.FantasyTeamID,
+				p.ACF.FantasyTeamID, isIFA,
 			).Scan(&playerUUID)
 
 			if err != nil {

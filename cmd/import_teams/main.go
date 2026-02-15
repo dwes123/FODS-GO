@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/db"
@@ -21,10 +22,44 @@ var LeagueMap = map[string]string{
 	"High A": "44444444-4444-4444-4444-444444444444",
 }
 
+var FullNameMap = map[string]string{
+	"ARI": "Arizona Diamondbacks", "ARZ": "Arizona Diamondbacks",
+	"ATL": "Atlanta Braves",
+	"BAL": "Baltimore Orioles",
+	"BOS": "Boston Red Sox",
+	"CHC": "Chicago Cubs", "CHI": "Chicago Cubs",
+	"CWS": "Chicago White Sox", "CHW": "Chicago White Sox",
+	"CIN": "Cincinnati Reds",
+	"CLE": "Cleveland Guardians",
+	"COL": "Colorado Rockies",
+	"DET": "Detroit Tigers",
+	"HOU": "Houston Astros",
+	"KC":  "Kansas City Royals",
+	"LAA": "Los Angeles Angels", "ANA": "Los Angeles Angels",
+	"LAD": "Los Angeles Dodgers",
+	"MIA": "Miami Marlins", "FLO": "Miami Marlins",
+	"MIL": "Milwaukee Brewers",
+	"MIN": "Minnesota Twins",
+	"NYM": "New York Mets",
+	"NYY": "New York Yankees",
+	"OAK": "Oakland Athletics", "ATH": "Oakland Athletics",
+	"PHI": "Philadelphia Phillies",
+	"PIT": "Pittsburgh Pirates",
+	"SD":  "San Diego Padres",
+	"SF":  "San Francisco Giants",
+	"SEA": "Seattle Mariners",
+	"STL": "St. Louis Cardinals",
+	"TB":  "Tampa Bay Rays",
+	"TEX": "Texas Rangers",
+	"TOR": "Toronto Blue Jays",
+	"WSH": "Washington Nationals", "WAS": "Washington Nationals",
+}
+
 // Struct to catch the nested team data
 type ManagedTeam struct {
-	TeamID   string `json:"fantasy_team_id"` // "HOU"
-	LeagueID string `json:"league_id"`       // "MLB"
+	TeamID      string `json:"fantasy_team_id"` // "HOU"
+	LeagueID    string `json:"league_id"`       // "MLB"
+	ISBPBalance any    `json:"isbp_balance"`
 }
 
 type WPUser struct {
@@ -80,24 +115,47 @@ func main() {
 			// Find the UUID for "MLB", "AAA", etc.
 			leagueUUID, exists := LeagueMap[mt.LeagueID]
 			if !exists {
-				// Default to AAA if unknown
 				leagueUUID = LeagueMap["AAA"]
 			}
 
-			// Team Name (e.g., "Houston Astros (MLB)")
-			// We construct a name since "HOU" is too short
-			finalName := fmt.Sprintf("%s (%s)", mt.TeamID, mt.LeagueID)
+			// Determine Name
+			baseName := mt.TeamID
+			if full, ok := FullNameMap[mt.TeamID]; ok {
+				baseName = full
+			}
+			
+			// Only append (League) if it's NOT a full MLB name (optional preference)
+			// For now, let's keep consistent format: "Name (League)"
+			// But for MLB, usually we just want "New York Yankees"
+			finalName := baseName
+			if mt.LeagueID != "MLB" {
+				finalName = fmt.Sprintf("%s (%s)", baseName, mt.LeagueID)
+			} else {
+				// For MLB, we want just the name "New York Yankees", not "New York Yankees (MLB)"
+				finalName = baseName
+			}
 
 			// Generate Slug (e.g., "houston-astros-mlb")
 			slug := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(finalName, " ", "-"), "(", ""))
 			slug = strings.ReplaceAll(slug, ")", "")
 
-			// Insert the Team
+			// Parse ISBP
+			var isbp float64
+			switch v := mt.ISBPBalance.(type) {
+			case float64: isbp = v
+			case string: 
+				clean := strings.ReplaceAll(strings.ReplaceAll(v, "$", ""), ",", "")
+				isbp, _ = strconv.ParseFloat(clean, 64)
+			}
+
+			// Insert/Update the Team
 			_, err := pool.Exec(context.Background(), `
-				INSERT INTO teams (name, slug, owner_name, league_id, wp_id)
-				VALUES ($1, $2, $3, $4, $5)
-				ON CONFLICT (id) DO NOTHING
-			`, finalName, slug, ownerName, leagueUUID, u.ID)
+				INSERT INTO teams (name, slug, owner_name, league_id, wp_id, isbp_balance)
+				VALUES ($1, $2, $3, $4, $5, $6)
+				ON CONFLICT (league_id, slug) DO UPDATE SET 
+					isbp_balance = EXCLUDED.isbp_balance,
+					wp_id = EXCLUDED.wp_id
+			`, finalName, slug, ownerName, leagueUUID, u.ID, isbp)
 
 			if err != nil {
 				fmt.Printf("❌ Error saving %s: %v\n", finalName, err)

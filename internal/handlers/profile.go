@@ -6,7 +6,37 @@ import (
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
+
+// ...
+
+func UpdatePasswordHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		newPassword := c.PostForm("new_password")
+		confirmPassword := c.PostForm("confirm_password")
+
+		if newPassword == "" || newPassword != confirmPassword {
+			c.String(http.StatusBadRequest, "Passwords must match and cannot be empty")
+			return
+		}
+
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to hash password")
+			return
+		}
+
+		err = store.UpdateUserPassword(db, user.ID, string(hashedPassword))
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to update password")
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/profile?success=password_updated")
+	}
+}
 
 func ProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -15,14 +45,14 @@ func ProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		// Get My Teams
 		myTeams, err := store.GetManagedTeams(db, user.ID)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error fetching your teams")
+			c.String(http.StatusInternalServerError, "Error fetching your teams: %v", err)
 			return
 		}
 
 		// Get Available Teams
 		availableTeams, err := store.GetUnassignedTeams(db)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error fetching available teams")
+			c.String(http.StatusInternalServerError, "Error fetching available teams: %v", err)
 			return
 		}
 

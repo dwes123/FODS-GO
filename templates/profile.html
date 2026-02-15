@@ -9,6 +9,23 @@
         <p><strong>Role:</strong> {{.User.Role}}</p>
     </div>
 
+    <h3>Security</h3>
+    <div class="profile-card">
+        <form action="/profile/update-password" method="POST">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>New Password:</label>
+                    <input type="password" name="new_password" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password:</label>
+                    <input type="password" name="confirm_password" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+            </div>
+            <button type="submit" class="button">Update Password</button>
+        </form>
+    </div>
+
     <h3>My Managed Teams</h3>
     {{if .MyTeams}}
         <div class="team-list">

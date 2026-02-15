@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/dwes123/fantasy-baseball-go/internal/db"
 )
 
 type SlackConfigRow struct {
@@ -20,12 +20,10 @@ type SlackConfigRow struct {
 }
 
 func main() {
-	dbUrl := "postgres://admin:password123@localhost:5433/fantasy_db"
-	db, err := pgxpool.New(context.Background(), dbUrl)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+	database := db.InitDB()
+	defer database.Close()
+
+	// ... rest of code using database instead of db ...
 
 	wpUser := "djwes487@gmail.com"
 	wpPass := "ab4H TPEh vyrc 9lOL T91Z Zt5L"
@@ -71,7 +69,7 @@ func main() {
 			continue
 		}
 
-		_, err := db.Exec(context.Background(), `
+		_, err := database.Exec(context.Background(), `
 			INSERT INTO league_integrations (league_id, slack_bot_token, slack_channel_trade_block, slack_channel_transactions)
 			VALUES ($1, $2, $3, $3)
 			ON CONFLICT (league_id) DO UPDATE SET

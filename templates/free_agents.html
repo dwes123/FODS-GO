@@ -22,6 +22,10 @@
         <option value="SP" {{if eq .Pos "SP"}}selected{{end}}>SP</option>
         <option value="RP" {{if eq .Pos "RP"}}selected{{end}}>RP</option>
     </select>
+    <label style="display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+        <input type="checkbox" name="ifa" value="1" {{if .IFA}}checked{{end}}>
+        IFA Only
+    </label>
     <button type="submit" class="button">Search</button>
 </form>
 
