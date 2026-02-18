@@ -72,6 +72,8 @@ func PlayerProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			isOwner, _ = store.IsTeamOwner(db, teamID, user.ID)
 		}
 
+		bidHistory := store.GetPlayerBidHistory(db, id)
+
 		RenderTemplate(c, "player_profile.html", gin.H{
 			"Player":     player,
 			"User":       user,
@@ -80,6 +82,7 @@ func PlayerProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"TeamName":   teamName,
 			"TeamID":     teamID,
 			"IsCommish":  len(adminLeagues) > 0,
+			"BidHistory": bidHistory,
 		})
 	}
 }

@@ -131,6 +131,31 @@
         </div>
     {{end}}
 
+    <!-- BID HISTORY -->
+    {{if .BidHistory}}
+    <div class="bid-history-section">
+        <details>
+            <summary><strong>Bid History ({{len .BidHistory}} bids)</strong></summary>
+            <table class="fantasy-table-base" style="margin-top: 10px;">
+                <thead>
+                    <tr><th>Team</th><th>Bid Points</th><th>Years</th><th>AAV</th><th>Date</th></tr>
+                </thead>
+                <tbody>
+                    {{range .BidHistory}}
+                    <tr>
+                        <td>{{.TeamName}}</td>
+                        <td>{{printf "%.2f" .Amount}}</td>
+                        <td>{{.Years}}</td>
+                        <td>${{formatMoney .AAV}}</td>
+                        <td>{{.BidDate}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </details>
+    </div>
+    {{end}}
+
     <!-- ROSTER MOVES LOG -->
     {{if .Player.RosterMovesLog}}
     <div class="moves-log-section">

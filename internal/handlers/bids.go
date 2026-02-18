@@ -114,6 +114,9 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		// Append to bid_history JSONB
+		store.AppendBidHistory(db, playerID, teamID, bidPoints, years, aav)
+
 		// --- SLACK NOTIFICATION ---
 		// msg := fmt.Sprintf("⚾ *New Bid!* %s has bid %.2f points on *%s* (%d years @ $%s AAV). Auction ends in 24 hours.", 
 		// 	teamName, bidPoints, playerName, years, strconv.FormatFloat(aav, 'f', 0, 64))

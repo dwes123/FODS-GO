@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -91,4 +92,53 @@ func GetBidHistory(db *pgxpool.Pool, leagueID, teamID string) ([]BidRecord, erro
 	}
 
 	return records, nil
+}
+
+// AppendBidHistory appends a bid entry to a player's bid_history JSONB column.
+func AppendBidHistory(db *pgxpool.Pool, playerID, teamID string, bidPoints float64, years int, aav float64) {
+	entry := bidHistoryEntry{
+		TeamID:    teamID,
+		Amount:    bidPoints,
+		Years:     years,
+		AAV:       aav,
+		Timestamp: time.Now().Format("2006-01-02T15:04:05"),
+	}
+	entryJSON, err := json.Marshal([]bidHistoryEntry{entry})
+	if err != nil {
+		return
+	}
+	db.Exec(context.Background(),
+		`UPDATE players SET bid_history = COALESCE(bid_history, '[]'::jsonb) || $1::jsonb WHERE id = $2`,
+		entryJSON, playerID)
+}
+
+// GetPlayerBidHistory returns the bid history for a single player, with team names resolved.
+func GetPlayerBidHistory(db *pgxpool.Pool, playerID string) []BidRecord {
+	ctx := context.Background()
+	var historyRaw []byte
+	err := db.QueryRow(ctx, `SELECT COALESCE(bid_history, '[]'::jsonb) FROM players WHERE id = $1`, playerID).Scan(&historyRaw)
+	if err != nil {
+		return nil
+	}
+
+	var entries []bidHistoryEntry
+	if err := json.Unmarshal(historyRaw, &entries); err != nil {
+		return nil
+	}
+
+	var records []BidRecord
+	for _, e := range entries {
+		var tName string
+		db.QueryRow(ctx, "SELECT name FROM teams WHERE id = $1", e.TeamID).Scan(&tName)
+		records = append(records, BidRecord{
+			PlayerID: playerID,
+			TeamID:   e.TeamID,
+			TeamName: tName,
+			Amount:   e.Amount,
+			Years:    e.Years,
+			AAV:      e.AAV,
+			BidDate:  e.Timestamp,
+		})
+	}
+	return records
 }
