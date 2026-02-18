@@ -12,6 +12,7 @@ The platform manages dynasty fantasy baseball leagues (MLB, AAA, AA, High-A) wit
 - **Hosting:** DigitalOcean Droplet, Ubuntu 24.04
 - **Stack:** Go 1.24, PostgreSQL 15, Caddy (reverse proxy/SSL), Docker Compose
 - **Git Backup:** https://github.com/dwes123/FODS-GO.git
+- **DB Backups:** https://github.com/dwes123/fods-db-backup (private, daily at 4 AM UTC)
 - **DB container:** `fantasy_postgres` — DB: `fantasy_db`, User: `admin`, Password: `password123`
 
 ## Build & Deploy Commands
@@ -32,7 +33,21 @@ ssh root@178.128.178.100 "cd /root/app && docker compose -f docker-compose.prod.
 
 # Access production DB
 ssh root@178.128.178.100 "docker exec -it fantasy_postgres psql -U admin -d fantasy_db"
+
+# Restore DB from backup
+scp root@178.128.178.100:/root/backups/fantasy_db_YYYY-MM-DD.sql.gz .
+gunzip fantasy_db_YYYY-MM-DD.sql.gz
+ssh root@178.128.178.100 "docker exec -i fantasy_postgres psql -U admin -d fantasy_db" < fantasy_db_YYYY-MM-DD.sql
 ```
+
+## Backups
+
+- **Script:** `scripts/backup-db.sh` — installed at `/root/app/scripts/backup-db.sh` on server
+- **Schedule:** Daily at 4 AM UTC via cron (`/var/log/fods-backup.log`)
+- **Local retention:** `/root/backups/` — 30 days of dailies, monthly backups (1st of month) kept forever
+- **Offsite:** Pushed to private repo `dwes123/fods-db-backup` via SSH deploy key
+- **Size:** ~2 MB per compressed dump
+- **Deploy key:** ED25519 key at `/root/.ssh/id_ed25519` on server, added to GitHub repo as write-access deploy key
 
 ## Architecture
 
