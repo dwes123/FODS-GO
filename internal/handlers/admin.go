@@ -66,9 +66,11 @@ func AdminPlayerEditorHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		playerID := c.Query("player_id")
 		searchQuery := c.Query("q")
 		var player *store.RosterPlayer
+		var bidInfo store.PlayerBidInfo
 		searchResults := []store.RosterPlayer{}
 		if playerID != "" {
 			player, _ = store.GetPlayerByID(db, playerID)
+			bidInfo = store.GetPlayerBidInfo(db, playerID)
 		} else if searchQuery != "" {
 			searchResults, _ = store.SearchAllPlayers(db, searchQuery)
 		}
@@ -76,6 +78,7 @@ func AdminPlayerEditorHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		RenderTemplate(c, "admin_player_editor.html", gin.H{
 			"User":          user,
 			"Player":        player,
+			"BidInfo":       bidInfo,
 			"SearchResults": searchResults,
 			"SearchQuery":   searchQuery,
 			"Leagues":       leagues,
@@ -92,6 +95,9 @@ func AdminSavePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			contracts[ys] = c.PostForm("contract_" + ys)
 		}
 		optYears, _ := strconv.Atoi(c.PostForm("option_years"))
+		bidAmt, _ := strconv.ParseFloat(c.PostForm("pending_bid_amount"), 64)
+		bidYrs, _ := strconv.Atoi(c.PostForm("pending_bid_years"))
+		bidAAV, _ := strconv.ParseFloat(c.PostForm("pending_bid_aav"), 64)
 		update := store.PlayerAdminUpdate{
 			ID:          c.PostForm("player_id"),
 			FirstName:   c.PostForm("first_name"),
@@ -105,6 +111,12 @@ func AdminSavePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			StatusIL:    c.PostForm("status_il"),
 			OptionYears: optYears,
 			Contracts:   contracts,
+			FaStatus:       c.PostForm("fa_status"),
+			PendingBidAmt:  bidAmt,
+			PendingBidYrs:  bidYrs,
+			PendingBidAAV:  bidAAV,
+			PendingBidTeam: c.PostForm("pending_bid_team_id"),
+			BidType:        c.PostForm("bid_type"),
 		}
 		var err error
 		if update.ID == "" {

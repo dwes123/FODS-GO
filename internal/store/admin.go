@@ -20,6 +20,38 @@ type PlayerAdminUpdate struct {
 	StatusIL    string `json:"status_il"`
 	OptionYears int    `json:"option_years_used"`
 	Contracts   map[string]string `json:"contracts"`
+	// Bid & FA fields (commissioner adjustment)
+	FaStatus       string  `json:"fa_status"`
+	PendingBidAmt  float64 `json:"pending_bid_amount"`
+	PendingBidYrs  int     `json:"pending_bid_years"`
+	PendingBidAAV  float64 `json:"pending_bid_aav"`
+	PendingBidTeam string  `json:"pending_bid_team_id"`
+	BidType        string  `json:"bid_type"`
+}
+
+// PlayerBidInfo holds bid/FA fields for the admin player editor.
+type PlayerBidInfo struct {
+	FaStatus       string  `json:"fa_status"`
+	PendingBidAmt  float64 `json:"pending_bid_amount"`
+	PendingBidYrs  int     `json:"pending_bid_years"`
+	PendingBidAAV  float64 `json:"pending_bid_aav"`
+	PendingBidTeam string  `json:"pending_bid_team_id"`
+	BidType        string  `json:"bid_type"`
+}
+
+func GetPlayerBidInfo(db *pgxpool.Pool, playerID string) PlayerBidInfo {
+	var info PlayerBidInfo
+	var bidTeam *string
+	db.QueryRow(context.Background(), `
+		SELECT COALESCE(fa_status, ''), COALESCE(pending_bid_amount, 0),
+		       COALESCE(pending_bid_years, 0), COALESCE(pending_bid_aav, 0),
+		       pending_bid_team_id, COALESCE(bid_type, '')
+		FROM players WHERE id = $1
+	`, playerID).Scan(&info.FaStatus, &info.PendingBidAmt, &info.PendingBidYrs, &info.PendingBidAAV, &bidTeam, &info.BidType)
+	if bidTeam != nil {
+		info.PendingBidTeam = *bidTeam
+	}
+	return info
 }
 
 type DeadCapEntry struct {
@@ -40,21 +72,39 @@ func AdminUpdatePlayer(db *pgxpool.Pool, u PlayerAdminUpdate) error {
 	var teamID *string
 	if u.TeamID != "" { teamID = &u.TeamID }
 
+	// Determine fa_status: use explicit value if provided, otherwise auto-calculate
+	faStatus := u.FaStatus
+	if faStatus == "" {
+		if teamID == nil {
+			faStatus = "available"
+		} else {
+			faStatus = "rostered"
+		}
+	}
+
+	// Bid team ID — nullable
+	var bidTeamID *string
+	if u.PendingBidTeam != "" { bidTeamID = &u.PendingBidTeam }
+
 	_, err = tx.Exec(ctx, `
-		UPDATE players SET 
+		UPDATE players SET
 			first_name = $1, last_name = $2, position = $3, mlb_team = $4,
 			team_id = $5, league_id = $6,
 			status_40_man = $7, status_26_man = $8, status_il = $9, option_years_used = $10,
 			contract_2026 = $11, contract_2027 = $12, contract_2028 = $13, contract_2029 = $14, contract_2030 = $15,
 			contract_2031 = $16, contract_2032 = $17, contract_2033 = $18, contract_2034 = $19, contract_2035 = $20,
 			contract_2036 = $21, contract_2037 = $22, contract_2038 = $23, contract_2039 = $24, contract_2040 = $25,
-			fa_status = CASE WHEN $5::uuid IS NULL THEN 'available' ELSE 'rostered' END
-		WHERE id = $26
+			fa_status = $26,
+			pending_bid_amount = $27, pending_bid_years = $28, pending_bid_aav = $29,
+			pending_bid_team_id = $30, bid_type = $31
+		WHERE id = $32
 	`, u.FirstName, u.LastName, u.Position, u.MLBTeam, teamID, u.LeagueID,
 		u.Status40Man, u.Status26Man, u.StatusIL, u.OptionYears,
 		u.Contracts["2026"], u.Contracts["2027"], u.Contracts["2028"], u.Contracts["2029"], u.Contracts["2030"],
 		u.Contracts["2031"], u.Contracts["2032"], u.Contracts["2033"], u.Contracts["2034"], u.Contracts["2035"],
 		u.Contracts["2036"], u.Contracts["2037"], u.Contracts["2038"], u.Contracts["2039"], u.Contracts["2040"],
+		faStatus,
+		u.PendingBidAmt, u.PendingBidYrs, u.PendingBidAAV, bidTeamID, u.BidType,
 		u.ID)
 	if err != nil { return err }
 	return tx.Commit(ctx)
