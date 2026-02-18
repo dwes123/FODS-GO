@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
@@ -19,7 +20,12 @@ func AuthMiddleware(db *pgxpool.Pool) gin.HandlerFunc {
 
 		user, err := store.GetUserBySessionToken(db, token)
 		if err != nil || user == nil {
-			c.SetCookie("session_token", "", -1, "/", "", false, true)
+			secure := os.Getenv("GIN_MODE") == "release"
+			domain := ""
+			if secure {
+				domain = "frontofficedynastysports.com"
+			}
+			c.SetCookie("session_token", "", -1, "/", domain, secure, true)
 			c.Redirect(http.StatusFound, "/login")
 			c.Abort()
 			return

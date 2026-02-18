@@ -52,8 +52,8 @@ func GetUserByEmail(db *pgxpool.Pool, email string) (*User, error) {
 func GetUserByEmailOrUsername(db *pgxpool.Pool, identifier string) (*User, error) {
 	var u User
 	err := db.QueryRow(context.Background(),
-		`SELECT id, username, email, password_hash, role, created_at FROM users 
-		 WHERE email = $1 OR username = $1`,
+		`SELECT id, username, email, password_hash, role, created_at FROM users
+		 WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)`,
 		identifier).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt)
 	if err != nil {
 		return nil, err

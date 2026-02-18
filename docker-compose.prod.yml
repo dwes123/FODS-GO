@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: fantasy_db
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
 
@@ -18,10 +18,17 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@db:5432/fantasy_db
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@db:5432/fantasy_db?sslmode=disable
       GIN_MODE: release
+      CORS_ORIGIN: https://frontofficedynastysports.com
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SLACK_WEBHOOK: ${SLACK_WEBHOOK:-}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
 
   caddy:
     image: caddy:2-alpine

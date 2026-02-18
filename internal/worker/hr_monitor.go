@@ -24,7 +24,10 @@ func StartHRMonitor(db *pgxpool.Pool) {
 		ticker := time.NewTicker(30 * time.Second)
 		for range ticker.C {
 			now := time.Now()
-			loc, _ := time.LoadLocation("America/New_York")
+			loc, err := time.LoadLocation("America/New_York")
+			if err != nil {
+				loc = time.FixedZone("EST", -5*60*60)
+			}
 			et := now.In(loc)
 
 			// Only run April-October, 1 PM - midnight ET

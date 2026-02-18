@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -16,6 +17,19 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
+
+func isProduction() bool {
+	return os.Getenv("GIN_MODE") == "release"
+}
+
+func setSessionCookie(c *gin.Context, token string, maxAge int) {
+	secure := isProduction()
+	domain := ""
+	if secure {
+		domain = "frontofficedynastysports.com"
+	}
+	c.SetCookie("session_token", token, maxAge, "/", domain, secure, true)
+}
 
 func RegisterPageHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -81,14 +95,14 @@ func LoginHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		c.SetCookie("session_token", token, 3600*24, "/", "", false, true)
+		setSessionCookie(c, token, 3600*24)
 		c.Redirect(http.StatusFound, "/home")
 	}
 }
 
 func LogoutHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.SetCookie("session_token", "", -1, "/", "", false, true)
+		setSessionCookie(c, "", -1)
 		c.Redirect(http.StatusFound, "/login")
 	}
 }

@@ -33,8 +33,7 @@ func main() {
 	}
 
 	rowsAffected := result.RowsAffected()
-	fmt.Printf("✅ Successfully linked %d teams to their owners!
-", rowsAffected)
+	fmt.Printf("Successfully linked %d teams to their owners!\n", rowsAffected)
 
 	// Final check: List remaining unassigned teams
 	var remaining int
@@ -44,8 +43,7 @@ func main() {
 	`).Scan(&remaining)
 
 	if remaining > 0 {
-		fmt.Printf("⚠️  Note: %d teams remain unassigned (no matching username found).
-", remaining)
+		fmt.Printf("Note: %d teams remain unassigned (no matching username found).\n", remaining)
 	} else {
 		fmt.Println("🏆 All teams have been successfully linked!")
 	}

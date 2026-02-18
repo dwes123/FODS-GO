@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/db"
@@ -31,8 +32,12 @@ func main() {
 	r := gin.Default()
 
 	// 3. CORS Configuration
+	corsOrigin := os.Getenv("CORS_ORIGIN")
+	if corsOrigin == "" {
+		corsOrigin = "https://frontofficedynastysports.com"
+	}
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     []string{corsOrigin},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -51,9 +56,9 @@ func main() {
 			c.Redirect(http.StatusMovedPermanently, "/home")
 		})
 		public.GET("/login", handlers.LoginPageHandler())
-		public.POST("/login", handlers.LoginHandler(database))
+		public.POST("/login", middleware.RateLimit(10, time.Minute), handlers.LoginHandler(database))
 		public.GET("/register", handlers.RegisterPageHandler())
-		public.POST("/register", handlers.RegisterHandler(database))
+		public.POST("/register", middleware.RateLimit(5, time.Minute), handlers.RegisterHandler(database))
 		public.GET("/logout", handlers.LogoutHandler(database))
 	}
 
