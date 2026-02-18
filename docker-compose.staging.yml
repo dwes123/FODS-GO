@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: fantasy_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: fantasy_db
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://admin:password123@db:5432/fantasy_db?sslmode=disable
+      GIN_MODE: debug
+      CORS_ORIGIN: http://178.128.178.100:8080
+    ports:
+      - "0.0.0.0:8080:8080"
+
+volumes:
+  db_data:
