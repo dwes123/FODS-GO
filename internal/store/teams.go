@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -32,6 +33,8 @@ type RosterPlayer struct {
 	Contracts      map[int]string    `json:"contracts"`
 	Rule5Year      int               `json:"rule_5_eligibility_year"`
 	RosterMovesLog []RosterMoveEntry `json:"roster_moves_log"`
+	OnTradeBlock       bool              `json:"on_trade_block"`
+	ContractOptionYears map[int]bool     `json:"contract_option_years"`
 }
 
 type SalaryYearSummary struct {
@@ -90,7 +93,8 @@ func GetTeamWithRoster(db *pgxpool.Pool, teamID string) (*TeamDetail, error) {
 	query := `
 		SELECT id, first_name, last_name, position, mlb_team,
 		       status_40_man, status_26_man, COALESCE(status_il, ''), option_years_used,
-		       COALESCE(rule_5_eligibility_year, 0),
+		       COALESCE(rule_5_eligibility_year, 0), COALESCE(on_trade_block, FALSE),
+		       COALESCE(contract_option_years, '[]'::jsonb),
 		       COALESCE(contract_2026, ''), COALESCE(contract_2027, ''), COALESCE(contract_2028, ''),
 		       COALESCE(contract_2029, ''), COALESCE(contract_2030, ''), COALESCE(contract_2031, ''),
 		       COALESCE(contract_2032, ''), COALESCE(contract_2033, ''), COALESCE(contract_2034, ''),
@@ -107,12 +111,14 @@ func GetTeamWithRoster(db *pgxpool.Pool, teamID string) (*TeamDetail, error) {
 		for rows.Next() {
 			var p RosterPlayer
 			p.Contracts = make(map[int]string)
+			p.ContractOptionYears = make(map[int]bool)
 			contracts := make([]string, 15)
+			var optionYearsRaw []byte
 
 			dest := []interface{}{
 				&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam,
 				&p.Status40Man, &p.Status26Man, &p.StatusIL, &p.OptionYears,
-				&p.Rule5Year,
+				&p.Rule5Year, &p.OnTradeBlock, &optionYearsRaw,
 			}
 			for i := range contracts {
 				dest = append(dest, &contracts[i])
@@ -120,6 +126,15 @@ func GetTeamWithRoster(db *pgxpool.Pool, teamID string) (*TeamDetail, error) {
 
 			if err := rows.Scan(dest...); err != nil {
 				continue
+			}
+
+			// Parse contract_option_years JSONB array [2027, 2028] into map
+			var optYears []int
+			if len(optionYearsRaw) > 0 {
+				json.Unmarshal(optionYearsRaw, &optYears)
+			}
+			for _, y := range optYears {
+				p.ContractOptionYears[y] = true
 			}
 
 			for i, year := range team.Years {
@@ -262,11 +277,29 @@ func ClaimTeam(db *pgxpool.Pool, teamID, userID, username string) error {
 
 func GetTeamRosterCounts(db *pgxpool.Pool, teamID string) (count26 int, count40 int, err error) {
 	err = db.QueryRow(context.Background(), `
-		SELECT 
+		SELECT
 			COUNT(*) FILTER (WHERE status_26_man = TRUE),
 			COUNT(*) FILTER (WHERE status_40_man = TRUE)
-		FROM players 
+		FROM players
 		WHERE team_id = $1
 	`, teamID).Scan(&count26, &count40)
 	return
+}
+
+// GetTeam26ManSPCount returns the number of SP on the 26-man roster.
+func GetTeam26ManSPCount(db *pgxpool.Pool, teamID string) (int, error) {
+	var count int
+	err := db.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM players
+		WHERE team_id = $1 AND status_26_man = TRUE AND position = 'SP'
+	`, teamID).Scan(&count)
+	return count, err
+}
+
+// GetTeamLeagueID returns the league_id for a team.
+func GetTeamLeagueID(db *pgxpool.Pool, teamID string) (string, error) {
+	var leagueID string
+	err := db.QueryRow(context.Background(),
+		`SELECT league_id FROM teams WHERE id = $1`, teamID).Scan(&leagueID)
+	return leagueID, err
 }

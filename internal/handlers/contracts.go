@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
@@ -48,9 +49,17 @@ func ProcessOptionDecisionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		player, _ := store.GetPlayerByID(db, playerID)
 		isOwner, _ := store.IsTeamOwner(db, player.TeamID, user.ID)
-		
+
 		if !isOwner && user.Role != "admin" {
 			c.String(http.StatusForbidden, "Unauthorized")
+			return
+		}
+
+		// Team option deadline enforcement
+		now := time.Now()
+		deadline, deadlineErr := store.GetLeagueDateValue(db, player.LeagueID, now.Year(), "option_deadline")
+		if deadlineErr == nil && now.After(deadline) {
+			c.String(http.StatusForbidden, "The team option deadline has passed (%s). Option decisions are no longer accepted.", deadline.Format("January 2, 2006"))
 			return
 		}
 
@@ -71,8 +80,16 @@ func SubmitExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		details := c.PostForm("details")
 
 		player, _ := store.GetPlayerByID(db, playerID)
-		
-		err := store.CreatePendingAction(db, player.LeagueID, player.TeamID, "EXTENSION", 
+
+		// Extension deadline enforcement
+		now := time.Now()
+		deadline, err := store.GetLeagueDateValue(db, player.LeagueID, now.Year(), "extension_deadline")
+		if err == nil && now.After(deadline) {
+			c.String(http.StatusForbidden, "The extension deadline has passed (%s). Extensions are no longer accepted.", deadline.Format("January 2, 2006"))
+			return
+		}
+
+		err = store.CreatePendingAction(db, player.LeagueID, player.TeamID, "EXTENSION", 
 			fmt.Sprintf("Extension request for %s %s: %s", player.FirstName, player.LastName, details))
 		
 		if err != nil {

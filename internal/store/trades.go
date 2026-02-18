@@ -63,6 +63,23 @@ func IsTradeWindowOpen(db *pgxpool.Pool, leagueID string) (bool, string) {
 
 func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offeredPlayers, requestedPlayers []string, isbpOffered, isbpRequested int) error {
 	ctx := context.Background()
+
+	// ISBP balance validation at proposal time
+	if isbpOffered > 0 {
+		var balance int
+		db.QueryRow(ctx, `SELECT COALESCE(isbp_balance, 0) FROM teams WHERE id = $1`, proposerID).Scan(&balance)
+		if isbpOffered > balance {
+			return fmt.Errorf("insufficient ISBP balance: you have %d but are offering %d", balance, isbpOffered)
+		}
+	}
+	if isbpRequested > 0 {
+		var balance int
+		db.QueryRow(ctx, `SELECT COALESCE(isbp_balance, 0) FROM teams WHERE id = $1`, receiverID).Scan(&balance)
+		if isbpRequested > balance {
+			return fmt.Errorf("insufficient ISBP balance: the other team has %d but you are requesting %d", balance, isbpRequested)
+		}
+	}
+
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err
@@ -179,6 +196,22 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 	err = tx.QueryRow(ctx, `SELECT COUNT(*) > 0 FROM teams WHERE id = $1 AND user_id = $2`, receiverID, acceptorUserID).Scan(&isOwner)
 	if err != nil || !isOwner {
 		return fmt.Errorf("unauthorized to accept this trade")
+	}
+
+	// 2b. ISBP balance validation at acceptance time
+	if isbpOffered > 0 {
+		var balance int
+		tx.QueryRow(ctx, `SELECT COALESCE(isbp_balance, 0) FROM teams WHERE id = $1`, proposerID).Scan(&balance)
+		if isbpOffered > balance {
+			return fmt.Errorf("proposing team has insufficient ISBP balance (%d available, %d required)", balance, isbpOffered)
+		}
+	}
+	if isbpRequested > 0 {
+		var balance int
+		tx.QueryRow(ctx, `SELECT COALESCE(isbp_balance, 0) FROM teams WHERE id = $1`, receiverID).Scan(&balance)
+		if isbpRequested > balance {
+			return fmt.Errorf("receiving team has insufficient ISBP balance (%d available, %d required)", balance, isbpRequested)
+		}
 	}
 
 	// 3. Process Players (Ownership Transfer & Retention)

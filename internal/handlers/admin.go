@@ -243,11 +243,21 @@ func AdminSettingsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			dateMap[key] = d.EventDate
 		}
 
+		// Build league settings map: "leagueID_field" -> value
+		settingsMap := make(map[string]int)
+		for _, l := range leagues {
+			s := store.GetLeagueSettings(db, l.ID, year)
+			settingsMap[l.ID+"_roster_26_man_limit"] = s.Roster26ManLimit
+			settingsMap[l.ID+"_roster_40_man_limit"] = s.Roster40ManLimit
+			settingsMap[l.ID+"_sp_26_man_limit"] = s.SP26ManLimit
+		}
+
 		RenderTemplate(c, "admin_settings.html", gin.H{
 			"User":        user,
 			"Leagues":     leagues,
 			"Year":        year,
 			"DateMap":     dateMap,
+			"SettingsMap": settingsMap,
 			"SaveSuccess": c.Query("saved") == "1",
 			"IsCommish":   true,
 		})
@@ -266,16 +276,30 @@ func AdminSaveSettingsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		year, _ := strconv.Atoi(c.PostForm("year"))
 		leagues, _ := store.GetLeaguesWithTeams(db)
 
-		for _, l := range leagues {
-			tradeDeadline := c.PostForm("trade_deadline_" + l.ID)
-			openingDay := c.PostForm("opening_day_" + l.ID)
+		dateTypes := []string{
+			"trade_deadline", "opening_day", "extension_deadline",
+			"ifa_window_open", "ifa_window_close",
+			"milb_fa_window_open", "milb_fa_window_close",
+			"option_deadline",
+			"roster_expansion_start", "roster_expansion_end",
+		}
 
-			if tradeDeadline != "" {
-				store.UpsertLeagueDate(db, l.ID, year, "trade_deadline", tradeDeadline)
+		for _, l := range leagues {
+			for _, dt := range dateTypes {
+				val := c.PostForm(dt + "_" + l.ID)
+				if val != "" {
+					store.UpsertLeagueDate(db, l.ID, year, dt, val)
+				}
 			}
-			if openingDay != "" {
-				store.UpsertLeagueDate(db, l.ID, year, "opening_day", openingDay)
-			}
+
+			// Save numeric roster settings
+			limit26, _ := strconv.Atoi(c.PostForm("roster_26_man_limit_" + l.ID))
+			limit40, _ := strconv.Atoi(c.PostForm("roster_40_man_limit_" + l.ID))
+			spLimit, _ := strconv.Atoi(c.PostForm("sp_26_man_limit_" + l.ID))
+			if limit26 == 0 { limit26 = 26 }
+			if limit40 == 0 { limit40 = 40 }
+			if spLimit == 0 { spLimit = 6 }
+			store.UpsertLeagueSettings(db, l.ID, year, limit26, limit40, spLimit)
 		}
 
 		c.Redirect(http.StatusFound, fmt.Sprintf("/admin/settings?year=%d&saved=1", year))

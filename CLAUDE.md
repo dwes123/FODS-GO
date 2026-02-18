@@ -43,16 +43,18 @@ internal/
     admin.go             — Commissioner dashboard, player editor, dead cap, approvals, settings
     admin_tools.go       — Trade reversal, Fantrax toggle, FOD IDs, bid export, trade review
     auth.go              — Login, register (approval queue), logout, RenderTemplate
-    bids.go              — Bid submission, bid history page
-    moves.go             — Roster moves (40-man, 26-man, option, IL, DFA, trade block)
+    bids.go              — Bid submission (year cap, min bid, IFA/MiLB window checks), bid history page
+    contracts.go         — Team options (deadline enforced), extensions (deadline enforced), restructures
+    moves.go             — Roster moves (dynamic limits, SP limit, 40-man, 26-man, option, IL, DFA, trade block)
     players.go           — Player profile, free agents, trade block page
     roster.go            — Roster page, depth chart save
     trades.go            — Trade center, new trade, submit, accept
   store/                 — Data access layer (raw SQL via pgx)
     bids.go              — GetBidHistory (shared by bid history page + CSV export)
-    leagues.go           — League/team queries, league dates (settings)
+    leagues.go           — League/team queries, league dates, league settings, date window helpers
     players.go           — Player queries, AppendRosterMove, GetTradeBlockPlayers
-    trades.go            — CreateTradeProposal, AcceptTrade, ReverseTrade, IsTradeWindowOpen
+    teams.go             — Team roster queries, roster counts, SP count, salary summaries
+    trades.go            — CreateTradeProposal (ISBP validation), AcceptTrade (ISBP validation), ReverseTrade, IsTradeWindowOpen
     users.go             — User CRUD, sessions, registration requests, GetTeamOwnerEmails
   middleware/auth.go     — Session-based auth middleware
   worker/
@@ -105,17 +107,24 @@ migrations/              — Numbered SQL migration files
 - **Contract columns:** `contract_2026` through `contract_2040` (TEXT — supports "$1000000", "TC", "ARB", "UFA")
 - **Player status fields:** `status_40_man` (BOOL), `status_26_man` (BOOL), `status_il` (TEXT), `fa_status` (TEXT)
 - **JSONB columns on players:** `bid_history`, `roster_moves_log`, `contract_option_years`
+- **league_settings columns:** `luxury_tax_limit`, `roster_26_man_limit` (default 26), `roster_40_man_limit` (default 40), `sp_26_man_limit` (default 6)
+- **league_dates date_type values:** `trade_deadline`, `opening_day`, `extension_deadline`, `option_deadline`, `ifa_window_open`, `ifa_window_close`, `milb_fa_window_open`, `milb_fa_window_close`, `roster_expansion_start`, `roster_expansion_end`
 
 ## Key Business Logic
 
 - **Bid multipliers:** 1yr=2.0, 2yr=1.8, 3yr=1.6, 4yr=1.4, 5yr=1.2
 - **Bid points:** `(years × AAV × multiplier) / 1,000,000`
+- **Bid validation:** Contract length 1-5 years only, minimum $1M AAV, minimum 1.0 bid point
 - **Extension pricing (WAR-based):** Base rates SP=3.3755, RP=5.0131, Hitter=2.8354; decay factors per year
 - **Trade retention:** 50% salary retained by sending team
+- **ISBP validation:** Balance checked at both proposal and acceptance time; cannot go negative
 - **DFA dead cap:** 75% current year, 50% future years
 - **Team option buyout:** 30% of option salary
 - **Offseason:** Oct 15 – Mar 15 (trades always allowed)
 - **Waiver period:** 48 hours from DFA
+- **Roster limits:** Configurable per league/year via `league_settings` (default 26/40); SP limit on 26-man (default 6)
+- **Roster expansion:** Optional date window in `league_dates` (`roster_expansion_start`/`roster_expansion_end`)
+- **Deadline enforcement:** Extension deadline, team option deadline, IFA window, MiLB FA window — all configurable per league/year via `league_dates`
 
 ## Feature Implementation Status
 
@@ -141,8 +150,22 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 16. **Email Notifications** — SMTP via env vars (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`); trade proposals email receiving team
 17. **Slack HR Monitor** — Polls MLB Stats API every 30s during game hours (Apr-Oct, 1PM-midnight ET); posts to Slack on rostered player HRs
 
-### Migration Required
-Run `migrations/013_feature_batch.sql` against the database before deploying. Adds: `transactions.fantrax_processed`, `players.fod_id`, `registration_requests` table, `league_dates` table, `system_counters` table.
+### Business Rules Enforcement (all implemented)
+1. **Roster Expansion** — Configurable 26/40-man limits per league/year via `league_settings`; optional expansion window via `league_dates`
+2. **ISBP Balance Validation** — Checked at trade proposal and acceptance; prevents negative balances
+3. **Contract Year Cap** — FA bids limited to 1-5 years (server-side enforcement)
+4. **Bid Minimum** — Requires $1M AAV minimum and 1.0 bid point minimum
+5. **Extension Deadline** — Configurable per league via `league_dates`; blocks submissions after deadline
+6. **IFA Signing Window** — Configurable open/close dates; blocks IFA bids outside window
+7. **MiLB FA Window** — Configurable open/close dates; blocks MiLB FA bids outside window
+8. **SP Limit on 26-Man** — Configurable per league (default 6); blocks SP promotions when at limit
+9. **Team Option Deadline** — Configurable per league; blocks option decisions after deadline
+10. **Option Years Highlighting** — Roster page highlights contract cells for team option years (orange accent)
+11. **Admin Settings Expansion** — Settings page now includes all deadline/window date pickers and roster limit inputs per league
+
+### Migrations Required
+- `migrations/013_feature_batch.sql` — Adds: `transactions.fantrax_processed`, `players.fod_id`, `registration_requests` table, `league_dates` table, `system_counters` table
+- `migrations/014_business_rules.sql` — Adds: `roster_26_man_limit`, `roster_40_man_limit`, `sp_26_man_limit` columns to `league_settings`
 
 ### Not Implemented (deferred)
 - Draft Room (Feature 2) — complex real-time feature, deferred
@@ -155,7 +178,6 @@ Run `migrations/013_feature_batch.sql` against the database before deploying. Ad
 - CORS is hardcoded to `localhost:3000` in main.go — needs production domain before Go site goes live
 - Many `cmd/` utilities (`sync_players`, `import_teams`, etc.) reference the old WordPress API and may not work after PHP site is retired
 - 60+ one-off SQL scripts in project root are migration artifacts — not part of the app
-- `migrations/013_feature_batch.sql` must be run before deploying feature batch code
 - Workers run in-process — if the server restarts, bid/waiver timers reset (no persistent job queue)
 - Seasonal worker uses `system_counters` to prevent duplicate runs across restarts
 - HR monitor requires `players.mlb_id` to be populated for cross-referencing with MLB Stats API

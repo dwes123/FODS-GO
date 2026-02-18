@@ -3,7 +3,7 @@
 {{define "content"}}
 <div class="content-container">
     <h2>League Settings</h2>
-    <p>Configure trade deadlines, opening day, and financial settings per league.</p>
+    <p>Configure deadlines, signing windows, roster limits, and financial settings per league.</p>
 
     {{if .SaveSuccess}}
     <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px;">
@@ -26,14 +26,72 @@
         {{range .Leagues}}
         <div style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h3 style="margin-top: 0;">{{.Name}}</h3>
+
+            <h4 style="margin-bottom: 10px; color: var(--fod-blue-primary);">Key Dates</h4>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>Opening Day:</label>
+                    <input type="date" name="opening_day_{{.ID}}" value="{{index $.DateMap (printf "%s_opening_day" .ID)}}">
+                </div>
                 <div class="form-group">
                     <label>Trade Deadline:</label>
                     <input type="date" name="trade_deadline_{{.ID}}" value="{{index $.DateMap (printf "%s_trade_deadline" .ID)}}">
                 </div>
                 <div class="form-group">
-                    <label>Opening Day:</label>
-                    <input type="date" name="opening_day_{{.ID}}" value="{{index $.DateMap (printf "%s_opening_day" .ID)}}">
+                    <label>Extension Deadline:</label>
+                    <input type="date" name="extension_deadline_{{.ID}}" value="{{index $.DateMap (printf "%s_extension_deadline" .ID)}}">
+                </div>
+                <div class="form-group">
+                    <label>Team Option Deadline:</label>
+                    <input type="date" name="option_deadline_{{.ID}}" value="{{index $.DateMap (printf "%s_option_deadline" .ID)}}">
+                </div>
+            </div>
+
+            <h4 style="margin-bottom: 10px; margin-top: 20px; color: var(--fod-blue-primary);">Signing Windows</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>IFA Window Open:</label>
+                    <input type="date" name="ifa_window_open_{{.ID}}" value="{{index $.DateMap (printf "%s_ifa_window_open" .ID)}}">
+                </div>
+                <div class="form-group">
+                    <label>IFA Window Close:</label>
+                    <input type="date" name="ifa_window_close_{{.ID}}" value="{{index $.DateMap (printf "%s_ifa_window_close" .ID)}}">
+                </div>
+                <div class="form-group">
+                    <label>MiLB FA Window Open:</label>
+                    <input type="date" name="milb_fa_window_open_{{.ID}}" value="{{index $.DateMap (printf "%s_milb_fa_window_open" .ID)}}">
+                </div>
+                <div class="form-group">
+                    <label>MiLB FA Window Close:</label>
+                    <input type="date" name="milb_fa_window_close_{{.ID}}" value="{{index $.DateMap (printf "%s_milb_fa_window_close" .ID)}}">
+                </div>
+            </div>
+
+            <h4 style="margin-bottom: 10px; margin-top: 20px; color: var(--fod-blue-primary);">Roster Expansion</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>Expansion Start:</label>
+                    <input type="date" name="roster_expansion_start_{{.ID}}" value="{{index $.DateMap (printf "%s_roster_expansion_start" .ID)}}">
+                </div>
+                <div class="form-group">
+                    <label>Expansion End:</label>
+                    <input type="date" name="roster_expansion_end_{{.ID}}" value="{{index $.DateMap (printf "%s_roster_expansion_end" .ID)}}">
+                </div>
+            </div>
+
+            <h4 style="margin-bottom: 10px; margin-top: 20px; color: var(--fod-blue-primary);">Roster Limits</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>26-Man Limit:</label>
+                    <input type="number" name="roster_26_man_limit_{{.ID}}" value="{{index $.SettingsMap (printf "%s_roster_26_man_limit" .ID)}}" min="20" max="40">
+                </div>
+                <div class="form-group">
+                    <label>40-Man Limit:</label>
+                    <input type="number" name="roster_40_man_limit_{{.ID}}" value="{{index $.SettingsMap (printf "%s_roster_40_man_limit" .ID)}}" min="30" max="60">
+                </div>
+                <div class="form-group">
+                    <label>SP Limit (26-Man):</label>
+                    <input type="number" name="sp_26_man_limit_{{.ID}}" value="{{index $.SettingsMap (printf "%s_sp_26_man_limit" .ID)}}" min="1" max="15">
                 </div>
             </div>
         </div>
@@ -47,5 +105,6 @@
     .form-group { margin-bottom: 10px; }
     .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
     .form-group input { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; }
+    .form-group input[type="number"] { width: 80px; }
 </style>
 {{end}}

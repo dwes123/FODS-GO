@@ -20,28 +20,71 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		years, _ := strconv.Atoi(yearsStr)
 		aav, _ := strconv.ParseFloat(aavStr, 64)
 
+		// Contract year cap: 1-5 years only
+		if years < 1 || years > 5 {
+			c.String(http.StatusBadRequest, "Contract length must be between 1 and 5 years.")
+			return
+		}
+
+		// AAV minimum: $1,000,000
+		if aav < 1000000 {
+			c.String(http.StatusBadRequest, "Minimum AAV is $1,000,000.")
+			return
+		}
+
 		// 1. Calculate Bid Points
 		multipliers := map[int]float64{1: 2.0, 2: 1.8, 3: 1.6, 4: 1.4, 5: 1.2}
 		multiplier := multipliers[years]
 		bidPoints := (float64(years) * aav * multiplier) / 1000000
 
+		// Minimum bid points: 1.0
+		if bidPoints < 1.0 {
+			c.String(http.StatusBadRequest, "Bid must be worth at least 1 bid point.")
+			return
+		}
+
 		// 2. Get User's Team
 		user := c.MustGet("user").(*store.User)
-		
+
 		var teamID, teamName, leagueID string
-		err := db.QueryRow(context.Background(), 
+		err := db.QueryRow(context.Background(),
 			"SELECT id, name, league_id FROM teams WHERE user_id = $1 LIMIT 1", user.ID).Scan(&teamID, &teamName, &leagueID)
-		
+
 		if err != nil {
 			c.String(http.StatusBadRequest, "You do not own a team and cannot bid.")
 			return
 		}
 
-		// 3. Check Current Bid
+		// 3. Check IFA and MiLB FA signing windows
+		var isIFA bool
+		db.QueryRow(context.Background(),
+			"SELECT COALESCE(is_international_free_agent, FALSE) FROM players WHERE id = $1",
+			playerID).Scan(&isIFA)
+
+		if isIFA {
+			if open, msg := store.IsWithinDateWindow(db, leagueID, time.Now().Year(), "ifa_window_open", "ifa_window_close"); !open {
+				c.String(http.StatusForbidden, "IFA signing window is closed. "+msg)
+				return
+			}
+		}
+
+		// Check for MiLB FA window (players with fa_status containing 'milb')
+		var faStatus string
+		db.QueryRow(context.Background(),
+			"SELECT COALESCE(fa_status, '') FROM players WHERE id = $1", playerID).Scan(&faStatus)
+
+		if faStatus == "milb_fa" {
+			if open, msg := store.IsWithinDateWindow(db, leagueID, time.Now().Year(), "milb_fa_window_open", "milb_fa_window_close"); !open {
+				c.String(http.StatusForbidden, "MiLB FA signing window is closed. "+msg)
+				return
+			}
+		}
+
+		// 4. Check Current Bid
 		var currentPoints float64
 		var currentStatus, playerName string
-		err = db.QueryRow(context.Background(), 
-			"SELECT COALESCE(pending_bid_amount, 0), fa_status, first_name || ' ' || last_name FROM players WHERE id = $1", 
+		err = db.QueryRow(context.Background(),
+			"SELECT COALESCE(pending_bid_amount, 0), fa_status, first_name || ' ' || last_name FROM players WHERE id = $1",
 			playerID).Scan(&currentPoints, &currentStatus, &playerName)
 
 		if currentStatus == "pending_bid" && bidPoints < currentPoints+1 {
@@ -49,7 +92,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// 4. Update Player with New Bid
+		// 5. Update Player with New Bid
 		endTime := time.Now().Add(24 * time.Hour)
 
 		_, err = db.Exec(context.Background(), `

@@ -43,9 +43,13 @@ func PromoteTo40ManHandler(db *pgxpool.Pool) gin.HandlerFunc {
                         return
                 }
 
+		leagueID, _ := store.GetTeamLeagueID(db, req.TeamID)
+		settings := store.GetLeagueSettings(db, leagueID, time.Now().Year())
+		limit40 := settings.Roster40ManLimit
+
 		_, count40, err := store.GetTeamRosterCounts(db, req.TeamID)
-		if err == nil && count40 >= 40 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "40-Man Roster is full (40/40). You must DFA a player first."})
+		if err == nil && count40 >= limit40 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("40-Man Roster is full (%d/%d). You must DFA a player first.", count40, limit40)})
 			return
 		}
 
@@ -78,17 +82,33 @@ func PromoteTo26ManHandler(db *pgxpool.Pool) gin.HandlerFunc {
                         return
                 }
 
+		leagueID, _ := store.GetTeamLeagueID(db, req.TeamID)
+		settings := store.GetLeagueSettings(db, leagueID, time.Now().Year())
+		limit26 := settings.Roster26ManLimit
+		limit40 := settings.Roster40ManLimit
+
 		count26, count40, err := store.GetTeamRosterCounts(db, req.TeamID)
 		if err == nil {
-			if count26 >= 26 {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "26-Man Roster is full (26/26). You must option a player to the minors first."})
+			if count26 >= limit26 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("26-Man Roster is full (%d/%d). You must option a player to the minors first.", count26, limit26)})
 				return
 			}
 			// Promotion to 26-man also implies promotion to 40-man if not already there
 			var isAlreadyOn40 bool
 			db.QueryRow(context.Background(), "SELECT status_40_man FROM players WHERE id = $1", req.PlayerID).Scan(&isAlreadyOn40)
-			if !isAlreadyOn40 && count40 >= 40 {
+			if !isAlreadyOn40 && count40 >= limit40 {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "40-Man Roster is full. Cannot promote to active roster."})
+				return
+			}
+		}
+
+		// SP limit check
+		var playerPos string
+		db.QueryRow(context.Background(), "SELECT position FROM players WHERE id = $1", req.PlayerID).Scan(&playerPos)
+		if playerPos == "SP" {
+			spCount, _ := store.GetTeam26ManSPCount(db, req.TeamID)
+			if spCount >= settings.SP26ManLimit {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("SP limit reached (%d/%d on 26-man). You must option an SP first.", spCount, settings.SP26ManLimit)})
 				return
 			}
 		}

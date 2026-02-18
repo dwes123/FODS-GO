@@ -162,6 +162,11 @@ async function sendRequest(url, data) {
     }
 }
 
+async function toggleTradeBlock(playerID, teamID, onBlock) {
+    const notes = onBlock ? prompt('Trade block notes (optional):') || '' : '';
+    await sendRequest('/roster/move/trade-block', { player_id: playerID, team_id: teamID, on_block: onBlock, notes: notes });
+}
+
 // --- Depth Chart Sorting (Feature 21) ---
 {{if $isOwner}}
 document.addEventListener('DOMContentLoaded', function() {
@@ -212,10 +217,12 @@ async function saveDepthOrder() {
     .button-secondary { background-color: #6c757d; }
     .button-danger { background-color: #dc3545; }
     .button-info { background-color: #17a2b8; }
+    .button-warning { background-color: #ffc107; color: #333; }
     .modal { padding: 20px; border-radius: 8px; border: 1px solid #ccc; }
     a.button { text-decoration: none; display: inline-block; }
     .sortable-ghost { background-color: #e3f2fd !important; opacity: 0.8; }
     .drag-handle:hover { color: var(--fod-blue-primary); }
+    .option-year { background-color: rgba(232, 116, 38, 0.15) !important; border-left: 2px solid var(--fod-orange-accent); }
 </style>
 {{end}}
 
@@ -251,7 +258,8 @@ async function saveDepthOrder() {
                         <td>{{.Status}}</td>
                         {{$p := .}}
                         {{range $years}}
-                            <td>
+                            {{$isOptionYear := index $p.ContractOptionYears .}}
+                            <td{{if $isOptionYear}} class="option-year"{{end}}>
                                 {{$val := index $p.Contracts .}}
                                 {{if $val}}{{if or (eq $val "TC") (eq $val "ARB") (eq $val "UFA")}} {{$val}} {{else}}${{formatMoney $val}}{{end}}{{else}}--{{end}}
                             </td>
@@ -274,6 +282,7 @@ async function saveDepthOrder() {
                                         {{end}}
                                         <button class="button button-secondary" onclick="openILModal('{{.ID}}', '{{$teamID}}')">IL</button>
                                         <button class="button button-danger" onclick="openDFAModal('{{.ID}}', '{{$teamID}}')">DFA</button>
+                                        <button class="button {{if .OnTradeBlock}}button-warning{{end}}" onclick="toggleTradeBlock('{{.ID}}', '{{$teamID}}', {{not .OnTradeBlock}})" title="{{if .OnTradeBlock}}Remove from Trade Block{{else}}Add to Trade Block{{end}}">TB</button>
                                     {{end}}
                                 {{end}}
                             </div>

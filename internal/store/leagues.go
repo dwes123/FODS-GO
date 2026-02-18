@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"time"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -134,4 +136,76 @@ func GetKeyDates(db *pgxpool.Pool, leagueID string) ([]KeyDate, error) {
 		dates = append(dates, kd)
 	}
 	return dates, nil
+}
+
+// --- League Settings (Business Rules) ---
+
+type LeagueSettings struct {
+	Roster26ManLimit int `json:"roster_26_man_limit"`
+	Roster40ManLimit int `json:"roster_40_man_limit"`
+	SP26ManLimit     int `json:"sp_26_man_limit"`
+}
+
+// GetLeagueSettings returns configurable limits for a league/year, with defaults.
+func GetLeagueSettings(db *pgxpool.Pool, leagueID string, year int) LeagueSettings {
+	s := LeagueSettings{Roster26ManLimit: 26, Roster40ManLimit: 40, SP26ManLimit: 6}
+	db.QueryRow(context.Background(), `
+		SELECT COALESCE(roster_26_man_limit, 26), COALESCE(roster_40_man_limit, 40), COALESCE(sp_26_man_limit, 6)
+		FROM league_settings WHERE league_id = $1 AND year = $2
+	`, leagueID, year).Scan(&s.Roster26ManLimit, &s.Roster40ManLimit, &s.SP26ManLimit)
+	return s
+}
+
+// UpsertLeagueSettings saves roster limit settings for a league/year.
+func UpsertLeagueSettings(db *pgxpool.Pool, leagueID string, year, limit26, limit40, spLimit int) error {
+	_, err := db.Exec(context.Background(), `
+		INSERT INTO league_settings (league_id, year, roster_26_man_limit, roster_40_man_limit, sp_26_man_limit)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (league_id, year) DO UPDATE SET
+			roster_26_man_limit = EXCLUDED.roster_26_man_limit,
+			roster_40_man_limit = EXCLUDED.roster_40_man_limit,
+			sp_26_man_limit = EXCLUDED.sp_26_man_limit
+	`, leagueID, year, limit26, limit40, spLimit)
+	return err
+}
+
+// GetLeagueDateValue returns a single date value from league_dates. Returns zero time if not found.
+func GetLeagueDateValue(db *pgxpool.Pool, leagueID string, year int, dateType string) (time.Time, error) {
+	var d time.Time
+	err := db.QueryRow(context.Background(), `
+		SELECT event_date FROM league_dates
+		WHERE league_id = $1 AND year = $2 AND date_type = $3
+	`, leagueID, year, dateType).Scan(&d)
+	return d, err
+}
+
+// IsWithinDateWindow checks if the current time is within two league_dates entries (open/close).
+func IsWithinDateWindow(db *pgxpool.Pool, leagueID string, year int, openType, closeType string) (bool, string) {
+	openDate, errOpen := GetLeagueDateValue(db, leagueID, year, openType)
+	closeDate, errClose := GetLeagueDateValue(db, leagueID, year, closeType)
+
+	if errOpen != nil || errClose != nil {
+		// No window configured — allow by default
+		return true, ""
+	}
+
+	now := time.Now()
+	if now.Before(openDate) {
+		return false, "The window does not open until " + openDate.Format("January 2, 2006") + "."
+	}
+	if now.After(closeDate) {
+		return false, "The window closed on " + closeDate.Format("January 2, 2006") + "."
+	}
+	return true, ""
+}
+
+// IsRosterExpansionActive checks if we're currently in a roster expansion window.
+func IsRosterExpansionActive(db *pgxpool.Pool, leagueID string, year int) bool {
+	start, errStart := GetLeagueDateValue(db, leagueID, year, "roster_expansion_start")
+	end, errEnd := GetLeagueDateValue(db, leagueID, year, "roster_expansion_end")
+	if errStart != nil || errEnd != nil {
+		return false
+	}
+	now := time.Now()
+	return !now.Before(start) && !now.After(end)
 }
