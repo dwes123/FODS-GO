@@ -32,13 +32,13 @@ func LeagueFinancialsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		var leagueName string
 		db.QueryRow(context.Background(), "SELECT name FROM leagues WHERE id = $1", leagueID).Scan(&leagueName)
 
-		// Fetch all teams in the league
-		rows, err := db.Query(context.Background(), "SELECT id, name, owner_name FROM teams WHERE league_id = $1 ORDER BY name", leagueID)
+		// Fetch all teams in the league — collect first, then close rows
+		// to avoid holding a connection while making nested queries
+		rows, err := db.Query(context.Background(), "SELECT id, name, COALESCE(owner_name, '') FROM teams WHERE league_id = $1 ORDER BY name", leagueID)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "Database error: %v", err)
 			return
 		}
-		defer rows.Close()
 
 		type TeamFinancialRow struct {
 			TeamID   string
@@ -51,9 +51,14 @@ func LeagueFinancialsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		for rows.Next() {
 			var tr TeamFinancialRow
 			if err := rows.Scan(&tr.TeamID, &tr.TeamName, &tr.Owner); err == nil {
-				tr.Summary = store.CalculateYearlySummary(db, tr.TeamID, leagueID, year)
 				teamRows = append(teamRows, tr)
 			}
+		}
+		rows.Close()
+
+		// Now calculate summaries without holding the outer connection
+		for i := range teamRows {
+			teamRows[i].Summary = store.CalculateYearlySummary(db, teamRows[i].TeamID, leagueID, year)
 		}
 
 		leagues, _ := store.GetLeaguesWithTeams(db)

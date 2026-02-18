@@ -33,8 +33,9 @@ type RosterPlayer struct {
 	Contracts      map[int]string    `json:"contracts"`
 	Rule5Year      int               `json:"rule_5_eligibility_year"`
 	RosterMovesLog []RosterMoveEntry `json:"roster_moves_log"`
-	OnTradeBlock       bool              `json:"on_trade_block"`
-	ContractOptionYears map[int]bool     `json:"contract_option_years"`
+	OnTradeBlock        bool             `json:"on_trade_block"`
+	ContractOptionYears map[int]bool    `json:"contract_option_years"`
+	IsIFA               bool            `json:"is_international_free_agent"`
 }
 
 type SalaryYearSummary struct {
@@ -172,7 +173,7 @@ func CalculateYearlySummary(db *pgxpool.Pool, teamID, leagueID string, year int)
 	s.Year = year
 
 	contractCol := fmt.Sprintf("contract_%d", year)
-	rows, _ := db.Query(ctx, fmt.Sprintf("SELECT %s FROM players WHERE team_id = $1", contractCol), teamID)
+	rows, _ := db.Query(ctx, fmt.Sprintf("SELECT COALESCE(%s, '') FROM players WHERE team_id = $1", contractCol), teamID)
 	if rows != nil {
 		for rows.Next() {
 			var val string

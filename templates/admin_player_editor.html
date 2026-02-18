@@ -79,7 +79,8 @@
         <div class="col card">
             <h3>3. Status</h3>
             <label><input type="checkbox" name="status_40_man" {{if .Player}}{{if .Player.Status40Man}}checked{{end}}{{end}}> On 40-Man</label><br>
-            <label><input type="checkbox" name="status_26_man" {{if .Player}}{{if .Player.Status26Man}}checked{{end}}{{end}}> On 26-Man</label><br><br>
+            <label><input type="checkbox" name="status_26_man" {{if .Player}}{{if .Player.Status26Man}}checked{{end}}{{end}}> On 26-Man</label><br>
+            <label><input type="checkbox" name="is_ifa" {{if .Player}}{{if .Player.IsIFA}}checked{{end}}{{end}}> International Free Agent (IFA)</label><br><br>
             <label>IL Status:</label>
             <input type="text" name="status_il" value="{{if .Player}}{{.Player.StatusIL}}{{end}}" placeholder="e.g. 10-Day IL">
             <label>Option Years Used:</label>

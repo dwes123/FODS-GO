@@ -110,6 +110,7 @@ func AdminSavePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			Status26Man: c.PostForm("status_26_man") == "on",
 			StatusIL:    c.PostForm("status_il"),
 			OptionYears: optYears,
+			IsIFA:       c.PostForm("is_ifa") == "on",
 			Contracts:   contracts,
 			FaStatus:       c.PostForm("fa_status"),
 			PendingBidAmt:  bidAmt,

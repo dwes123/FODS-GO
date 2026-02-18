@@ -24,7 +24,7 @@ func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer,
 	}
 
 	query := `
-		SELECT id, first_name, last_name, position, mlb_team, fa_status,
+		SELECT id, first_name, last_name, position, mlb_team, COALESCE(fa_status, ''),
 		       COALESCE(contract_2026, '')
 		FROM players
 		WHERE (team_id IS NULL OR team_id = '00000000-0000-0000-0000-000000000000')
@@ -121,6 +121,7 @@ func GetPlayerByID(db *pgxpool.Pool, id string) (*RosterPlayer, error) {
 		       p.team_id, p.league_id, l.name as league_name,
 		       COALESCE(p.rule_5_eligibility_year, 0),
 		       COALESCE(p.roster_moves_log, '[]'::jsonb),
+		       COALESCE(p.is_international_free_agent, FALSE),
 		       COALESCE(p.contract_2026, ''), COALESCE(p.contract_2027, ''), COALESCE(p.contract_2028, ''),
 		       COALESCE(p.contract_2029, ''), COALESCE(p.contract_2030, ''), COALESCE(p.contract_2031, ''),
 		       COALESCE(p.contract_2032, ''), COALESCE(p.contract_2033, ''), COALESCE(p.contract_2034, ''),
@@ -135,7 +136,7 @@ func GetPlayerByID(db *pgxpool.Pool, id string) (*RosterPlayer, error) {
 		&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam, &rawStatus,
 		&p.Status40Man, &p.Status26Man, &p.StatusIL, &p.OptionYears,
 		&teamID, &p.LeagueID, &p.LeagueName,
-		&p.Rule5Year, &movesLogRaw,
+		&p.Rule5Year, &movesLogRaw, &p.IsIFA,
 	}
 	for i := range contracts {
 		dest = append(dest, &contracts[i])

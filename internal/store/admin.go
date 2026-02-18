@@ -19,6 +19,7 @@ type PlayerAdminUpdate struct {
 	Status26Man bool   `json:"status_26_man"`
 	StatusIL    string `json:"status_il"`
 	OptionYears int    `json:"option_years_used"`
+	IsIFA       bool   `json:"is_international_free_agent"`
 	Contracts   map[string]string `json:"contracts"`
 	// Bid & FA fields (commissioner adjustment)
 	FaStatus       string  `json:"fa_status"`
@@ -96,8 +97,9 @@ func AdminUpdatePlayer(db *pgxpool.Pool, u PlayerAdminUpdate) error {
 			contract_2036 = $21, contract_2037 = $22, contract_2038 = $23, contract_2039 = $24, contract_2040 = $25,
 			fa_status = $26,
 			pending_bid_amount = $27, pending_bid_years = $28, pending_bid_aav = $29,
-			pending_bid_team_id = $30, bid_type = $31
-		WHERE id = $32
+			pending_bid_team_id = $30, bid_type = $31,
+			is_international_free_agent = $32
+		WHERE id = $33
 	`, u.FirstName, u.LastName, u.Position, u.MLBTeam, teamID, u.LeagueID,
 		u.Status40Man, u.Status26Man, u.StatusIL, u.OptionYears,
 		u.Contracts["2026"], u.Contracts["2027"], u.Contracts["2028"], u.Contracts["2029"], u.Contracts["2030"],
@@ -105,6 +107,7 @@ func AdminUpdatePlayer(db *pgxpool.Pool, u PlayerAdminUpdate) error {
 		u.Contracts["2036"], u.Contracts["2037"], u.Contracts["2038"], u.Contracts["2039"], u.Contracts["2040"],
 		faStatus,
 		u.PendingBidAmt, u.PendingBidYrs, u.PendingBidAAV, bidTeamID, u.BidType,
+		u.IsIFA,
 		u.ID)
 	if err != nil { return err }
 	return tx.Commit(ctx)
