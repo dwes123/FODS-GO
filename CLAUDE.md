@@ -28,8 +28,9 @@ go run ./cmd/api
 scp server_linux root@178.128.178.100:/root/app/server
 scp -r templates root@178.128.178.100:/root/app/
 
-# Restart on server
-ssh root@178.128.178.100 "cd /root/app && docker compose -f docker-compose.prod.yml up -d --build"
+# Restart on server (MUST use --build to pick up new binary; restart alone reuses old image)
+ssh root@178.128.178.100 "cd /root/app && nohup docker compose -f docker-compose.prod.yml up -d --build app > /tmp/docker_build.log 2>&1 &"
+# Note: run via nohup because SSH may drop during long builds; check /tmp/docker_build.log for status
 
 # Access production DB
 ssh root@178.128.178.100 "docker exec -it fantasy_postgres psql -U admin -d fantasy_db"
@@ -120,8 +121,9 @@ migrations/              — Numbered SQL migration files
   - AA:  `33333333-3333-3333-3333-333333333333`
   - High-A: `44444444-4444-4444-4444-444444444444`
 - **Contract columns:** `contract_2026` through `contract_2040` (TEXT — supports "$1000000", "TC", "ARB", "UFA")
-- **Player status fields:** `status_40_man` (BOOL), `status_26_man` (BOOL), `status_il` (TEXT), `fa_status` (TEXT)
+- **Player status fields:** `status_40_man` (BOOL), `status_26_man` (BOOL), `status_il` (TEXT), `fa_status` (TEXT), `is_international_free_agent` (BOOL)
 - **JSONB columns on players:** `bid_history`, `roster_moves_log`, `contract_option_years`
+- **Nullable columns:** `owner_name` on teams, all `contract_` columns on players — always use COALESCE when scanning into Go strings
 - **league_settings columns:** `luxury_tax_limit`, `roster_26_man_limit` (default 26), `roster_40_man_limit` (default 40), `sp_26_man_limit` (default 6)
 - **league_dates date_type values:** `trade_deadline`, `opening_day`, `extension_deadline`, `option_deadline`, `ifa_window_open`, `ifa_window_close`, `milb_fa_window_open`, `milb_fa_window_close`, `roster_expansion_start`, `roster_expansion_end`
 
@@ -178,6 +180,11 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 10. **Option Years Highlighting** — Roster page highlights contract cells for team option years (orange accent)
 11. **Admin Settings Expansion** — Settings page now includes all deadline/window date pickers and roster limit inputs per league
 
+### Commissioner Tools Enhancements
+- **Bid/FA Management in Player Editor** — Commissioners can manually set `fa_status`, pending bid fields, and `bid_type` on any player
+- **IFA Toggle in Player Editor** — `is_international_free_agent` checkbox in Status section; IFA filter on free agents page uses this field
+- **Bid History Tracking** — Every bid appends to `bid_history` JSONB; displayed on player profile as collapsible table
+
 ### Migrations Required
 - `migrations/013_feature_batch.sql` — Adds: `transactions.fantrax_processed`, `players.fod_id`, `registration_requests` table, `league_dates` table, `system_counters` table
 - `migrations/014_business_rules.sql` — Adds: `roster_26_man_limit`, `roster_40_man_limit`, `sp_26_man_limit` columns to `league_settings`
@@ -189,8 +196,11 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 
 ## Gotchas
 
+- **CRITICAL: Deploy with `--build`** — `docker compose restart` does NOT rebuild the image; always use `docker compose up -d --build app` to deploy new code. Run via `nohup` because SSH may drop during builds.
+- **Connection pool deadlock** — Never make nested `db.Query` calls while iterating outer `rows`; collect results first, close rows, then do inner queries (see `league_financials.go` for example)
 - `go.mod` says Go 1.24 but Dockerfile uses `golang:1.23-alpine` — binary is built locally so this only matters for on-server builds
 - CORS is hardcoded to `localhost:3000` in main.go — needs production domain before Go site goes live
+- **Production DB password** differs from dev default — check `/root/app/.env` on server for actual credentials; DB exposed on port 5433 externally
 - Many `cmd/` utilities (`sync_players`, `import_teams`, etc.) reference the old WordPress API and may not work after PHP site is retired
 - 60+ one-off SQL scripts in project root are migration artifacts — not part of the app
 - Workers run in-process — if the server restarts, bid/waiver timers reset (no persistent job queue)
