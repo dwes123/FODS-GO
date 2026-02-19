@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -16,24 +17,41 @@ func WaiverWireHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		user := c.MustGet("user").(*store.User)
 		leagueID := c.Query("league_id")
 
-		// Default to first league if not specified (simplification)
+		// Build league list from user's managed teams only
+		myTeams, _ := store.GetManagedTeams(db, user.ID)
+		type UserLeague struct {
+			ID   string
+			Name string
+		}
+		seen := map[string]bool{}
+		var userLeagues []UserLeague
+		for _, t := range myTeams {
+			if !seen[t.LeagueID] {
+				seen[t.LeagueID] = true
+				userLeagues = append(userLeagues, UserLeague{ID: t.LeagueID, Name: t.LeagueName})
+			}
+		}
+
+		// Default to first of user's leagues
+		if leagueID == "" && len(userLeagues) > 0 {
+			leagueID = userLeagues[0].ID
+		}
 		if leagueID == "" {
-			// ideally fetch from user's teams
-			var lID string
-			db.QueryRow(context.Background(), "SELECT league_id FROM teams WHERE user_id = $1 LIMIT 1", user.ID).Scan(&lID)
-			leagueID = lID
+			leagueID = "11111111-1111-1111-1111-111111111111"
 		}
 
 		query := `
-			SELECT id, first_name, last_name, position, mlb_team, waiver_end_time, waiving_team_id
+			SELECT id, first_name, last_name, position, COALESCE(mlb_team, ''),
+				COALESCE(waiver_end_time, NOW()), COALESCE(waiving_team_id::TEXT, '')
 			FROM players
 			WHERE fa_status = 'on waivers' AND league_id = $1
 			ORDER BY waiver_end_time ASC
 		`
-		
+
 		rows, err := db.Query(context.Background(), query, leagueID)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Database error: %v", err)
+			fmt.Printf("ERROR [WaiverWire]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		defer rows.Close()
@@ -56,13 +74,12 @@ func WaiverWireHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 		}
 
-		leagues, _ := store.GetLeaguesWithTeams(db)
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
 		
 		RenderTemplate(c, "waiver_wire.html", gin.H{
 			"User":      user,
 			"Players":   players,
-			"Leagues":   leagues,
+			"Leagues":   userLeagues,
 			"LeagueID":  leagueID,
 			"IsCommish": len(adminLeagues) > 0 || user.Role == "admin",
 		})
@@ -76,8 +93,10 @@ func ClaimWaiverHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		user := c.MustGet("user").(*store.User)
 
 		var teamID, leagueID, teamName string
-		err := db.QueryRow(context.Background(), 
-			"SELECT id, league_id, name FROM teams WHERE user_id = $1 LIMIT 1", user.ID).Scan(&teamID, &leagueID, &teamName)
+		err := db.QueryRow(context.Background(),
+			`SELECT t.id, t.league_id, t.name FROM teams t
+			 JOIN team_owners town ON t.id = town.team_id
+			 WHERE town.user_id = $1 LIMIT 1`, user.ID).Scan(&teamID, &leagueID, &teamName)
 		
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "You do not manage a team."})

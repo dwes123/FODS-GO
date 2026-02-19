@@ -1,0 +1,54 @@
+{{define "title"}}League Rosters{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px;">
+        <h2>League Rosters</h2>
+        <form action="/league/rosters" method="GET">
+            <label for="league_id"><strong>View League:</strong></label>
+            <select name="league_id" id="league_id" onchange="this.form.submit()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ccc;">
+                {{$current := .LeagueID}}
+                {{range .Leagues}}
+                <option value="{{.ID}}" {{if eq .ID $current}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </form>
+    </div>
+
+    <div class="teams-roster-grid">
+        {{range .Teams}}
+        <div class="team-roster-card">
+            <div class="roster-card-header">
+                <h3>{{.Name}}</h3>
+                {{if .Owner}}<span class="owner-label">Owner: {{.Owner}}</span>{{end}}
+            </div>
+            <div class="roster-card-body">
+                <div class="roster-counts">
+                    <span><strong>40-Man:</strong> {{.Count40Man}}</span>
+                    <span><strong>26-Man:</strong> {{.Count26Man}}</span>
+                    <span><strong>Minors:</strong> {{.CountMinors}}</span>
+                </div>
+            </div>
+            <div class="roster-card-footer">
+                <a href="/roster/{{.ID}}" class="button">View Full Roster</a>
+                <a href="/team/financials/{{.ID}}" class="button button-info" style="background-color: var(--fod-blue-primary);">Financials</a>
+            </div>
+        </div>
+        {{else}}
+        <p>No teams found in this league.</p>
+        {{end}}
+    </div>
+</div>
+
+<style>
+    .teams-roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+    .team-roster-card { background: white; border-radius: 10px; border: 1px solid #ddd; border-top: 4px solid var(--fod-blue-primary); overflow: hidden; transition: transform 0.2s; }
+    .team-roster-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+    .roster-card-header { padding: 15px 20px; background: #fcfcfc; border-bottom: 1px solid #eee; }
+    .roster-card-header h3 { margin: 0 0 5px 0; font-size: 1.15rem; }
+    .owner-label { font-size: 0.85rem; color: #666; }
+    .roster-card-body { padding: 15px 20px; }
+    .roster-counts { display: flex; gap: 15px; flex-wrap: wrap; font-size: 0.9rem; }
+    .roster-card-footer { padding: 12px 20px; display: flex; gap: 10px; justify-content: center; border-top: 1px solid #f0f0f0; }
+</style>
+{{end}}

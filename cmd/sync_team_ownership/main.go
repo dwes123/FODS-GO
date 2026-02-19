@@ -91,23 +91,31 @@ func main() {
 				if teamIdentifier == "" { continue }
 
 				// 3. Find the Team ID
-				// Strategy: Match by raw_fantasy_team_id (from players) OR name OR abbreviation
 				var teamID string
-				
-				// Try Finding a player with this raw_id in that league, and getting their team_id
+
+				// Strategy A: Direct abbreviation match (most reliable)
 				database.QueryRow(context.Background(), `
-					SELECT team_id FROM players 
-					WHERE raw_fantasy_team_id = $1 AND league_id = $2 AND team_id IS NOT NULL 
+					SELECT id FROM teams
+					WHERE abbreviation = $1 AND league_id = $2
 					LIMIT 1
 				`, teamIdentifier, lUUID).Scan(&teamID)
 
-				// If no players linked yet, try fuzzy name match
+				// Strategy B: Fuzzy name match
 				if teamID == "" {
 					database.QueryRow(context.Background(), `
-						SELECT id FROM teams 
-						WHERE league_id = $1 AND (name ILIKE '%' || $2 || '%' OR abbreviation = $2)
+						SELECT id FROM teams
+						WHERE league_id = $1 AND (name ILIKE '%' || $2 || '%')
 						LIMIT 1
 					`, lUUID, teamIdentifier).Scan(&teamID)
+				}
+
+				// Strategy C: Player-based lookup (works if players already synced)
+				if teamID == "" {
+					database.QueryRow(context.Background(), `
+						SELECT team_id FROM players
+						WHERE raw_fantasy_team_id = $1 AND league_id = $2 AND team_id IS NOT NULL
+						LIMIT 1
+					`, teamIdentifier, lUUID).Scan(&teamID)
 				}
 
 				if teamID != "" {

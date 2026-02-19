@@ -11,11 +11,18 @@ import (
 // StartSeasonalWorker runs hourly checks for seasonal resets.
 // - Nov 1: Reset option_years_used for all players (Feature 12)
 // - Oct 15: Clear IL statuses for all players (Feature 13)
-func StartSeasonalWorker(db *pgxpool.Pool) {
+func StartSeasonalWorker(ctx context.Context, db *pgxpool.Pool) {
 	ticker := time.NewTicker(1 * time.Hour)
 	go func() {
-		for range ticker.C {
-			checkSeasonalTasks(db)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				fmt.Println("Seasonal worker stopped")
+				return
+			case <-ticker.C:
+				checkSeasonalTasks(db)
+			}
 		}
 	}()
 }

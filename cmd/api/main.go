@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/db"
@@ -23,13 +26,19 @@ func main() {
 	// 1b. Initialize Email Notifications
 	notification.InitEmail()
 
-	        // 2. Start Background Workers
-	        worker.StartBidWorker(database)
-	        worker.StartWaiverWorker(database)
-	        worker.StartSeasonalWorker(database)
-	        worker.StartHRMonitor(database)
+	// 2. Start Background Workers with cancellable context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	worker.StartBidWorker(ctx, database)
+	worker.StartWaiverWorker(ctx, database)
+	worker.StartSeasonalWorker(ctx, database)
+	worker.StartHRMonitor(ctx, database)
+
 	// 3. Initialize Router
 	r := gin.Default()
+	r.SetTrustedProxies([]string{"127.0.0.1"})
+	r.Use(middleware.SecurityHeaders())
 
 	// 3. CORS Configuration
 	corsOrigin := os.Getenv("CORS_ORIGIN")
@@ -68,6 +77,10 @@ func main() {
 	{
 		authorized.GET("/home", handlers.HomeHandler(database))
 		authorized.GET("/roster/:id", handlers.RosterHandler(database))
+
+		// League Rosters & Bid Calculator
+		authorized.GET("/league/rosters", handlers.LeagueRostersHandler(database))
+		authorized.GET("/bid-calculator", handlers.BidCalculatorHandler(database))
 
 		// Free Agents & Players
 		authorized.GET("/free-agents", handlers.FreeAgentHandler(database))
@@ -133,36 +146,68 @@ func main() {
 		authorized.POST("/rotations/save", handlers.SubmitRotationHandler(database))
 		authorized.GET("/api/team/pitchers", handlers.GetTeamPitchersHandler(database))
 
-		                // Commissioner Tools
-		                authorized.GET("/admin", handlers.AdminDashboardHandler(database))
-		                authorized.POST("/admin/process", handlers.ProcessActionHandler(database))
-		                authorized.GET("/admin/player-editor", handlers.AdminPlayerEditorHandler(database))
-		                authorized.POST("/admin/save-player", handlers.AdminSavePlayerHandler(database))
-		                authorized.GET("/admin/dead-cap/", handlers.AdminDeadCapHandler(database))
-		                authorized.POST("/admin/dead-cap/save", handlers.AdminSaveDeadCapHandler(database))
-		                authorized.POST("/admin/dead-cap/delete", handlers.AdminDeleteDeadCapHandler(database))
-		
-		                // Commissioner Power Tools
-		                authorized.POST("/admin/trade-reverse", handlers.AdminReverseTradeHandler(database))
-		                authorized.POST("/admin/fantrax-toggle", handlers.ToggleFantraxHandler(database))
-		                authorized.POST("/admin/generate-fod-ids", handlers.AdminGenerateFODIDsHandler(database))
-		                authorized.GET("/admin/export-bids", handlers.BidExportHandler(database))
-		                authorized.GET("/admin/csv-import", handlers.AdminCSVImporterHandler(database))
-		                authorized.POST("/admin/csv-import", handlers.AdminProcessCSVHandler(database))
-		                authorized.GET("/admin/player-assign", handlers.AdminPlayerAssignHandler(database))
-		                authorized.POST("/admin/player-assign", handlers.AdminProcessAssignHandler(database))
-		                authorized.GET("/admin/trades", handlers.AdminTradeReviewHandler(database))
-		                authorized.GET("/admin/approvals", handlers.AdminApprovalsHandler(database))
-		                authorized.POST("/admin/approve-registration", handlers.AdminProcessRegistrationHandler(database))
-		                authorized.GET("/admin/settings", handlers.AdminSettingsHandler(database))
-		                authorized.POST("/admin/settings/save", handlers.AdminSaveSettingsHandler(database))	}
+		// Commissioner Tools
+		authorized.GET("/admin", handlers.AdminDashboardHandler(database))
+		authorized.POST("/admin/process", handlers.ProcessActionHandler(database))
+		authorized.GET("/admin/player-editor", handlers.AdminPlayerEditorHandler(database))
+		authorized.POST("/admin/save-player", handlers.AdminSavePlayerHandler(database))
+		authorized.GET("/admin/dead-cap/", handlers.AdminDeadCapHandler(database))
+		authorized.POST("/admin/dead-cap/save", handlers.AdminSaveDeadCapHandler(database))
+		authorized.POST("/admin/dead-cap/delete", handlers.AdminDeleteDeadCapHandler(database))
+
+		// Commissioner Power Tools
+		authorized.POST("/admin/trade-reverse", handlers.AdminReverseTradeHandler(database))
+		authorized.POST("/admin/fantrax-toggle", handlers.ToggleFantraxHandler(database))
+		authorized.POST("/admin/generate-fod-ids", handlers.AdminGenerateFODIDsHandler(database))
+		authorized.GET("/admin/export-bids", handlers.BidExportHandler(database))
+		authorized.GET("/admin/csv-import", handlers.AdminCSVImporterHandler(database))
+		authorized.POST("/admin/csv-import", handlers.AdminProcessCSVHandler(database))
+		authorized.GET("/admin/player-assign", handlers.AdminPlayerAssignHandler(database))
+		authorized.POST("/admin/player-assign", handlers.AdminProcessAssignHandler(database))
+		authorized.GET("/admin/trades", handlers.AdminTradeReviewHandler(database))
+		authorized.GET("/admin/approvals", handlers.AdminApprovalsHandler(database))
+		authorized.POST("/admin/approve-registration", handlers.AdminProcessRegistrationHandler(database))
+		authorized.GET("/admin/settings", handlers.AdminSettingsHandler(database))
+		authorized.POST("/admin/settings/save", handlers.AdminSaveSettingsHandler(database))
+		authorized.GET("/admin/waiver-audit", handlers.AdminWaiverAuditHandler(database))
+	}
 
 	// --- API ROUTES ---
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong", "status": "Moneyball API is Live ⚾"})
 	})
 
-	// 4. Start Server
-	fmt.Println("🚀 Server starting on http://localhost:8080")
-	r.Run(":8080")
+	// 4. Start Server with graceful shutdown
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: r,
+	}
+
+	go func() {
+		fmt.Println("🚀 Server starting on http://localhost:8080")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Printf("Server error: %v\n", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	fmt.Println("Shutting down server...")
+
+	// Cancel worker context to stop background goroutines
+	cancel()
+
+	// Give outstanding requests 10 seconds to complete
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		fmt.Printf("Server forced to shutdown: %v\n", err)
+	}
+
+	fmt.Println("Server exited")
 }

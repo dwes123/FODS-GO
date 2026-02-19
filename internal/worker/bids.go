@@ -8,11 +8,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func StartBidWorker(db *pgxpool.Pool) {
+func StartBidWorker(ctx context.Context, db *pgxpool.Pool) {
 	ticker := time.NewTicker(1 * time.Minute)
 	go func() {
-		for range ticker.C {
-			finalizeBids(db)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				fmt.Println("Bid worker stopped")
+				return
+			case <-ticker.C:
+				finalizeBids(db)
+			}
 		}
 	}()
 }

@@ -3,9 +3,9 @@
 {{define "content"}}
 <h2>Propose Trade to {{.TargetTeam.Name}}</h2>
 
-<form action="/trades/submit" method="POST">
+<form action="/trades/submit" method="POST" id="trade-form">
     <input type="hidden" name="receiver_team_id" value="{{.TargetTeam.ID}}">
-    
+
     <div class="trade-setup">
         <div class="setup-col">
             <h3>1. Select Your Team</h3>
@@ -25,21 +25,58 @@
             </div>
             <div class="cash-input">
                 <label>ISBP Offered ($):</label>
-                <input type="number" name="isbp_offered" value="0" min="0" step="50000">
+                <input type="number" name="isbp_offered" id="isbp_offered" value="0" min="0" step="50000" onchange="updatePreview()">
             </div>
         </div>
 
         <div class="trade-col">
             <h3>Their Players (Requested)</h3>
-            <div class="player-select-list">
+            <div id="target_roster" class="player-select-list">
                 {{range .TargetTeam.Players}}
-                <label><input type="checkbox" name="requested_players" value="{{.ID}}"> {{.FirstName}} {{.LastName}} ({{.Position}})</label><br>
+                <label class="player-row">
+                    <input type="checkbox" name="requested_players" value="{{.ID}}" onchange="updatePreview()"
+                        data-name="{{.FirstName}} {{.LastName}}"
+                        data-pos="{{.Position}}"
+                        {{range $year, $val := .Contracts}}{{if $val}}data-c{{$year}}="{{$val}}"{{end}}{{end}}>
+                    <span class="player-info">
+                        <strong>{{.FirstName}} {{.LastName}}</strong> <span class="pos-tag">{{.Position}}</span>
+                        <span class="contract-preview">{{with index .Contracts 2026}}{{if .}} '26:{{.}}{{end}}{{end}}{{with index .Contracts 2027}}{{if .}} '27:{{.}}{{end}}{{end}}{{with index .Contracts 2028}}{{if .}} '28:{{.}}{{end}}{{end}}</span>
+                    </span>
+                </label>
                 {{end}}
             </div>
             <div class="cash-input">
                 <label>ISBP Requested ($):</label>
-                <input type="number" name="isbp_requested" value="0" min="0" step="50000">
+                <input type="number" name="isbp_requested" id="isbp_requested" value="0" min="0" step="50000" onchange="updatePreview()">
             </div>
+        </div>
+    </div>
+
+    <!-- Trade Summary Preview -->
+    <div id="trade-preview" class="trade-preview" style="display: none;">
+        <h3>Trade Summary</h3>
+        <div class="preview-grid">
+            <div>
+                <strong>You Send:</strong>
+                <ul id="preview-offered"></ul>
+                <div id="preview-isbp-offered" class="preview-isbp"></div>
+            </div>
+            <div>
+                <strong>You Receive:</strong>
+                <ul id="preview-requested"></ul>
+                <div id="preview-isbp-requested" class="preview-isbp"></div>
+            </div>
+        </div>
+
+        <div class="salary-impact">
+            <strong>Projected Salary Impact (Your Team):</strong>
+            <table class="fantasy-table-base" style="margin-top: 10px; font-size: 0.9em;">
+                <thead>
+                    <tr><th>Year</th><th>Salary OUT</th><th>Salary IN</th><th>Net Change</th></tr>
+                </thead>
+                <tbody id="salary-impact-body"></tbody>
+            </table>
+            <small style="color: #888;"><em>Non-numeric values (ARB, UFA, TC) are not included in totals.</em></small>
         </div>
     </div>
 
@@ -50,23 +87,123 @@
 
 <script>
 const myTeams = {{if .MyTeamsJSON}}JSON.parse(`{{.MyTeamsJSON}}`){{else}}[]{{end}};
+const years = [2026, 2027, 2028, 2029, 2030];
+
+function formatSalary(val) {
+    if (!val || val === '') return '';
+    var n = parseFloat(val.replace(/[$,]/g, ''));
+    if (isNaN(n)) return val;
+    if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return '$' + Math.round(n / 1000) + 'K';
+    return '$' + n;
+}
+
+function contractLine(contracts) {
+    if (!contracts) return '';
+    var parts = [];
+    years.forEach(function(y) {
+        var val = contracts[y];
+        if (val && val !== '') {
+            parts.push("'" + String(y).slice(-2) + ':' + formatSalary(val));
+        }
+    });
+    return parts.length > 0 ? ' (' + parts.join(', ') + ')' : '';
+}
+
+function parseSalary(val) {
+    if (!val || val === '') return 0;
+    var n = parseFloat(String(val).replace(/[$,]/g, ''));
+    return isNaN(n) ? 0 : n;
+}
 
 function updateProposerRoster() {
-    const teamID = document.getElementById('proposer_team_id').value;
-    const team = myTeams.find(t => t.id === teamID);
-    const container = document.getElementById('proposer_roster');
-    
+    var teamID = document.getElementById('proposer_team_id').value;
+    var team = myTeams.find(function(t) { return t.id === teamID; });
+    var container = document.getElementById('proposer_roster');
+
     container.innerHTML = '';
     if (team && team.players) {
-        team.players.forEach(p => {
-            const label = document.createElement('label');
-            label.innerHTML = `<input type="checkbox" name="offered_players" value="${p.id}"> ${p.first_name} ${p.last_name} (${p.position})`;
+        team.players.forEach(function(p) {
+            var label = document.createElement('label');
+            label.className = 'player-row';
+            var dataAttrs = '';
+            years.forEach(function(y) {
+                if (p.contracts && p.contracts[y]) {
+                    dataAttrs += ' data-c' + y + '="' + p.contracts[y] + '"';
+                }
+            });
+            label.innerHTML = '<input type="checkbox" name="offered_players" value="' + p.id + '" onchange="updatePreview()"'
+                + ' data-name="' + p.first_name + ' ' + p.last_name + '"'
+                + ' data-pos="' + p.position + '"'
+                + dataAttrs + '>'
+                + ' <span class="player-info"><strong>' + p.first_name + ' ' + p.last_name + '</strong>'
+                + ' <span class="pos-tag">' + p.position + '</span>'
+                + '<span class="contract-preview">' + contractLine(p.contracts) + '</span></span>';
             container.appendChild(label);
-            container.appendChild(document.createElement('br'));
         });
     } else {
         container.innerHTML = '<p>No players found for this team.</p>';
     }
+    updatePreview();
+}
+
+function updatePreview() {
+    var offeredChecks = document.querySelectorAll('input[name="offered_players"]:checked');
+    var requestedChecks = document.querySelectorAll('input[name="requested_players"]:checked');
+    var isbpOffered = parseInt(document.getElementById('isbp_offered').value) || 0;
+    var isbpRequested = parseInt(document.getElementById('isbp_requested').value) || 0;
+
+    var preview = document.getElementById('trade-preview');
+    if (offeredChecks.length === 0 && requestedChecks.length === 0 && isbpOffered === 0 && isbpRequested === 0) {
+        preview.style.display = 'none';
+        return;
+    }
+    preview.style.display = 'block';
+
+    // Build offered list
+    var offeredList = document.getElementById('preview-offered');
+    offeredList.innerHTML = '';
+    offeredChecks.forEach(function(cb) {
+        var li = document.createElement('li');
+        li.textContent = cb.getAttribute('data-name') + ' (' + cb.getAttribute('data-pos') + ')';
+        offeredList.appendChild(li);
+    });
+
+    // Build requested list
+    var requestedList = document.getElementById('preview-requested');
+    requestedList.innerHTML = '';
+    requestedChecks.forEach(function(cb) {
+        var li = document.createElement('li');
+        li.textContent = cb.getAttribute('data-name') + ' (' + cb.getAttribute('data-pos') + ')';
+        requestedList.appendChild(li);
+    });
+
+    // ISBP display
+    document.getElementById('preview-isbp-offered').textContent = isbpOffered > 0 ? '+ $' + isbpOffered.toLocaleString() + ' ISBP' : '';
+    document.getElementById('preview-isbp-requested').textContent = isbpRequested > 0 ? '+ $' + isbpRequested.toLocaleString() + ' ISBP' : '';
+
+    // Salary impact table
+    var tbody = document.getElementById('salary-impact-body');
+    tbody.innerHTML = '';
+    years.forEach(function(y) {
+        var salaryOut = 0;
+        var salaryIn = 0;
+        offeredChecks.forEach(function(cb) {
+            salaryOut += parseSalary(cb.getAttribute('data-c' + y));
+        });
+        requestedChecks.forEach(function(cb) {
+            salaryIn += parseSalary(cb.getAttribute('data-c' + y));
+        });
+        if (salaryOut === 0 && salaryIn === 0) return;
+        var net = salaryIn - salaryOut;
+        var tr = document.createElement('tr');
+        var netClass = net > 0 ? 'color: #dc3545;' : net < 0 ? 'color: #28a745;' : '';
+        tr.innerHTML = '<td>' + y + '</td>'
+            + '<td>$' + salaryOut.toLocaleString() + '</td>'
+            + '<td>$' + salaryIn.toLocaleString() + '</td>'
+            + '<td style="font-weight:bold;' + netClass + '">' + (net >= 0 ? '+' : '') + '$' + net.toLocaleString() + '</td>';
+        tbody.appendChild(tr);
+    });
 }
 
 // Initial Load
@@ -76,8 +213,19 @@ updateProposerRoster();
 <style>
     .trade-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }
     .player-select-list { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: white; margin-bottom: 15px; }
-    .trade-col label { display: block; padding: 5px 0; border-bottom: 1px solid #f9f9f9; }
+    .player-row { display: block; padding: 6px 4px; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
+    .player-row:hover { background: rgba(46, 109, 164, 0.05); }
+    .player-info { display: inline; }
+    .pos-tag { font-size: 0.75rem; color: #888; }
+    .contract-preview { font-size: 0.78rem; color: var(--fod-blue-primary); margin-left: 4px; }
     .cash-input { background: #f0f7ff; padding: 10px; border-radius: 4px; border: 1px solid #bcd; }
     .cash-input input { width: 100%; padding: 5px; margin-top: 5px; }
+    .trade-preview { background: #f0f0f1; padding: 20px; border-radius: 8px; margin-top: 25px; }
+    .trade-preview h3 { margin-top: 0; }
+    .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .preview-grid ul { margin: 8px 0; padding-left: 20px; }
+    .preview-grid li { padding: 3px 0; }
+    .preview-isbp { font-weight: bold; color: var(--fod-blue-primary); margin-top: 5px; }
+    .salary-impact { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px; }
 </style>
 {{end}}

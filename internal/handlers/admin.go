@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -49,7 +50,8 @@ func ProcessActionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 		err := store.ProcessAction(db, actionID, status)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			fmt.Printf("ERROR [ProcessAction]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			return
 		}
 		c.Redirect(http.StatusFound, "/admin/")
@@ -128,7 +130,8 @@ func AdminSavePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			err = store.AdminUpdatePlayer(db, update)
 		}
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error saving player: %v", err)
+			fmt.Printf("ERROR [AdminSavePlayer]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		c.Redirect(http.StatusFound, "/admin/player-editor?player_id=" + update.ID)
@@ -174,7 +177,8 @@ func AdminProcessRegistrationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error processing registration: %v", err)
+			fmt.Printf("ERROR [ProcessRegistration]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 
@@ -214,7 +218,8 @@ func AdminSaveDeadCapHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		err := store.AddDeadCapPenalty(db, teamID, playerID, amount, year, note)
 		if err != nil {
-			c.String(500, "Error: %v", err)
+			fmt.Printf("ERROR [AdminSaveDeadCap]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		c.Redirect(http.StatusFound, "/admin/dead-cap")
@@ -265,12 +270,32 @@ func AdminSettingsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			settingsMap[l.ID+"_sp_26_man_limit"] = s.SP26ManLimit
 		}
 
+		// Load Slack integration settings
+		slackMap := make(map[string]string)
+		for _, l := range leagues {
+			var token, chTx, chTrades, chAlerts, chTB string
+			db.QueryRow(context.Background(), `
+				SELECT COALESCE(slack_bot_token, ''),
+					COALESCE(slack_channel_transactions, ''),
+					COALESCE(slack_channel_completed_trades, ''),
+					COALESCE(slack_channel_stat_alerts, ''),
+					COALESCE(slack_channel_trade_block, '')
+				FROM league_integrations WHERE league_id = $1
+			`, l.ID).Scan(&token, &chTx, &chTrades, &chAlerts, &chTB)
+			slackMap[l.ID+"_bot_token"] = token
+			slackMap[l.ID+"_channel_transactions"] = chTx
+			slackMap[l.ID+"_channel_completed_trades"] = chTrades
+			slackMap[l.ID+"_channel_stat_alerts"] = chAlerts
+			slackMap[l.ID+"_channel_trade_block"] = chTB
+		}
+
 		RenderTemplate(c, "admin_settings.html", gin.H{
 			"User":        user,
 			"Leagues":     leagues,
 			"Year":        year,
 			"DateMap":     dateMap,
 			"SettingsMap": settingsMap,
+			"SlackMap":    slackMap,
 			"SaveSuccess": c.Query("saved") == "1",
 			"IsCommish":   true,
 		})
@@ -313,6 +338,26 @@ func AdminSaveSettingsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			if limit40 == 0 { limit40 = 40 }
 			if spLimit == 0 { spLimit = 6 }
 			store.UpsertLeagueSettings(db, l.ID, year, limit26, limit40, spLimit)
+		}
+
+		// Save Slack integration settings
+		for _, l := range leagues {
+			token := c.PostForm("slack_bot_token_" + l.ID)
+			chTx := c.PostForm("slack_channel_transactions_" + l.ID)
+			chTrades := c.PostForm("slack_channel_completed_trades_" + l.ID)
+			chAlerts := c.PostForm("slack_channel_stat_alerts_" + l.ID)
+			chTB := c.PostForm("slack_channel_trade_block_" + l.ID)
+
+			db.Exec(context.Background(), `
+				INSERT INTO league_integrations (league_id, slack_bot_token, slack_channel_transactions, slack_channel_completed_trades, slack_channel_stat_alerts, slack_channel_trade_block)
+				VALUES ($1, $2, $3, $4, $5, $6)
+				ON CONFLICT (league_id) DO UPDATE SET
+					slack_bot_token = $2,
+					slack_channel_transactions = $3,
+					slack_channel_completed_trades = $4,
+					slack_channel_stat_alerts = $5,
+					slack_channel_trade_block = $6
+			`, l.ID, token, chTx, chTrades, chAlerts, chTB)
 		}
 
 		c.Redirect(http.StatusFound, fmt.Sprintf("/admin/settings?year=%d&saved=1", year))

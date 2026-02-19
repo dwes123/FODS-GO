@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -36,7 +37,8 @@ func LeagueFinancialsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		// to avoid holding a connection while making nested queries
 		rows, err := db.Query(context.Background(), "SELECT id, name, COALESCE(owner_name, '') FROM teams WHERE league_id = $1 ORDER BY name", leagueID)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Database error: %v", err)
+			fmt.Printf("ERROR [LeagueFinancials]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 

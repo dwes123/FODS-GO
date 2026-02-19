@@ -89,7 +89,8 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		err := store.SubmitRotation(db, teamID, leagueID, weekStr, day, p1ID, p1Date, p2ID, p2Date)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error: %v", err)
+			fmt.Printf("ERROR [SubmitRotation]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 
@@ -102,7 +103,8 @@ func GetTeamPitchersHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		teamID := c.Query("team_id")
 		pitchers, err := store.GetPitchersForTeam(db, teamID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			fmt.Printf("ERROR [GetTeamPitchers]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			return
 		}
 		c.JSON(http.StatusOK, pitchers)

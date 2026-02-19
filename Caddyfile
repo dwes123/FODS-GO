@@ -1,3 +1,17 @@
-app.frontofficedynastysports.com {
+www.frontofficedynastysports.com {
+    redir https://frontofficedynastysports.com{uri} permanent
+}
+
+frontofficedynastysports.com {
+    encode gzip
+
+    header {
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    }
+
     reverse_proxy app:8080
 }

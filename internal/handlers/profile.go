@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
@@ -45,14 +46,16 @@ func ProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		// Get My Teams
 		myTeams, err := store.GetManagedTeams(db, user.ID)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error fetching your teams: %v", err)
+			fmt.Printf("ERROR [Profile]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 
 		// Get Available Teams
 		availableTeams, err := store.GetUnassignedTeams(db)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error fetching available teams: %v", err)
+			fmt.Printf("ERROR [Profile]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 

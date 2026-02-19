@@ -238,12 +238,12 @@ async function saveDepthOrder() {
             <thead>
                 <tr>
                     {{if $isOwner}}<th style="width:30px"></th>{{end}}
+                    <th>Actions</th>
                     <th>Name</th>
                     <th>Pos</th>
                     <th>MLB</th>
                     <th>Status</th>
                     {{range $years}}<th>{{.}}</th>{{end}}
-                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -252,18 +252,6 @@ async function saveDepthOrder() {
                     {{range $players}}
                     <tr data-player-id="{{.ID}}">
                         {{if $isOwner}}<td class="drag-handle" style="cursor: grab; text-align: center;">&#9776;</td>{{end}}
-                        <td><strong><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></strong></td>
-                        <td>{{.Position}}</td>
-                        <td>{{.MLBTeam}}</td>
-                        <td>{{.Status}}</td>
-                        {{$p := .}}
-                        {{range $years}}
-                            {{$isOptionYear := index $p.ContractOptionYears .}}
-                            <td{{if $isOptionYear}} class="option-year"{{end}}>
-                                {{$val := index $p.Contracts .}}
-                                {{if $val}}{{if or (eq $val "TC") (eq $val "ARB") (eq $val "UFA")}} {{$val}} {{else}}${{formatMoney $val}}{{end}}{{else}}--{{end}}
-                            </td>
-                        {{end}}
                         <td>
                             <div class="action-buttons">
                                 <a href="/player/{{.ID}}" class="button button-info">View</a>
@@ -287,6 +275,18 @@ async function saveDepthOrder() {
                                 {{end}}
                             </div>
                         </td>
+                        <td><strong><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></strong></td>
+                        <td>{{.Position}}</td>
+                        <td>{{.MLBTeam}}</td>
+                        <td>{{.Status}}</td>
+                        {{$p := .}}
+                        {{range $years}}
+                            {{$isOptionYear := index $p.ContractOptionYears .}}
+                            <td{{if $isOptionYear}} class="option-year"{{end}}>
+                                {{$val := index $p.Contracts .}}
+                                {{if $val}}{{if or (eq $val "TC") (eq $val "ARB") (eq $val "UFA")}} {{$val}} {{else}}${{formatMoney $val}}{{end}}{{else}}--{{end}}
+                            </td>
+                        {{end}}
                     </tr>
                     {{end}}
                 {{end}}

@@ -11,11 +11,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func StartWaiverWorker(db *pgxpool.Pool) {
+func StartWaiverWorker(ctx context.Context, db *pgxpool.Pool) {
 	ticker := time.NewTicker(2 * time.Minute)
 	go func() {
-		for range ticker.C {
-			processExpiredWaivers(db)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				fmt.Println("Waiver worker stopped")
+				return
+			case <-ticker.C:
+				processExpiredWaivers(db)
+			}
 		}
 	}()
 }

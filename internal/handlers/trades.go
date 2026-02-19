@@ -51,7 +51,13 @@ func NewTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		var filteredTeams []store.TeamDetail
 		for _, t := range allMyTeams {
 			if t.LeagueID == targetTeam.LeagueID {
-				filteredTeams = append(filteredTeams, t)
+				// Load full roster for each team so JS can display players
+				fullTeam, err := store.GetTeamWithRoster(db, t.ID)
+				if err == nil {
+					filteredTeams = append(filteredTeams, *fullTeam)
+				} else {
+					filteredTeams = append(filteredTeams, t)
+				}
 			}
 		}
 
@@ -59,7 +65,7 @@ func NewTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			c.String(http.StatusForbidden, "You do not have a team in the " + targetTeam.Name + " league.")
 			return
 		}
-		
+
 		myTeamsJSON, _ := json.Marshal(filteredTeams)
 
 		RenderTemplate(c, "trade_new.html", gin.H{
@@ -100,7 +106,8 @@ func SubmitTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		err := store.CreateTradeProposal(db, proposerID, receiverID, offered, requested, isbpOffered, isbpRequested)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error creating trade: %v", err)
+			fmt.Printf("ERROR [SubmitTrade]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 
@@ -135,7 +142,8 @@ func AcceptTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		err := store.AcceptTrade(db, tradeID, user.ID)
 		if err != nil {
-			c.String(http.StatusBadRequest, "Failed to accept trade: %v", err)
+			fmt.Printf("ERROR [AcceptTrade]: %v\n", err)
+			c.String(http.StatusBadRequest, "Failed to accept trade")
 			return
 		}
 

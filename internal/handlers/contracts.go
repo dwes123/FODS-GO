@@ -65,7 +65,8 @@ func ProcessOptionDecisionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		err := store.ProcessOptionDecision(db, playerID, year, action)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error: %v", err)
+			fmt.Printf("ERROR [ProcessOptionDecision]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 
@@ -89,11 +90,12 @@ func SubmitExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		err = store.CreatePendingAction(db, player.LeagueID, player.TeamID, "EXTENSION", 
+		err = store.CreatePendingAction(db, player.LeagueID, player.TeamID, "EXTENSION",
 			fmt.Sprintf("Extension request for %s %s: %s", player.FirstName, player.LastName, details))
-		
+
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			fmt.Printf("ERROR [SubmitExtension]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			return
 		}
 
@@ -112,11 +114,12 @@ func ProcessRestructureHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		player, _ := store.GetPlayerByID(db, playerID)
 		
-		err := store.CreatePendingAction(db, player.LeagueID, player.TeamID, "RESTRUCTURE", 
+		err := store.CreatePendingAction(db, player.LeagueID, player.TeamID, "RESTRUCTURE",
 			fmt.Sprintf("Restructure request for %s %s: %s", player.FirstName, player.LastName, details))
-		
+
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			fmt.Printf("ERROR [ProcessRestructure]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			return
 		}
 

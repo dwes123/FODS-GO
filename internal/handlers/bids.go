@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -110,7 +111,8 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		`, bidPoints, years, aav, teamID, user.ID, endTime, playerID)
 
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Failed to submit bid: %v", err)
+			fmt.Printf("ERROR [SubmitBid]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Failed to submit bid")
 			return
 		}
 

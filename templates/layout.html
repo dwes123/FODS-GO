@@ -114,6 +114,7 @@
         <a href="/" class="logo">Front Office Dynasty</a>
         <nav>
             <a href="/home">Home</a>
+            <a href="/league/rosters">Rosters</a>
             <a href="/free-agents">Free Agents</a>
             <a href="/standings">Standings</a>
             {{if .User}}
@@ -126,6 +127,7 @@
                 <a href="/team-options">Team Options</a>
                 <a href="/arbitration">Arbitration</a>
                 <a href="/bids/history">Bid History</a>
+                <a href="/bid-calculator">Bid Calc</a>
                 <a href="/bug-report">Report Bug</a>
                 {{if or (eq .User.Role "admin") .IsCommish}}
                     <a href="/admin/" style="color: #d9534f;">Commissioner</a>

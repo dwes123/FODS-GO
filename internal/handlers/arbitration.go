@@ -68,7 +68,8 @@ func SubmitArbitrationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		err := store.SubmitArbitrationDecision(db, playerID, teamID, leagueID, year, amount, decline)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error: %v", err)
+			fmt.Printf("ERROR [SubmitArbitration]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 
@@ -93,7 +94,8 @@ func SubmitArbExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		err := store.SubmitExtension(db, playerID, teamID, leagueID, salaries)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error: %v", err)
+			fmt.Printf("ERROR [SubmitArbExtension]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 

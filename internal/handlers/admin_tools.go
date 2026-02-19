@@ -27,6 +27,15 @@ func AdminCSVImporterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 func AdminProcessCSVHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		if user.Role != "admin" {
+			c.String(http.StatusForbidden, "Admin Only")
+			return
+		}
+
+		// Limit upload to 5 MB
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 5<<20)
+
 		file, _, err := c.Request.FormFile("csv_file")
 		if err != nil {
 			c.String(http.StatusBadRequest, "Error uploading file")
@@ -35,30 +44,51 @@ func AdminProcessCSVHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		defer file.Close()
 
 		reader := csv.NewReader(file)
-		headers, _ := reader.Read()
-		
+		headers, err := reader.Read()
+		if err != nil {
+			c.String(http.StatusBadRequest, "Error reading CSV headers")
+			return
+		}
+
 		headerMap := make(map[string]int)
 		for i, h := range headers {
 			headerMap[strings.ToLower(strings.TrimSpace(h))] = i
 		}
 
-		records, _ := reader.ReadAll()
+		// Validate required columns
+		required := []string{"first_name", "last_name", "position", "mlb_team", "league_id"}
+		for _, col := range required {
+			if _, ok := headerMap[col]; !ok {
+				c.String(http.StatusBadRequest, "Missing required column: %s", col)
+				return
+			}
+		}
+
+		records, err := reader.ReadAll()
+		if err != nil {
+			c.String(http.StatusBadRequest, "Error reading CSV data")
+			return
+		}
+
 		count := 0
 		for _, row := range records {
+			if len(row) <= headerMap["league_id"] {
+				continue
+			}
 			firstName := row[headerMap["first_name"]]
 			lastName := row[headerMap["last_name"]]
 			pos := row[headerMap["position"]]
 			mlb := row[headerMap["mlb_team"]]
 			leagueID := row[headerMap["league_id"]]
-			
+
 			// Simple upsert by name + league
 			_, err := db.Exec(context.Background(), `
 				INSERT INTO players (first_name, last_name, position, mlb_team, league_id)
 				VALUES ($1, $2, $3, $4, $5)
-				ON CONFLICT (first_name, last_name, league_id) DO UPDATE 
+				ON CONFLICT (first_name, last_name, league_id) DO UPDATE
 				SET position = EXCLUDED.position, mlb_team = EXCLUDED.mlb_team
 			`, firstName, lastName, pos, mlb, leagueID)
-			
+
 			if err == nil {
 				count++
 			}
@@ -85,13 +115,15 @@ func AdminProcessAssignHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		if teamID == "none" {
 			_, err := db.Exec(context.Background(), "UPDATE players SET team_id = NULL WHERE id = $1", playerID)
 			if err != nil {
-				c.String(500, "Error: %v", err)
+				fmt.Printf("ERROR [AdminProcessAssign]: %v\n", err)
+				c.String(http.StatusInternalServerError, "Internal server error")
 				return
 			}
 		} else {
 			_, err := db.Exec(context.Background(), "UPDATE players SET team_id = $1 WHERE id = $2", teamID, playerID)
 			if err != nil {
-				c.String(500, "Error: %v", err)
+				fmt.Printf("ERROR [AdminProcessAssign]: %v\n", err)
+				c.String(http.StatusInternalServerError, "Internal server error")
 				return
 			}
 		}
@@ -111,7 +143,8 @@ func AdminReverseTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		tradeID := c.PostForm("trade_id")
 		err := store.ReverseTrade(db, tradeID)
 		if err != nil {
-			c.String(http.StatusBadRequest, "Error reversing trade: %v", err)
+			fmt.Printf("ERROR [AdminReverseTrade]: %v\n", err)
+			c.String(http.StatusBadRequest, "Error reversing trade")
 			return
 		}
 		c.Redirect(http.StatusFound, "/admin/trades")
@@ -148,7 +181,8 @@ func AdminGenerateFODIDsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 		count, err := store.GenerateFODIDs(db, 1000)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error generating IDs: %v", err)
+			fmt.Printf("ERROR [GenerateFODIDs]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		c.Redirect(http.StatusFound, "/admin/?fod_msg=Generated+"+strconv.Itoa(count)+"+FOD+IDs")
@@ -169,7 +203,8 @@ func BidExportHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		records, err := store.GetBidHistory(db, leagueID, teamID)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error: %v", err)
+			fmt.Printf("ERROR [BidExport]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 

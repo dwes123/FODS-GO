@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
@@ -30,7 +31,8 @@ func FreeAgentHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		players, err := store.GetFreeAgents(db, filter)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error fetching players: %v", err)
+			fmt.Printf("ERROR [FreeAgents]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 

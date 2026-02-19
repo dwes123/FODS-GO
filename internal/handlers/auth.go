@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
@@ -57,7 +59,8 @@ func RegisterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		err = store.CreateRegistrationRequest(db, username, email, string(hashedPassword))
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Failed to submit registration: %v", err)
+			fmt.Printf("ERROR [Register]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Failed to submit registration")
 			return
 		}
 
@@ -134,7 +137,13 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 			switch val := v.(type) {
 			case float64: return p.Sprintf("%d", int64(val))
 			case int: return p.Sprintf("%d", val)
-			case string: return val
+			case int64: return p.Sprintf("%d", val)
+			case string:
+				cleaned := strings.ReplaceAll(strings.ReplaceAll(val, "$", ""), ",", "")
+				if n, err := strconv.ParseFloat(cleaned, 64); err == nil {
+					return p.Sprintf("%d", int64(n))
+				}
+				return val
 			default: return fmt.Sprintf("%v", v)
 			}
 		},
@@ -149,12 +158,12 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 	
 	if err != nil {
 		fmt.Printf("TEMPLATE PARSE ERROR: %v\n", err)
-		c.String(http.StatusInternalServerError, "Error loading template: %v", err)
+		c.String(http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
 	if err := tmpl.Execute(c.Writer, data); err != nil {
 		fmt.Printf("TEMPLATE EXECUTE ERROR: %v\n", err)
-		c.String(http.StatusInternalServerError, "Error rendering template: %v", err)
+		c.String(http.StatusInternalServerError, "Internal server error")
 	}
 }

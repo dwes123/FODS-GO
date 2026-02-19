@@ -16,13 +16,19 @@ import (
 // StartHRMonitor polls the MLB Stats API for home runs during game hours
 // and posts Slack notifications when rostered players hit a HR.
 // Runs during MLB season (April-October), 1 PM - midnight ET.
-func StartHRMonitor(db *pgxpool.Pool) {
+func StartHRMonitor(ctx context.Context, db *pgxpool.Pool) {
 	go func() {
 		seenPlays := make(map[string]bool)
 		var mu sync.Mutex
 
 		ticker := time.NewTicker(30 * time.Second)
-		for range ticker.C {
+		defer ticker.Stop()
+		for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("HR monitor stopped")
+			return
+		case <-ticker.C:
 			now := time.Now()
 			loc, err := time.LoadLocation("America/New_York")
 			if err != nil {
@@ -48,6 +54,7 @@ func StartHRMonitor(db *pgxpool.Pool) {
 			mu.Lock()
 			checkHomeRuns(db, seenPlays)
 			mu.Unlock()
+		}
 		}
 	}()
 }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
@@ -31,7 +32,8 @@ func SubmitBugReportHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			user.ID, title, description)
 
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Error submitting report: %v", err)
+			fmt.Printf("ERROR [SubmitBugReport]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 
@@ -53,7 +55,8 @@ func AdminBugReportsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			ORDER BY b.created_at DESC
 		`)
 		if err != nil {
-			c.String(http.StatusInternalServerError, "Database error: %v", err)
+			fmt.Printf("ERROR [AdminBugReports]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
 		defer rows.Close()

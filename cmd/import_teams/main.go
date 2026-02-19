@@ -150,12 +150,14 @@ func main() {
 
 			// Insert/Update the Team
 			_, err := pool.Exec(context.Background(), `
-				INSERT INTO teams (name, slug, owner_name, league_id, wp_id, isbp_balance)
-				VALUES ($1, $2, $3, $4, $5, $6)
-				ON CONFLICT (league_id, slug) DO UPDATE SET 
+				INSERT INTO teams (name, slug, owner_name, league_id, wp_id, isbp_balance, abbreviation)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
+				ON CONFLICT (league_id, slug) DO UPDATE SET
 					isbp_balance = EXCLUDED.isbp_balance,
-					wp_id = EXCLUDED.wp_id
-			`, finalName, slug, ownerName, leagueUUID, u.ID, isbp)
+					wp_id = EXCLUDED.wp_id,
+					owner_name = EXCLUDED.owner_name,
+					abbreviation = EXCLUDED.abbreviation
+			`, finalName, slug, ownerName, leagueUUID, u.ID, isbp, mt.TeamID)
 
 			if err != nil {
 				fmt.Printf("❌ Error saving %s: %v\n", finalName, err)

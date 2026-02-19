@@ -54,11 +54,11 @@ func main() {
 
 		for _, t := range wpTrans {
 			title := t.Title.Rendered
-			tType := "OTHER"
-			
-			// Enhanced Keyword Matching
+			tType := "COMMISSIONER"
+
+			// Keyword Matching — valid types: ADD, DROP, TRADE, COMMISSIONER
 			lowTitle := strings.ToLower(title)
-			
+
 			if strings.Contains(lowTitle, "trade") {
 				tType = "TRADE"
 			} else if strings.Contains(lowTitle, "signed") || strings.Contains(lowTitle, "add") || strings.Contains(lowTitle, "purchased") || strings.Contains(lowTitle, "claimed") {
@@ -66,7 +66,7 @@ func main() {
 			} else if strings.Contains(lowTitle, "dfa") || strings.Contains(lowTitle, "drop") || strings.Contains(lowTitle, "released") || strings.Contains(lowTitle, "waived") {
 				tType = "DROP"
 			} else if strings.Contains(lowTitle, "promoted") || strings.Contains(lowTitle, "optioned") || strings.Contains(lowTitle, "il") || strings.Contains(lowTitle, "move") || strings.Contains(lowTitle, "reinstated") {
-				tType = "ROSTER"
+				tType = "COMMISSIONER"
 			}
 
 			var teamUUID *string
@@ -78,9 +78,15 @@ func main() {
 				}
 			}
 
-			createdAt, _ := time.Parse("2006-01-02T15:04:05", t.Date)
+			createdAt, err := time.Parse("2006-01-02T15:04:05", t.Date)
+			if err != nil {
+				createdAt, err = time.Parse(time.RFC3339, t.Date)
+			}
+			if err != nil {
+				createdAt = time.Now()
+			}
 
-			_, err := database.Exec(context.Background(), `
+			_, err = database.Exec(context.Background(), `
 				INSERT INTO transactions (transaction_type, status, created_at, summary, team_id)
 				VALUES ($1, $2, $3, $4, $5)
 			`, tType, "COMPLETED", createdAt, title, teamUUID)

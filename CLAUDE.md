@@ -53,18 +53,21 @@ ssh root@178.128.178.100 "docker exec -i fantasy_postgres psql -U admin -d fanta
 ## Architecture
 
 ```
-cmd/api/main.go          — Entry point: Gin router, CORS, workers, routes
+cmd/api/main.go          — Entry point: Gin router, CORS, workers, routes, graceful shutdown
 internal/
   handlers/              — HTTP handlers (one file per feature area)
-    admin.go             — Commissioner dashboard, player editor, dead cap, approvals, settings
+    admin.go             — Commissioner dashboard, player editor, dead cap, approvals, settings, Slack integration
     admin_tools.go       — Trade reversal, Fantrax toggle, FOD IDs, bid export, trade review
-    auth.go              — Login, register (approval queue), logout, RenderTemplate
+    auth.go              — Login, register (approval queue), logout, RenderTemplate, formatMoney (comma-formatted)
     bids.go              — Bid submission (year cap, min bid, IFA/MiLB window checks), bid history page
     contracts.go         — Team options (deadline enforced), extensions (deadline enforced), restructures
     moves.go             — Roster moves (dynamic limits, SP limit, 40-man, 26-man, option, IL, DFA, trade block)
     players.go           — Player profile, free agents, trade block page
     roster.go            — Roster page, depth chart save
-    trades.go            — Trade center, new trade, submit, accept
+    trades.go            — Trade center, new trade (contract preview + salary impact), submit, accept
+    waivers.go           — Waiver wire (league-filtered), waiver claims
+    league_rosters.go    — League roster browser, bid calculator, commissioner waiver audit
+    home.go              — Home page with waiver wire spotlight widget
   store/                 — Data access layer (raw SQL via pgx)
     bids.go              — GetBidHistory (shared by bid history page + CSV export)
     leagues.go           — League/team queries, league dates, league settings, date window helpers
@@ -73,6 +76,7 @@ internal/
     trades.go            — CreateTradeProposal (ISBP validation), AcceptTrade (ISBP validation), ReverseTrade, IsTradeWindowOpen
     users.go             — User CRUD, sessions, registration requests, GetTeamOwnerEmails
   middleware/auth.go     — Session-based auth middleware
+  middleware/security.go — Defense-in-depth security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy)
   worker/
     bids.go              — Bid finalization (background)
     waivers.go           — Waiver expiry processing with DFA clear actions + dead cap
@@ -84,6 +88,15 @@ internal/
   db/database.go         — PostgreSQL connection pool
 templates/               — HTML templates extending layout.html
 migrations/              — Numbered SQL migration files
+cmd/
+  import_teams/          — Sync teams from WP users' ACF managed_teams
+  sync_users_bulk/       — Sync users from WP, link via wp_id
+  sync_team_ownership/   — Populate team_owners from WP ACF data
+  sync_players/          — Sync 39K+ players from WP playerdata CPT
+  sync_transactions/     — Import activity feed from WP transaction CPT
+  sync_bid_history/      — Reconstruct bid_history JSONB from transactions
+  sync_waivers/          — Sync waiver status, end times, and claims from WP
+  sync_site_settings/    — Sync ISBP, MILB balances, luxury tax from WP Site Settings (via fod-api-bridge plugin)
 ```
 
 ## Coding Conventions
@@ -94,6 +107,7 @@ migrations/              — Numbered SQL migration files
 - Page render: `RenderTemplate(c, "template.html", gin.H{...})`
 - JSON response: `c.JSON(http.StatusOK, gin.H{"message": "..."})`
 - Admin check: `store.GetAdminLeagues(db, user.ID)` + `user.Role == "admin"` fallback
+- 500-level errors: log with `fmt.Printf("ERROR [HandlerName]: %v\n", err)`, return generic message to client — never leak DB errors
 
 ### Store Functions
 - Signature: `func Name(db *pgxpool.Pool, params...) (ReturnType, error)`
@@ -124,7 +138,9 @@ migrations/              — Numbered SQL migration files
 - **Player status fields:** `status_40_man` (BOOL), `status_26_man` (BOOL), `status_il` (TEXT), `fa_status` (TEXT), `is_international_free_agent` (BOOL)
 - **JSONB columns on players:** `bid_history`, `roster_moves_log`, `contract_option_years`
 - **Nullable columns:** `owner_name` on teams, all `contract_` columns on players — always use COALESCE when scanning into Go strings
+- **Teams financial columns:** `isbp_balance` (NUMERIC 12,2), `milb_balance` (NUMERIC 12,2)
 - **league_settings columns:** `luxury_tax_limit`, `roster_26_man_limit` (default 26), `roster_40_man_limit` (default 40), `sp_26_man_limit` (default 6)
+- **league_integrations columns:** `slack_bot_token`, `slack_channel_transactions`, `slack_channel_completed_trades`, `slack_channel_stat_alerts`, `slack_channel_trade_block`
 - **league_dates date_type values:** `trade_deadline`, `opening_day`, `extension_deadline`, `option_deadline`, `ifa_window_open`, `ifa_window_close`, `milb_fa_window_open`, `milb_fa_window_close`, `roster_expansion_start`, `roster_expansion_end`
 
 ## Key Business Logic
@@ -180,10 +196,60 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 10. **Option Years Highlighting** — Roster page highlights contract cells for team option years (orange accent)
 11. **Admin Settings Expansion** — Settings page now includes all deadline/window date pickers and roster limit inputs per league
 
+### Parity Gap Fixes (Feb 2026)
+- **League Roster Browser** — `/league/rosters` with team cards showing 40-man, 26-man, and minors counts per league
+- **FA Bid Calculator** — `/bid-calculator` interactive client-side calculator with multiplier reference table
+- **Commissioner Waiver Audit** — `/admin/waiver-audit` shows all players on waivers across all leagues with claiming teams and time remaining
+- **Waiver Wire Spotlight** — Home page sidebar widget showing top 5 expiring waivers with countdown timers
+- **Trade Proposal Contract Preview** — Trade proposal page shows inline contract data per player, live trade summary preview, and salary impact table (Salary OUT/IN/Net per year 2026-2030)
+- **Waiver Wire League Filtering** — Waiver wire dropdown only shows leagues where the user has a team (not all leagues)
+- **Roster Actions Column** — Moved to left of player name on roster page for better UX
+- **Dollar Formatting** — `formatMoney` template function now parses string values and formats all amounts with commas ($760,000 not $760000)
+
 ### Commissioner Tools Enhancements
 - **Bid/FA Management in Player Editor** — Commissioners can manually set `fa_status`, pending bid fields, and `bid_type` on any player
 - **IFA Toggle in Player Editor** — `is_international_free_agent` checkbox in Status section; IFA filter on free agents page uses this field
 - **Bid History Tracking** — Every bid appends to `bid_history` JSONB; displayed on player profile as collapsible table
+- **Slack Integration UI** — `/admin/settings` now has per-league Slack config: bot token, transactions channel, completed trades channel, stat alerts channel, trade block channel
+
+### Production Hardening (pre-cutover)
+- **Caddyfile** — Updated for `frontofficedynastysports.com` (not yet deployed; sandbox still uses `app.` subdomain): security headers (HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy), gzip compression, www→root redirect
+- **Security headers middleware** — `internal/middleware/security.go` sets defense-in-depth headers on every response (behind Caddy)
+- **Trusted proxies** — `r.SetTrustedProxies([]string{"127.0.0.1"})` since Caddy is the only reverse proxy on localhost
+- **Error sanitization** — All 500-level errors across 13 handler files now log real errors server-side (`fmt.Printf("ERROR [handler]: %v\n", err)`) and return generic "Internal server error" to clients; no DB errors leak to users
+- **CSV upload hardening** — Admin role check on POST handler, 5 MB body size limit (`http.MaxBytesReader`), header read error handling, required column validation, `ReadAll()` error handling, row length bounds check
+- **Graceful shutdown** — `signal.NotifyContext` for SIGINT/SIGTERM; cancels worker context, then gracefully shuts down HTTP server with 10-second timeout
+- **Worker context** — All 4 workers (`bids`, `waivers`, `seasonal`, `hr_monitor`) accept `context.Context` and use `select` on `ctx.Done()` to stop cleanly on shutdown
+
+### Data Sync (PHP → Go)
+
+Six `cmd/` tools sync data from the live WordPress/PHP site into the Go PostgreSQL database via the WP REST API. Run in this exact order (each depends on the previous):
+
+| Order | Tool | What it does |
+|-------|------|-------------|
+| 1 | `cmd/import_teams` | Creates teams from WP users' ACF `managed_teams` with abbreviation + ISBP |
+| 2 | `cmd/sync_users_bulk` | Creates Go users from WP users, links via `wp_id` |
+| 3 | `cmd/sync_team_ownership` | Populates `team_owners` junction table (abbreviation → team UUID lookup) |
+| 4 | `cmd/sync_players` | Syncs all 39K+ players with team_id resolution, contracts, dead cap |
+| 5 | `cmd/sync_transactions` | Imports activity feed history (ADD/DROP/TRADE/COMMISSIONER types) |
+| 6 | `cmd/sync_bid_history` | Reconstructs `bid_history` JSONB on players from transaction text |
+| 7 | `cmd/sync_waivers` | Syncs waiver status, end times, claims; clears stale waivers not on WP |
+| 8 | `cmd/sync_site_settings` | Syncs ISBP/MILB balances, luxury tax thresholds from WP Site Settings |
+
+**To run:** Build Linux binaries, SCP to server, run with production `DATABASE_URL`:
+```bash
+# Build (from PowerShell)
+$env:GOOS="linux"; $env:GOARCH="amd64"; go build -o sync_players_linux ./cmd/sync_players
+# SCP + run on server
+scp sync_players_linux root@178.128.178.100:/root/app/
+ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localhost:5433/fantasy_db' /root/app/sync_players_linux"
+```
+
+**Last full sync (2026-02-19):** 123 teams, 88 users, 128 owner links, 39,753 players, 3,023 transactions, 148 dead cap entries, 60 ISBP balances, 30 MILB balances, 60 luxury tax entries, 6 active waivers with claims.
+
+**WP API Bridge Plugin:** `tools/fod-api-bridge.php` — installed at `wp-content/mu-plugins/` on the PHP site. Exposes ACF Site Settings (ISBP, MILB, luxury tax, Slack config, key dates) via REST endpoint with key auth. Used by `sync_site_settings`. Remove after migration.
+
+**Note:** These tools call the WordPress REST API and will stop working after the PHP site is retired.
 
 ### Migrations Required
 - `migrations/013_feature_batch.sql` — Adds: `transactions.fantrax_processed`, `players.fod_id`, `registration_requests` table, `league_dates` table, `system_counters` table
@@ -199,12 +265,16 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **CRITICAL: Deploy with `--build`** — `docker compose restart` does NOT rebuild the image; always use `docker compose up -d --build app` to deploy new code. Run via `nohup` because SSH may drop during builds.
 - **Connection pool deadlock** — Never make nested `db.Query` calls while iterating outer `rows`; collect results first, close rows, then do inner queries (see `league_financials.go` for example)
 - `go.mod` says Go 1.24 but Dockerfile uses `golang:1.23-alpine` — binary is built locally so this only matters for on-server builds
-- CORS is hardcoded to `localhost:3000` in main.go — needs production domain before Go site goes live
+- CORS defaults to `https://frontofficedynastysports.com`; override with `CORS_ORIGIN` env var
 - **Production DB password** differs from dev default — check `/root/app/.env` on server for actual credentials; DB exposed on port 5433 externally
 - Many `cmd/` utilities (`sync_players`, `import_teams`, etc.) reference the old WordPress API and may not work after PHP site is retired
 - 60+ one-off SQL scripts in project root are migration artifacts — not part of the app
-- Workers run in-process — if the server restarts, bid/waiver timers reset (no persistent job queue)
+- Workers run in-process with graceful shutdown — if the server restarts, bid/waiver timers reset (no persistent job queue)
 - Seasonal worker uses `system_counters` to prevent duplicate runs across restarts
 - HR monitor requires `players.mlb_id` to be populated for cross-referencing with MLB Stats API
 - Email notifications require SMTP env vars; silently disabled if not configured
 - Registration now goes through approval queue — existing users are unaffected
+- **Team ownership is via `team_owners` junction table** — never query `teams.user_id` directly (column exists but is legacy); always JOIN `team_owners` to find a user's teams
+- **`GetManagedTeams` is lightweight** — does NOT populate `.Players`; use `GetTeamWithRoster` when player data is needed (e.g., trade proposal page)
+- **PostgreSQL COALESCE type matching** — `COALESCE(uuid_col, 'text')` fails; must cast: `COALESCE(uuid_col::TEXT, 'text')`
+- **ISBP data lives in WP options table** — not on WP users' ACF fields (those are always 0); use the `fod-api-bridge.php` plugin to access via REST API

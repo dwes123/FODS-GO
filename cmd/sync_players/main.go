@@ -27,7 +27,7 @@ type ACFData struct {
 	Status40Man      string           `json:"status_40_man"`
 	Status26Man      any              `json:"status_26_man"`
 	StatusIL         string           `json:"status_il"`
-	OptionYears      int              `json:"option_years_used"`
+	OptionYears      any              `json:"option_years_used"`
 	Contract2026     string           `json:"contract_2026"`
 	Contract2027     string           `json:"contract_2027"`
 	Contract2028     string           `json:"contract_2028"`
@@ -38,9 +38,27 @@ type ACFData struct {
 	Contract2033     string           `json:"contract_2033"`
 	Contract2034     string           `json:"contract_2034"`
 	Contract2035     string           `json:"contract_2035"`
+	Contract2036     string           `json:"contract_2036"`
 	FaStatus         string           `json:"fa_status"`
 	IsIFA            any              `json:"international_free_agent"`
+	Rule5Year        any              `json:"rule_5_eligibility_year"`
 	DeadCapPenalties []DeadCapPenalty `json:"dead_cap_penalties"`
+}
+
+func parseIntish(v any) int {
+	switch val := v.(type) {
+	case float64:
+		return int(val)
+	case int:
+		return val
+	case string:
+		if val == "" {
+			return 0
+		}
+		n, _ := strconv.Atoi(val)
+		return n
+	}
+	return 0
 }
 
 type WPPlayer struct {
@@ -63,23 +81,23 @@ func main() {
 	}
 
 	fmt.Println("Pre-caching teams by abbreviation...")
-	// Map "MLB_COL" -> UUID
-	teamLookup := make(map[string]string) 
-	
+	// Map "leagueUUID_abbreviation" -> team UUID
+	teamLookup := make(map[string]string)
+
 	tRows, _ := database.Query(context.Background(), "SELECT id, abbreviation, league_id FROM teams WHERE abbreviation IS NOT NULL")
 	for tRows.Next() {
 		var id, abbr, lID string
 		tRows.Scan(&id, &abbr, &lID)
-		
-		lKey := ""
-		for k, v := range leagueMap { if v == lID { lKey = k; break } }
-		
-		if lKey != "" {
-			key := lKey + "_" + abbr
-			teamLookup[key] = id
-		}
+		teamLookup[lID+"_"+abbr] = id
 	}
 	tRows.Close()
+
+	allLeagueUUIDs := []string{
+		"11111111-1111-1111-1111-111111111111",
+		"22222222-2222-2222-2222-222222222222",
+		"33333333-3333-3333-3333-333333333333",
+		"44444444-4444-4444-4444-444444444444",
+	}
 
 	fmt.Println("Starting Player Sync with Dead Cap...")
 
@@ -102,8 +120,15 @@ func main() {
 			lID, exists := leagueMap[p.ACF.LeagueID]
 			if !exists { continue }
 
+			// Split name into first/last
 			name := strings.TrimSpace(p.Title.Rendered)
-			
+			parts := strings.SplitN(name, " ", 2)
+			firstName := parts[0]
+			lastName := ""
+			if len(parts) > 1 {
+				lastName = parts[1]
+			}
+
 			isOn26Man := false
 			switch v := p.ACF.Status26Man.(type) {
 			case bool: isOn26Man = v
@@ -116,25 +141,40 @@ func main() {
 			case string: isIFA = (v == "1")
 			}
 
+			optionYears := parseIntish(p.ACF.OptionYears)
+			rule5Year := parseIntish(p.ACF.Rule5Year)
+
+			// Resolve team_id from abbreviation + league
+			var teamID *string
+			if p.ACF.FantasyTeamID != "" {
+				if tID, ok := teamLookup[lID+"_"+p.ACF.FantasyTeamID]; ok {
+					teamID = &tID
+				}
+			}
+
 			var playerUUID string
 			err := database.QueryRow(context.Background(), `
 				INSERT INTO players (
-					wp_id, first_name, last_name, position, mlb_team, league_id, 
-					status_40_man, status_26_man, status_il, fa_status,
+					wp_id, first_name, last_name, position, mlb_team, league_id, team_id,
+					status_40_man, status_26_man, status_il, fa_status, option_years_used,
 					contract_2026, contract_2027, contract_2028, contract_2029, contract_2030,
 					contract_2031, contract_2032, contract_2033, contract_2034, contract_2035,
-					raw_fantasy_team_id, is_international_free_agent
+					contract_2036,
+					raw_fantasy_team_id, is_international_free_agent, rule_5_eligibility_year
 				)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
-				ON CONFLICT (wp_id) DO UPDATE SET 
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+				ON CONFLICT (wp_id) DO UPDATE SET
 					first_name = EXCLUDED.first_name,
+					last_name = EXCLUDED.last_name,
 					position = EXCLUDED.position,
 					mlb_team = EXCLUDED.mlb_team,
 					league_id = EXCLUDED.league_id,
+					team_id = EXCLUDED.team_id,
 					status_40_man = EXCLUDED.status_40_man,
 					status_26_man = EXCLUDED.status_26_man,
 					status_il = EXCLUDED.status_il,
 					fa_status = EXCLUDED.fa_status,
+					option_years_used = EXCLUDED.option_years_used,
 					contract_2026 = EXCLUDED.contract_2026,
 					contract_2027 = EXCLUDED.contract_2027,
 					contract_2028 = EXCLUDED.contract_2028,
@@ -145,15 +185,18 @@ func main() {
 					contract_2033 = EXCLUDED.contract_2033,
 					contract_2034 = EXCLUDED.contract_2034,
 					contract_2035 = EXCLUDED.contract_2035,
+					contract_2036 = EXCLUDED.contract_2036,
 					raw_fantasy_team_id = EXCLUDED.raw_fantasy_team_id,
-					is_international_free_agent = EXCLUDED.is_international_free_agent
+					is_international_free_agent = EXCLUDED.is_international_free_agent,
+					rule_5_eligibility_year = EXCLUDED.rule_5_eligibility_year
 				RETURNING id
-			`, 
-				p.ID, name, "", p.ACF.Position, p.ACF.MLBTeam, lID, 
-				p.ACF.Status40Man == "X", isOn26Man, p.ACF.StatusIL, p.ACF.FaStatus,
+			`,
+				p.ID, firstName, lastName, p.ACF.Position, p.ACF.MLBTeam, lID, teamID,
+				p.ACF.Status40Man == "X", isOn26Man, p.ACF.StatusIL, p.ACF.FaStatus, optionYears,
 				p.ACF.Contract2026, p.ACF.Contract2027, p.ACF.Contract2028, p.ACF.Contract2029, p.ACF.Contract2030,
 				p.ACF.Contract2031, p.ACF.Contract2032, p.ACF.Contract2033, p.ACF.Contract2034, p.ACF.Contract2035,
-				p.ACF.FantasyTeamID, isIFA,
+				p.ACF.Contract2036,
+				p.ACF.FantasyTeamID, isIFA, rule5Year,
 			).Scan(&playerUUID)
 
 			if err != nil {
@@ -163,9 +206,19 @@ func main() {
 			if playerUUID != "" && len(p.ACF.DeadCapPenalties) > 0 {
 				database.Exec(context.Background(), "DELETE FROM dead_cap_penalties WHERE player_id = $1", playerUUID)
 				for _, dc := range p.ACF.DeadCapPenalties {
-					// Use the new lookup map (MLB_COL)
-					tUUID, found := teamLookup[p.ACF.LeagueID+"_"+dc.TeamID]
-					if !found { continue }
+					// Try player's league first, then all leagues
+					tUUID := ""
+					if id, ok := teamLookup[lID+"_"+dc.TeamID]; ok {
+						tUUID = id
+					} else {
+						for _, lid := range allLeagueUUIDs {
+							if id, ok := teamLookup[lid+"_"+dc.TeamID]; ok {
+								tUUID = id
+								break
+							}
+						}
+					}
+					if tUUID == "" { continue }
 
 					var yr int
 					switch v := dc.Year.(type) {
