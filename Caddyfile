@@ -1,3 +1,7 @@
+app.frontofficedynastysports.com {
+    reverse_proxy app:8080
+}
+
 www.frontofficedynastysports.com {
     redir https://frontofficedynastysports.com{uri} permanent
 }
