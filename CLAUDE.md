@@ -211,6 +211,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **IFA Toggle in Player Editor** — `is_international_free_agent` checkbox in Status section; IFA filter on free agents page uses this field
 - **Bid History Tracking** — Every bid appends to `bid_history` JSONB; displayed on player profile as collapsible table
 - **Slack Integration UI** — `/admin/settings` now has per-league Slack config: bot token, transactions channel, completed trades channel, stat alerts channel, trade block channel
+- **Commissioner Role Management** — `/admin/roles` UI to add/remove league commissioners (`league_roles` table) and update global user roles (admin/user); admin-only, linked from dashboard
 
 ### Production Hardening (pre-cutover)
 - **Caddyfile** — Updated for `frontofficedynastysports.com` (not yet deployed; sandbox still uses `app.` subdomain): security headers (HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy), gzip compression, www→root redirect

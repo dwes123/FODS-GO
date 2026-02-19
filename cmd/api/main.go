@@ -170,6 +170,9 @@ func main() {
 		authorized.GET("/admin/settings", handlers.AdminSettingsHandler(database))
 		authorized.POST("/admin/settings/save", handlers.AdminSaveSettingsHandler(database))
 		authorized.GET("/admin/waiver-audit", handlers.AdminWaiverAuditHandler(database))
+		authorized.GET("/admin/roles", handlers.AdminRolesHandler(database))
+		authorized.POST("/admin/roles/add", handlers.AdminAddRoleHandler(database))
+		authorized.POST("/admin/roles/delete", handlers.AdminDeleteRoleHandler(database))
 	}
 
 	// --- API ROUTES ---

@@ -1,0 +1,94 @@
+{{define "title"}}Role Management{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Commissioner Role Management</h2>
+
+    {{if .SaveSuccess}}
+    <div style="background: #d4edda; color: #155724; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #c3e6cb;">
+        Changes saved successfully.
+    </div>
+    {{end}}
+
+    <h3>Current Commissioners</h3>
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>League</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Roles}}
+            <tr>
+                <td><strong>{{.Username}}</strong></td>
+                <td>{{.Email}}</td>
+                <td>{{.LeagueName}}</td>
+                <td>
+                    <form action="/admin/roles/delete" method="POST" style="display: inline;" onsubmit="return confirm('Remove {{.Username}} as commissioner of {{.LeagueName}}?');">
+                        <input type="hidden" name="role_id" value="{{.ID}}">
+                        <button type="submit" class="button button-small" style="background: #d9534f;">Remove</button>
+                    </form>
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="4">No commissioner roles assigned.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
+        <div style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid var(--fod-blue-primary);">
+            <h3 style="margin-top: 0;">Add Commissioner</h3>
+            <form action="/admin/roles/add" method="POST">
+                <div style="margin-bottom: 12px;">
+                    <label><strong>User</strong></label><br>
+                    <select name="user_id" required style="width: 100%; padding: 8px; margin-top: 4px;">
+                        <option value="">-- Select User --</option>
+                        {{range .AllUsers}}
+                        <option value="{{.ID}}">{{.Username}} ({{.Email}})</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label><strong>League</strong></label><br>
+                    <select name="league_id" required style="width: 100%; padding: 8px; margin-top: 4px;">
+                        <option value="">-- Select League --</option>
+                        {{range .Leagues}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <button type="submit" class="button">Add Commissioner</button>
+            </form>
+        </div>
+
+        <div style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid var(--fod-orange-accent);">
+            <h3 style="margin-top: 0;">Update Global Role</h3>
+            <form action="/admin/roles/add" method="POST">
+                <input type="hidden" name="user_id" value="">
+                <input type="hidden" name="league_id" value="">
+                <div style="margin-bottom: 12px;">
+                    <label><strong>User</strong></label><br>
+                    <select name="user_role_id" required style="width: 100%; padding: 8px; margin-top: 4px;">
+                        <option value="">-- Select User --</option>
+                        {{range .AllUsers}}
+                        <option value="{{.ID}}">{{.Username}} (current: {{.Role}})</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label><strong>Role</strong></label><br>
+                    <select name="user_role_value" required style="width: 100%; padding: 8px; margin-top: 4px;">
+                        <option value="user">user</option>
+                        <option value="admin">admin</option>
+                    </select>
+                </div>
+                <button type="submit" class="button">Update Role</button>
+            </form>
+        </div>
+    </div>
+</div>
+{{end}}

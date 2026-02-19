@@ -234,6 +234,131 @@ func AdminDeleteDeadCapHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+// --- Commissioner Role Management ---
+
+type leagueRole struct {
+	ID         string
+	UserID     string
+	Username   string
+	Email      string
+	LeagueID   string
+	LeagueName string
+}
+
+func AdminRolesHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		if user.Role != "admin" {
+			c.String(http.StatusForbidden, "Global Admin Only")
+			return
+		}
+
+		ctx := context.Background()
+
+		// Get current commissioner roles with user/league names
+		rows, err := db.Query(ctx, `
+			SELECT lr.id, lr.user_id, u.username, u.email, lr.league_id, l.name
+			FROM league_roles lr
+			JOIN users u ON u.id = lr.user_id
+			JOIN leagues l ON l.id = lr.league_id
+			ORDER BY l.name, u.username
+		`)
+		var roles []leagueRole
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var r leagueRole
+				if err := rows.Scan(&r.ID, &r.UserID, &r.Username, &r.Email, &r.LeagueID, &r.LeagueName); err == nil {
+					roles = append(roles, r)
+				}
+			}
+		} else {
+			fmt.Printf("ERROR [AdminRolesHandler]: %v\n", err)
+		}
+
+		// Get all users for dropdown
+		userRows, err := db.Query(ctx, `SELECT id, username, email, role FROM users ORDER BY username`)
+		var allUsers []store.User
+		if err == nil {
+			defer userRows.Close()
+			for userRows.Next() {
+				var u store.User
+				if err := userRows.Scan(&u.ID, &u.Username, &u.Email, &u.Role); err == nil {
+					allUsers = append(allUsers, u)
+				}
+			}
+		}
+
+		leagues, _ := store.GetLeaguesWithTeams(db)
+
+		RenderTemplate(c, "admin_roles.html", gin.H{
+			"User":        user,
+			"Roles":       roles,
+			"AllUsers":    allUsers,
+			"Leagues":     leagues,
+			"SaveSuccess": c.Query("saved") == "1",
+			"IsCommish":   true,
+		})
+	}
+}
+
+func AdminAddRoleHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		if user.Role != "admin" {
+			c.String(http.StatusForbidden, "Global Admin Only")
+			return
+		}
+
+		ctx := context.Background()
+		userID := c.PostForm("user_id")
+		leagueID := c.PostForm("league_id")
+
+		if userID != "" && leagueID != "" {
+			_, err := db.Exec(ctx, `
+				INSERT INTO league_roles (user_id, league_id, role)
+				VALUES ($1, $2, 'commissioner')
+				ON CONFLICT (user_id, league_id) DO NOTHING
+			`, userID, leagueID)
+			if err != nil {
+				fmt.Printf("ERROR [AdminAddRole]: %v\n", err)
+			}
+		}
+
+		// Optionally update global user role
+		roleUserID := c.PostForm("user_role_id")
+		roleValue := c.PostForm("user_role_value")
+		if roleUserID != "" && (roleValue == "admin" || roleValue == "user") {
+			_, err := db.Exec(ctx, `UPDATE users SET role = $1 WHERE id = $2`, roleValue, roleUserID)
+			if err != nil {
+				fmt.Printf("ERROR [AdminAddRole-UpdateRole]: %v\n", err)
+			}
+		}
+
+		c.Redirect(http.StatusFound, "/admin/roles?saved=1")
+	}
+}
+
+func AdminDeleteRoleHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		if user.Role != "admin" {
+			c.String(http.StatusForbidden, "Global Admin Only")
+			return
+		}
+
+		roleID := c.PostForm("role_id")
+		if roleID != "" {
+			_, err := db.Exec(context.Background(), `DELETE FROM league_roles WHERE id = $1`, roleID)
+			if err != nil {
+				fmt.Printf("ERROR [AdminDeleteRole]: %v\n", err)
+			}
+		}
+
+		c.Redirect(http.StatusFound, "/admin/roles")
+	}
+}
+
 // --- League Settings (Feature 16) ---
 
 func AdminSettingsHandler(db *pgxpool.Pool) gin.HandlerFunc {
