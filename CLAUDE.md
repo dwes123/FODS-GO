@@ -18,19 +18,14 @@ The platform manages dynasty fantasy baseball leagues (MLB, AAA, AA, High-A) wit
 ## Build & Deploy Commands
 
 ```powershell
-# Build Linux binary (from PowerShell on Windows)
-$env:GOOS="linux"; $env:GOARCH="amd64"; go build -o server_linux ./cmd/api
-
 # Run locally for development
 go run ./cmd/api
 
-# Deploy: SCP binary + templates to server
-scp server_linux root@178.128.178.100:/root/app/server
-scp -r templates root@178.128.178.100:/root/app/
+# Deploy to staging (preview at app.frontofficedynastysports.com)
+.\deploy-staging.ps1
 
-# Restart on server (MUST use --build to pick up new binary; restart alone reuses old image)
-ssh root@178.128.178.100 "cd /root/app && nohup docker compose -f docker-compose.prod.yml up -d --build app > /tmp/docker_build.log 2>&1 &"
-# Note: run via nohup because SSH may drop during long builds; check /tmp/docker_build.log for status
+# Promote staging to production (frontofficedynastysports.com)
+.\promote-production.ps1
 
 # Access production DB
 ssh root@178.128.178.100 "docker exec -it fantasy_postgres psql -U admin -d fantasy_db"
@@ -40,6 +35,15 @@ scp root@178.128.178.100:/root/backups/fantasy_db_YYYY-MM-DD.sql.gz .
 gunzip fantasy_db_YYYY-MM-DD.sql.gz
 ssh root@178.128.178.100 "docker exec -i fantasy_postgres psql -U admin -d fantasy_db" < fantasy_db_YYYY-MM-DD.sql
 ```
+
+### Staging/Production Workflow
+1. Make code changes locally
+2. `.\deploy-staging.ps1` — builds, uploads to `/root/app/staging/`, restarts `app-staging` container
+3. Test at `https://app.frontofficedynastysports.com`
+4. `.\promote-production.ps1` — copies staging binary+templates to production, restarts `app` container
+5. Verify at `https://frontofficedynastysports.com`
+
+**Server layout:** Production at `/root/app/server` + `/root/app/templates/`, staging at `/root/app/staging/server` + `/root/app/staging/templates/`. Both containers share the same DB.
 
 ## Backups
 
@@ -97,6 +101,10 @@ cmd/
   sync_bid_history/      — Reconstruct bid_history JSONB from transactions
   sync_waivers/          — Sync waiver status, end times, and claims from WP
   sync_site_settings/    — Sync ISBP, MILB balances, luxury tax from WP Site Settings (via fod-api-bridge plugin)
+deploy-staging.ps1       — Build + upload to staging + restart staging container
+promote-production.ps1   — Copy staging to production + restart production container
+docker-compose.prod.yml  — Production + staging services (app, app-staging, db, caddy)
+Caddyfile                — Caddy routes: production (frontofficedynastysports.com → app), staging (app. → app-staging)
 ```
 
 ## Coding Conventions
@@ -263,7 +271,8 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 
 ## Gotchas
 
-- **CRITICAL: Deploy with `--build`** — `docker compose restart` does NOT rebuild the image; always use `docker compose up -d --build app` to deploy new code. Run via `nohup` because SSH may drop during builds.
+- **CRITICAL: Deploy with `--build`** — `docker compose restart` does NOT rebuild the image; the deploy scripts handle this. If deploying manually, always use `docker compose up -d --build app` (or `app-staging`). Run via `nohup` because SSH may drop during builds.
+- **Staging vs Production** — `app.frontofficedynastysports.com` is staging (`app-staging` container), `frontofficedynastysports.com` is production (`app` container). Both share the same DB. Use `deploy-staging.ps1` and `promote-production.ps1` to deploy.
 - **Connection pool deadlock** — Never make nested `db.Query` calls while iterating outer `rows`; collect results first, close rows, then do inner queries (see `league_financials.go` for example)
 - `go.mod` says Go 1.24 but Dockerfile uses `golang:1.23-alpine` — binary is built locally so this only matters for on-server builds
 - CORS defaults to `https://frontofficedynastysports.com`; override with `CORS_ORIGIN` env var
