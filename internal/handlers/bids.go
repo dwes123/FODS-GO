@@ -87,7 +87,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 
 			// Submit IFA bid
-			endTime := time.Now().Add(24 * time.Hour)
+			endTime := time.Now().Add(48 * time.Hour)
 			_, err = db.Exec(context.Background(), `
 				UPDATE players SET
 					fa_status = 'pending_bid',
@@ -163,7 +163,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		// Update Player with New Bid
-		endTime := time.Now().Add(24 * time.Hour)
+		endTime := time.Now().Add(48 * time.Hour)
 
 		_, err = db.Exec(context.Background(), `
 			UPDATE players SET
