@@ -38,15 +38,15 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@db:5432/fantasy_db?sslmode=disable
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@db:5432/fantasy_db_staging?sslmode=disable
       GIN_MODE: release
       CORS_ORIGIN: https://app.frontofficedynastysports.com
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM: ${SMTP_FROM:-}
-      SLACK_WEBHOOK: ${SLACK_WEBHOOK:-}
+      SMTP_HOST: ""
+      SMTP_PORT: ""
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM: ""
+      SLACK_WEBHOOK: ""
     ports:
       - "127.0.0.1:8081:8080"
 
