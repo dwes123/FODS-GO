@@ -43,7 +43,12 @@ ssh root@178.128.178.100 "docker exec -i fantasy_postgres psql -U admin -d fanta
 4. `.\promote-production.ps1` — copies staging binary+templates to production, restarts `app` container
 5. Verify at `https://frontofficedynastysports.com`
 
-**Server layout:** Production at `/root/app/server` + `/root/app/templates/`, staging at `/root/app/staging/server` + `/root/app/staging/templates/`. Both containers share the same DB.
+**Server layout:** Production at `/root/app/server` + `/root/app/templates/`, staging at `/root/app/staging/server` + `/root/app/staging/templates/`.
+
+**Staging database:** `app-staging` uses an isolated `fantasy_db_staging` database (not the production `fantasy_db`). SMTP and Slack env vars are blanked out so staging won't send real notifications. To refresh staging data from production:
+```bash
+ssh root@178.128.178.100 "bash /root/app/scripts/refresh-staging-db.sh"
+```
 
 ## Backups
 
@@ -101,6 +106,9 @@ cmd/
   sync_bid_history/      — Reconstruct bid_history JSONB from transactions
   sync_waivers/          — Sync waiver status, end times, and claims from WP
   sync_site_settings/    — Sync ISBP, MILB balances, luxury tax from WP Site Settings (via fod-api-bridge plugin)
+scripts/
+  backup-db.sh           — Daily DB backup to local + GitHub (cron)
+  refresh-staging-db.sh  — Clone production DB into fantasy_db_staging
 deploy-staging.ps1       — Build + upload to staging + restart staging container
 promote-production.ps1   — Copy staging to production + restart production container
 docker-compose.prod.yml  — Production + staging services (app, app-staging, db, caddy)
@@ -277,7 +285,7 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 ## Gotchas
 
 - **CRITICAL: Deploy with `--build`** — `docker compose restart` does NOT rebuild the image; the deploy scripts handle this. If deploying manually, always use `docker compose up -d --build app` (or `app-staging`). Run via `nohup` because SSH may drop during builds.
-- **Staging vs Production** — `app.frontofficedynastysports.com` is staging (`app-staging` container), `frontofficedynastysports.com` is production (`app` container). Both share the same DB. Use `deploy-staging.ps1` and `promote-production.ps1` to deploy.
+- **Staging vs Production** — `app.frontofficedynastysports.com` is staging (`app-staging` container, `fantasy_db_staging`), `frontofficedynastysports.com` is production (`app` container, `fantasy_db`). Staging has its own isolated DB; SMTP/Slack are disabled. Use `deploy-staging.ps1` and `promote-production.ps1` to deploy.
 - **Connection pool deadlock** — Never make nested `db.Query` calls while iterating outer `rows`; collect results first, close rows, then do inner queries (see `league_financials.go` for example)
 - `go.mod` says Go 1.24 but Dockerfile uses `golang:1.23-alpine` — binary is built locally so this only matters for on-server builds
 - CORS defaults to `https://frontofficedynastysports.com`; override with `CORS_ORIGIN` env var
