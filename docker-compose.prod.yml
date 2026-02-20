@@ -27,8 +27,12 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
       SLACK_WEBHOOK: ${SLACK_WEBHOOK:-}
+      GOOGLE_CLOUD_PROJECT: fantasy-435215
+      GOOGLE_APPLICATION_CREDENTIALS: /root/app/service-account.json
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - ./service-account.json:/root/app/service-account.json:ro
 
   app-staging:
     build:
@@ -47,8 +51,12 @@ services:
       SMTP_PASSWORD: ""
       SMTP_FROM: ""
       SLACK_WEBHOOK: ""
+      GOOGLE_CLOUD_PROJECT: fantasy-435215
+      GOOGLE_APPLICATION_CREDENTIALS: /root/app/service-account.json
     ports:
       - "127.0.0.1:8081:8080"
+    volumes:
+      - ./service-account.json:/root/app/service-account.json:ro
 
   caddy:
     image: caddy:2-alpine

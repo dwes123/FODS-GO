@@ -177,6 +177,10 @@ func main() {
 		authorized.POST("/admin/roles/delete", handlers.AdminDeleteRoleHandler(database))
 		authorized.GET("/admin/balance-editor", handlers.AdminBalanceEditorHandler(database))
 		authorized.POST("/admin/balance-editor/save", handlers.AdminSaveBalanceHandler(database))
+
+		// AI Agent
+		authorized.GET("/admin/agent", handlers.AdminAgentPageHandler(database))
+		authorized.POST("/admin/agent", handlers.AdminAgentChatHandler(database))
 	}
 
 	// --- API ROUTES ---

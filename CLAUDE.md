@@ -67,6 +67,7 @@ internal/
   handlers/              — HTTP handlers (one file per feature area)
     admin.go             — Commissioner dashboard, player editor, dead cap, approvals, settings, Slack integration, balance editor
     admin_tools.go       — Trade reversal, Fantrax toggle, FOD IDs, bid export, trade review
+    agent.go             — AI commissioner assistant (Gemini 2.0 Flash via Vertex AI) with tool-calling loop
     auth.go              — Login, register (approval queue), logout, RenderTemplate, formatMoney (comma-formatted)
     bids.go              — Bid submission (year cap, min bid, IFA/MiLB window checks), bid history page
     contracts.go         — Team options (deadline enforced), extensions (deadline enforced), restructures
@@ -233,6 +234,19 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Commissioner Role Management** — `/admin/roles` UI to add/remove league commissioners (`league_roles` table) and update global user roles (admin/user); admin-only, linked from dashboard
 - **ISBP/MiLB Balance Editor** — `/admin/balance-editor` lets commissioners view and edit team ISBP and MiLB balances; league filter dropdown, modal edit form, linked from dashboard Financials card
 - **Fantrax Processing Queue** — `/admin/fantrax-queue` shows roster-affecting transactions (ROSTER/ADD/TRADE) pending Fantrax sync; league filter dropdown, "Show Completed" toggle, "Mark Completed"/"Undo" buttons via existing `/admin/fantrax-toggle` endpoint; linked from dashboard with pink accent card
+
+### Commissioner AI Agent
+- **Chat UI** — `/admin/agent` chat-based interface for commissioners; extends `layout.html`, vanilla JS with conversation history
+- **Backend** — `internal/handlers/agent.go` integrates Google Vertex AI Gemini 2.0 Flash with function calling (tool use loop)
+- **GCP Auth** — Service account JSON key at `/root/app/service-account.json`, mounted into containers via docker-compose volume; env vars `GOOGLE_CLOUD_PROJECT=fantasy-435215` and `GOOGLE_APPLICATION_CREDENTIALS`
+- **League Scoping** — All agent tools filtered by commissioner's `league_roles`; even global admins only see leagues they're commissioner of
+- **Tools (23):** `search_players` (custom SQL with team JOIN), `get_player`, `list_teams`, `get_team_balance`, `assign_player_to_team`, `release_player`, `update_player_name`, `update_team_balance`, `run_query` (SELECT only, word-boundary keyword blocklist), `get_pending_approvals` (actions + registrations + trades with league_name), `process_pending_action`, `process_registration`, `get_team_roster`, `count_roster`, `get_team_payrolls` (sums contract columns per team with luxury tax + dead cap), `get_recent_activity` (transactions table with NULL league_id fallback to team's league), `check_roster_compliance` (26/40-man + SP limits + under-22 minimum per team), `get_waiver_status` (on-waivers players + time remaining + claiming teams), `get_league_deadlines` (all dates/windows with open/closed status), `find_expiring_contracts` (last dollar-value contract year), `update_player_contract` (set contract value for a year), `add_dead_cap` (add dead cap penalty via store function), `dfa_player` (DFA with 48h waiver period + roster move log + activity log), `set_league_date` (set opening day, trade deadline, etc. for one or all leagues via `UpsertLeagueDate`)
+- **Contract parsing in payrolls** — Contract TEXT values can be `"1000000"`, `"$1,000,000"`, `"1000000(TO)"` — SQL strips `(TO)`, `$`, `,` then validates with regex before casting to NUMERIC; matches the Go-side pattern in `CalculateYearlySummary()`
+- **System prompt enhancements** — Includes common SQL query patterns (players without team, most expensive contracts, dead cap totals, etc.) and multi-step reasoning instructions (chain search_players → get_player for trade analysis, use dedicated tools over run_query)
+- **System Prompt** — Includes full DB schema reference, current year via `time.Now().Year()`, commissioner's league access, and behavioral instructions (use IDs from prior tool calls, filter by league when asked)
+- **Protobuf workaround** — Tool results JSON-marshaled to string before passing to Gemini `FunctionResponse` (SDK can't serialize nested `[]map[string]interface{}`)
+- **Markdown rendering** — `formatMarkdown()` JS function converts `**bold**`, `*italic*`, `` `code` `` to HTML; assistant messages use `innerHTML`, user messages use `textContent` for XSS safety
+- **Deploy note** — `docker-compose.prod.yml` must be manually SCPed to server when changed (deploy scripts only copy binary + templates)
 
 ### Production Hardening (pre-cutover)
 - **Caddyfile** — Updated for `frontofficedynastysports.com` (not yet deployed; sandbox still uses `app.` subdomain): security headers (HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy), gzip compression, www→root redirect
