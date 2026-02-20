@@ -75,8 +75,12 @@ func HomeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			isCommish = len(adminLeagues) > 0 || user.Role == "admin"
 		}
 
-		// 3. Get Recent Activity
-		activities, _ := store.GetRecentActivity(db, 5, "")
+		// 3. Get Recent Activity (filtered to user's leagues)
+		var userLeagueIDs []string
+		for _, t := range myTeams {
+			userLeagueIDs = append(userLeagueIDs, t.LeagueID)
+		}
+		activities, _ := store.GetRecentActivityForLeagues(db, 5, "", userLeagueIDs)
 
 		// 4. Get Upcoming Dates (Filtered by league query param)
 		selectedLeague := c.Query("league")

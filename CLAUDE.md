@@ -176,7 +176,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 ### Completed Feature Batch (18 features — all implemented)
 1. **Extension Calculator** — WAR-based pricing on player profile (SP=3.3755, RP=5.0131, Hitter=2.8354, decay factors, $700K floor)
 2. **Rule 5 Eligibility Display** — Shows `rule_5_eligibility_year` on player profile
-3. **Roster Moves Log** — JSONB-backed per-player history, appended on every move, displayed on profile
+3. **Roster Moves Log** — JSONB-backed per-player history, appended on every move, displayed on profile; all roster moves (promote 40/26-man, option, IL, activate, DFA) also log to the activity feed via `LogActivity`
 4. **Bid History Page** — `/bids/history` with league/team filters, parses `bid_history` JSONB
 5. **Trade Block Page** — `/trade-block` showing all players on the block, grouped by team
 6. **Trade Reversal** — Commissioner tool: swaps players back, reverses ISBP, removes dead cap, sets status to REVERSED
@@ -215,6 +215,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Roster Actions Column** — Moved to left of player name on roster page for better UX
 - **Dollar Formatting** — `formatMoney` template function now parses string values and formats all amounts with commas ($760,000 not $760000)
 - **IFA Signing Flow** — IFA players show orange "IFA" badge on free agents page; player profile shows dedicated ISBP signing form (single amount, no years/AAV/bid points) instead of standard bid form; bid worker deducts from team ISBP balance and clears IFA flag on finalization
+- **Recent Activity League Filtering** — Home page recent activity feed only shows transactions from leagues where the logged-in user has a team; users with no teams see no activity
 
 ### Commissioner Tools Enhancements
 - **Bid/FA Management in Player Editor** — Commissioners can manually set `fa_status`, pending bid fields, and `bid_type` on any player

@@ -29,6 +29,10 @@ func LogActivity(db *pgxpool.Pool, leagueID, teamID, transType, summary string) 
 }
 
 func GetRecentActivity(db *pgxpool.Pool, limit int, leagueID string) ([]Activity, error) {
+	return GetRecentActivityForLeagues(db, limit, leagueID, nil)
+}
+
+func GetRecentActivityForLeagues(db *pgxpool.Pool, limit int, leagueID string, leagueIDs []string) ([]Activity, error) {
 	query := `
 		SELECT t.id, COALESCE(teams.name, 'League'), COALESCE(p.first_name || ' ' || p.last_name, ''),
 		       t.transaction_type, t.status, t.created_at, COALESCE(l.name, 'All'),
@@ -43,6 +47,9 @@ func GetRecentActivity(db *pgxpool.Pool, limit int, leagueID string) ([]Activity
 	if leagueID != "" {
 		query += " WHERE (teams.league_id = $2 OR t.league_id = $2) "
 		args = append(args, leagueID)
+	} else if len(leagueIDs) > 0 {
+		query += " WHERE (teams.league_id = ANY($2) OR t.league_id = ANY($2)) "
+		args = append(args, leagueIDs)
 	}
 
 	query += " ORDER BY t.created_at DESC LIMIT $1"
