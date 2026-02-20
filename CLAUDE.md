@@ -166,6 +166,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **Roster limits:** Configurable per league/year via `league_settings` (default 26/40); SP limit on 26-man (default 6)
 - **Roster expansion:** Optional date window in `league_dates` (`roster_expansion_start`/`roster_expansion_end`)
 - **Deadline enforcement:** Extension deadline, team option deadline, IFA window, MiLB FA window — all configurable per league/year via `league_dates`
+- **IFA signing:** International free agents use a separate ISBP-based signing flow — single dollar amount (no contract years/AAV/bid points); validates ISBP balance on bid, deducts on finalization; no contract written; IFA flag cleared on signing
 
 ## Feature Implementation Status
 
@@ -213,6 +214,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Waiver Wire League Filtering** — Waiver wire dropdown only shows leagues where the user has a team (not all leagues)
 - **Roster Actions Column** — Moved to left of player name on roster page for better UX
 - **Dollar Formatting** — `formatMoney` template function now parses string values and formats all amounts with commas ($760,000 not $760000)
+- **IFA Signing Flow** — IFA players show orange "IFA" badge on free agents page; player profile shows dedicated ISBP signing form (single amount, no years/AAV/bid points) instead of standard bid form; bid worker deducts from team ISBP balance and clears IFA flag on finalization
 
 ### Commissioner Tools Enhancements
 - **Bid/FA Management in Player Editor** — Commissioners can manually set `fa_status`, pending bid fields, and `bid_type` on any player
