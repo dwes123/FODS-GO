@@ -170,6 +170,7 @@ func main() {
 		authorized.POST("/admin/approve-registration", handlers.AdminProcessRegistrationHandler(database))
 		authorized.GET("/admin/settings", handlers.AdminSettingsHandler(database))
 		authorized.POST("/admin/settings/save", handlers.AdminSaveSettingsHandler(database))
+		authorized.GET("/admin/fantrax-queue", handlers.AdminFantraxQueueHandler(database))
 		authorized.GET("/admin/waiver-audit", handlers.AdminWaiverAuditHandler(database))
 		authorized.GET("/admin/roles", handlers.AdminRolesHandler(database))
 		authorized.POST("/admin/roles/add", handlers.AdminAddRoleHandler(database))

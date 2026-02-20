@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -26,6 +27,54 @@ func LogActivity(db *pgxpool.Pool, leagueID, teamID, transType, summary string) 
 		VALUES ($1, $2, $3, $4, 'COMPLETED')
 	`, leagueID, teamID, transType, summary)
 	return err
+}
+
+func GetFantraxQueue(db *pgxpool.Pool, leagueID string, showCompleted bool) ([]Activity, error) {
+	query := `
+		SELECT t.id, COALESCE(teams.name, 'League'), COALESCE(p.first_name || ' ' || p.last_name, ''),
+		       t.transaction_type, t.status, t.created_at, COALESCE(l.name, 'All'),
+		       COALESCE(t.summary, ''), COALESCE(t.fantrax_processed, FALSE)
+		FROM transactions t
+		LEFT JOIN teams ON t.team_id = teams.id
+		LEFT JOIN players p ON t.player_id = p.id
+		LEFT JOIN leagues l ON teams.league_id = l.id OR t.league_id = l.id
+		WHERE t.transaction_type IN ('ROSTER', 'ADD', 'TRADE')
+		  AND COALESCE(t.summary, '') NOT LIKE '%promoted%to 40-Man roster%'
+		  AND COALESCE(t.summary, '') NOT LIKE '%promoted%to 26-Man roster%'
+		  AND t.created_at >= CURRENT_DATE
+	`
+
+	args := []interface{}{}
+	argIdx := 1
+
+	if !showCompleted {
+		query += fmt.Sprintf(" AND (t.fantrax_processed IS NOT TRUE) ")
+	}
+
+	if leagueID != "" {
+		query += fmt.Sprintf(" AND (teams.league_id = $%d OR t.league_id = $%d) ", argIdx, argIdx)
+		args = append(args, leagueID)
+		argIdx++
+	}
+
+	query += " ORDER BY t.created_at DESC"
+
+	rows, err := db.Query(context.Background(), query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var activities []Activity
+	for rows.Next() {
+		var a Activity
+		if err := rows.Scan(&a.ID, &a.TeamName, &a.PlayerName, &a.TransactionType, &a.Status, &a.CreatedAt, &a.LeagueName, &a.Summary, &a.FantraxProcessed); err != nil {
+			continue
+		}
+		a.TransactionType = strings.TrimSpace(strings.ToUpper(a.TransactionType))
+		activities = append(activities, a)
+	}
+	return activities, nil
 }
 
 func GetRecentActivity(db *pgxpool.Pool, limit int, leagueID string) ([]Activity, error) {

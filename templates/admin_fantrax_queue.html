@@ -1,0 +1,72 @@
+{{define "title"}}Fantrax Queue{{end}}
+
+{{define "content"}}
+<h2>Fantrax Processing Queue</h2>
+<p>Track which roster-affecting transactions have been synced to Fantrax.</p>
+
+<form method="GET" action="/admin/fantrax-queue" style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
+    <select name="league_id" onchange="this.form.submit()" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc;">
+        <option value="">All Leagues</option>
+        {{range .Leagues}}
+        <option value="{{.ID}}" {{if eq $.SelectedLeague .ID}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+    </select>
+
+    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+        <input type="checkbox" name="show_completed" value="1" {{if .ShowCompleted}}checked{{end}} onchange="this.form.submit()">
+        Show Completed
+    </label>
+</form>
+
+{{if .Queue}}
+<table class="fantasy-table-base">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Team</th>
+            <th>Summary</th>
+            <th>League</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Queue}}
+        <tr>
+            <td>{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}</td>
+            <td>{{.TeamName}}</td>
+            <td>{{.Summary}}</td>
+            <td>{{.LeagueName}}</td>
+            <td>
+                {{if .FantraxProcessed}}
+                    <span style="color: #28a745; font-weight: bold;">&#10003;</span>
+                    <button class="button button-small" onclick="toggleFantrax('{{.ID}}')" style="margin-left: 5px; background: #6c757d; font-size: 0.8em;">Undo</button>
+                {{else}}
+                    <button class="button button-small" onclick="toggleFantrax('{{.ID}}')" style="background: #28a745;">Mark Completed</button>
+                {{end}}
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p>No pending transactions. {{if not .ShowCompleted}}Try enabling "Show Completed" to see processed items.{{end}}</p>
+{{end}}
+
+<div style="margin-top: 20px;">
+    <a href="/admin" class="button button-small">&larr; Back to Dashboard</a>
+</div>
+
+<script>
+function toggleFantrax(transactionId) {
+    fetch('/admin/fantrax-toggle', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'transaction_id=' + encodeURIComponent(transactionId)
+    }).then(function(resp) {
+        if (resp.ok) {
+            location.reload();
+        }
+    });
+}
+</script>
+{{end}}

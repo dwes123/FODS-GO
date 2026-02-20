@@ -224,6 +224,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Slack Integration UI** — `/admin/settings` now has per-league Slack config: bot token, transactions channel, completed trades channel, stat alerts channel, trade block channel
 - **Commissioner Role Management** — `/admin/roles` UI to add/remove league commissioners (`league_roles` table) and update global user roles (admin/user); admin-only, linked from dashboard
 - **ISBP/MiLB Balance Editor** — `/admin/balance-editor` lets commissioners view and edit team ISBP and MiLB balances; league filter dropdown, modal edit form, linked from dashboard Financials card
+- **Fantrax Processing Queue** — `/admin/fantrax-queue` shows roster-affecting transactions (ROSTER/ADD/TRADE) pending Fantrax sync; league filter dropdown, "Show Completed" toggle, "Mark Completed"/"Undo" buttons via existing `/admin/fantrax-toggle` endpoint; linked from dashboard with pink accent card
 
 ### Production Hardening (pre-cutover)
 - **Caddyfile** — Updated for `frontofficedynastysports.com` (not yet deployed; sandbox still uses `app.` subdomain): security headers (HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy), gzip compression, www→root redirect

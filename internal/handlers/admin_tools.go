@@ -226,6 +226,39 @@ func BidExportHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+// --- Fantrax Queue ---
+func AdminFantraxQueueHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		leagueID := c.Query("league_id")
+		showCompleted := c.Query("show_completed") == "1"
+
+		queue, err := store.GetFantraxQueue(db, leagueID, showCompleted)
+		if err != nil {
+			fmt.Printf("ERROR [AdminFantraxQueue]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		leagues, _ := store.GetLeaguesWithTeams(db)
+
+		RenderTemplate(c, "admin_fantrax_queue.html", gin.H{
+			"User":          user,
+			"IsCommish":     true,
+			"Queue":         queue,
+			"Leagues":       leagues,
+			"SelectedLeague": leagueID,
+			"ShowCompleted": showCompleted,
+		})
+	}
+}
+
 // Trade Review Queue
 func AdminTradeReviewHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
