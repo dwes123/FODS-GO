@@ -553,6 +553,19 @@ func getAgentTools() []*genai.Tool {
 						},
 					},
 				},
+				{
+					Name:        "get_unsubmitted_arbitration",
+					Description: "Get all players with ARB contracts whose teams have NOT yet submitted an arbitration decision. These are ARB cases still waiting for the team to act. Optionally filter by league name (e.g. 'AAA', 'MLB').",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"league": {
+								Type:        genai.TypeString,
+								Description: "League name to filter by (e.g. 'MLB', 'AAA', 'AA', 'High-A'). Leave empty for all leagues.",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -837,6 +850,8 @@ func executeTool(db *pgxpool.Pool, ac *agentCtx, name string, args map[string]in
 		return toolUpdateBugStatus(db, ac, args)
 	case "get_pending_arbitration":
 		return toolGetPendingArbitration(db, ac, args)
+	case "get_unsubmitted_arbitration":
+		return toolGetUnsubmittedArbitration(db, ac, args)
 	default:
 		return map[string]interface{}{"error": "Unknown tool: " + name}
 	}
@@ -2431,4 +2446,85 @@ func formatAgentMoney(amount float64) string {
 		return "-" + s
 	}
 	return s
+}
+
+func toolGetUnsubmittedArbitration(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	ctx := context.Background()
+	year := time.Now().Year()
+
+	league := getStringArg(args, "league")
+	var leagueFilter string
+	switch strings.ToUpper(strings.TrimSpace(league)) {
+	case "MLB":
+		leagueFilter = "11111111-1111-1111-1111-111111111111"
+	case "AAA":
+		leagueFilter = "22222222-2222-2222-2222-222222222222"
+	case "AA":
+		leagueFilter = "33333333-3333-3333-3333-333333333333"
+	case "HIGH-A", "HIGHA", "HIGH A":
+		leagueFilter = "44444444-4444-4444-4444-444444444444"
+	}
+
+	contractCol := fmt.Sprintf("contract_%d", year)
+	query := fmt.Sprintf(`
+		SELECT p.first_name || ' ' || p.last_name AS player_name,
+		       t.name AS team_name,
+		       l.name AS league_name,
+		       p.%s AS arb_status
+		FROM players p
+		JOIN teams t ON p.team_id = t.id
+		JOIN leagues l ON p.league_id = l.id
+		LEFT JOIN pending_actions pa ON pa.player_id = p.id
+		     AND pa.action_type = 'ARBITRATION'
+		     AND pa.target_year = $1
+		     AND pa.status IN ('PENDING', 'APPROVED')
+		WHERE p.%s ILIKE '%%ARB%%'
+		  AND pa.id IS NULL
+	`, contractCol, contractCol)
+
+	var queryArgs []interface{}
+	queryArgs = append(queryArgs, year)
+
+	if leagueFilter != "" {
+		query += " AND p.league_id = $2"
+		queryArgs = append(queryArgs, leagueFilter)
+	} else if len(ac.LeagueIDs) > 0 {
+		query += " AND p.league_id = ANY($2)"
+		queryArgs = append(queryArgs, ac.LeagueIDs)
+	}
+
+	query += " ORDER BY l.name, t.name, p.last_name"
+
+	rows, err := db.Query(ctx, query, queryArgs...)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_unsubmitted_arbitration]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to query unsubmitted arbitration cases"}
+	}
+	defer rows.Close()
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		var playerName, teamName, leagueName, arbStatus string
+		if err := rows.Scan(&playerName, &teamName, &leagueName, &arbStatus); err != nil {
+			continue
+		}
+		results = append(results, map[string]interface{}{
+			"player_name": playerName,
+			"team_name":   teamName,
+			"league_name": leagueName,
+			"arb_status":  arbStatus,
+		})
+	}
+
+	if len(results) == 0 {
+		return map[string]interface{}{
+			"message": "All ARB players have submitted arbitration decisions",
+			"count":   0,
+		}
+	}
+
+	return map[string]interface{}{
+		"players": results,
+		"count":   len(results),
+	}
 }
