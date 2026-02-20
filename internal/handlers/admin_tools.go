@@ -103,7 +103,18 @@ func AdminPlayerAssignHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := c.MustGet("user").(*store.User)
 		leagues, _ := store.GetLeaguesWithTeams(db)
-		RenderTemplate(c, "admin_player_assign.html", gin.H{"User": user, "Leagues": leagues, "IsCommish": true})
+		searchQuery := c.Query("q")
+		searchResults := []store.RosterPlayer{}
+		if searchQuery != "" {
+			searchResults, _ = store.SearchAllPlayers(db, searchQuery)
+		}
+		RenderTemplate(c, "admin_player_assign.html", gin.H{
+			"User":          user,
+			"Leagues":       leagues,
+			"IsCommish":     true,
+			"SearchQuery":   searchQuery,
+			"SearchResults": searchResults,
+		})
 	}
 }
 

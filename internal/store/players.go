@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -82,14 +83,30 @@ func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer,
 }
 
 func SearchAllPlayers(db *pgxpool.Pool, term string) ([]RosterPlayer, error) {
-	rows, err := db.Query(context.Background(), `
+	words := strings.Fields(term)
+	if len(words) == 0 {
+		return nil, nil
+	}
+
+	// Build WHERE clause: each word must match first_name OR last_name
+	conditions := []string{}
+	args := []interface{}{}
+	for i, word := range words {
+		argNum := i + 1
+		conditions = append(conditions, fmt.Sprintf("(p.first_name ILIKE $%d OR p.last_name ILIKE $%d)", argNum, argNum))
+		args = append(args, "%"+word+"%")
+	}
+
+	query := fmt.Sprintf(`
 		SELECT p.id, p.first_name, p.last_name, p.position, p.mlb_team, l.name
 		FROM players p
 		JOIN leagues l ON p.league_id = l.id
-		WHERE p.first_name ILIKE $1 OR p.last_name ILIKE $1 
+		WHERE %s
 		ORDER BY l.name ASC, p.first_name ASC
 		LIMIT 50
-	`, "%"+term+"%")
+	`, strings.Join(conditions, " AND "))
+
+	rows, err := db.Query(context.Background(), query, args...)
 	
 	if err != nil {
 		return nil, err

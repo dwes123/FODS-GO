@@ -3,20 +3,65 @@
 {{define "content"}}
 <div class="content-container">
     <h2>Manual Player Assignment</h2>
-    
+
     {{if .Success}}
     <div class="notice notice-success">Assignment updated successfully.</div>
     {{end}}
 
-    <div class="card" style="padding: 20px; background: #f9f9f9; border: 1px solid #ddd;">
+    <div class="card" style="padding: 20px; background: #f9f9f9; border: 1px solid #ddd; margin-bottom: 20px;">
+        <form method="GET" action="/admin/player-assign" style="display: flex; gap: 10px; align-items: center;">
+            <label><strong>Search Player by Name:</strong></label>
+            <input type="text" name="q" placeholder="Enter name..." value="{{.SearchQuery}}" style="flex-grow: 1; padding: 8px;">
+            <button type="submit" class="button">Search</button>
+        </form>
+
+        {{if .SearchResults}}
+        <div style="margin-top: 20px; background: white; border: 1px solid #eee; border-radius: 4px;">
+            <table class="fantasy-table-base" style="margin: 0; border: none;">
+                <thead>
+                    <tr>
+                        <th style="background: #E87426; color: white;">League</th>
+                        <th>Name</th>
+                        <th>Pos</th>
+                        <th>MLB Team</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .SearchResults}}
+                    <tr id="row-{{.ID}}">
+                        <td><strong style="color: #E87426;">{{.LeagueName}}</strong></td>
+                        <td>{{.FirstName}} {{.LastName}}</td>
+                        <td>{{.Position}}</td>
+                        <td>{{.MLBTeam}}</td>
+                        <td style="white-space: nowrap;">
+                            <button type="button" class="button button-small" onclick="selectPlayer('{{.ID}}', '{{.FirstName}} {{.LastName}}', '{{.Position}}', '{{.MLBTeam}}', '{{.LeagueName}}')">Select</button>
+                            <a href="/admin/player-editor?player_id={{.ID}}" class="button button-small button-secondary">Edit</a>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else if .SearchQuery}}
+        <div style="margin-top: 20px; padding: 15px; background: #fff0f0; border: 1px solid #ffcccc; border-radius: 4px; color: #d9534f;">
+            <strong>No players found matching "{{.SearchQuery}}".</strong>
+        </div>
+        {{end}}
+    </div>
+
+    <div id="assignment-card" class="card" style="padding: 20px; background: #f9f9f9; border: 1px solid #ddd;">
         <form action="/admin/player-assign" method="POST">
             <div class="form-group">
-                <label>1. Player UUID or Name Search:</label>
-                <input type="text" name="player_id" placeholder="Paste Player ID..." required style="width: 100%; padding: 8px;">
+                <label><strong>1. Selected Player:</strong></label>
+                <input type="hidden" name="player_id" id="player_id_input" required>
+                <div id="selected_player" style="padding: 12px; background: white; border: 2px dashed #ccc; border-radius: 4px; color: #999; text-align: center;">
+                    No player selected — use search above
+                </div>
             </div>
 
             <div class="form-group" style="margin-top: 20px;">
-                <label>2. Assign to Team:</label>
+                <label><strong>2. Assign to Team:</strong></label>
                 <select name="team_id" required style="width: 100%; padding: 8px;">
                     <option value="none">-- Release to Free Agency --</option>
                     {{range .Leagues}}
@@ -29,8 +74,37 @@
                 </select>
             </div>
 
-            <button type="submit" class="button" style="margin-top: 20px;">Process Assignment</button>
+            <button type="submit" class="button" style="margin-top: 20px;" id="submit-btn" disabled>Process Assignment</button>
         </form>
     </div>
 </div>
+
+<script>
+function selectPlayer(id, name, pos, mlbTeam, league) {
+    // Set hidden input
+    document.getElementById('player_id_input').value = id;
+
+    // Update selected player display
+    var el = document.getElementById('selected_player');
+    el.innerHTML = '<strong style="font-size: 1.1em;">' + name + '</strong>' +
+        '<span style="margin-left: 10px; color: #666;">' + pos + ' | ' + mlbTeam + ' | </span>' +
+        '<span style="color: #E87426; font-weight: bold;">' + league + '</span>';
+    el.style.border = '2px solid #2E6DA4';
+    el.style.background = '#eaf3fb';
+    el.style.color = '#333';
+    el.style.textAlign = 'left';
+
+    // Highlight selected row, un-highlight others
+    var rows = document.querySelectorAll('table tbody tr');
+    rows.forEach(function(r) { r.style.background = ''; });
+    var row = document.getElementById('row-' + id);
+    if (row) row.style.background = '#eaf3fb';
+
+    // Enable submit
+    document.getElementById('submit-btn').disabled = false;
+
+    // Scroll to assignment card
+    document.getElementById('assignment-card').scrollIntoView({behavior: 'smooth'});
+}
+</script>
 {{end}}
