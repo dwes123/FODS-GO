@@ -22,15 +22,26 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		years, _ := strconv.Atoi(yearsStr)
 		aav, _ := strconv.ParseFloat(aavStr, 64)
 
-		// Get User's Team
+		// Get player's league, then find user's team in that league via team_owners
 		user := c.MustGet("user").(*store.User)
 
-		var teamID, teamName, leagueID string
+		var playerLeagueID string
 		err := db.QueryRow(context.Background(),
-			"SELECT id, name, league_id FROM teams WHERE user_id = $1 LIMIT 1", user.ID).Scan(&teamID, &teamName, &leagueID)
+			"SELECT league_id FROM players WHERE id = $1", playerID).Scan(&playerLeagueID)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Player not found.")
+			return
+		}
+
+		var teamID, teamName, leagueID string
+		err = db.QueryRow(context.Background(),
+			`SELECT t.id, t.name, t.league_id FROM teams t
+			 JOIN team_owners to2 ON t.id = to2.team_id
+			 WHERE to2.user_id = $1 AND t.league_id = $2 LIMIT 1`,
+			user.ID, playerLeagueID).Scan(&teamID, &teamName, &leagueID)
 
 		if err != nil {
-			c.String(http.StatusBadRequest, "You do not own a team and cannot bid.")
+			c.String(http.StatusBadRequest, "You do not own a team in this player's league.")
 			return
 		}
 

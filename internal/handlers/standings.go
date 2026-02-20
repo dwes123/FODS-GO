@@ -25,7 +25,7 @@ func StandingsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		if leagueID == "" {
 			// Try to find user's team league
-			db.QueryRow(context.Background(), "SELECT league_id FROM teams WHERE user_id = $1 LIMIT 1", user.ID).Scan(&leagueID)
+			db.QueryRow(context.Background(), "SELECT t.league_id FROM teams t JOIN team_owners to2 ON t.id = to2.team_id WHERE to2.user_id = $1 LIMIT 1", user.ID).Scan(&leagueID)
 		}
 		if leagueID == "" {
 			leagueID = "11111111-1111-1111-1111-111111111111" // Default MLB

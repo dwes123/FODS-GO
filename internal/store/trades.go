@@ -193,7 +193,7 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 
 	// 2. Verify Acceptor owns the Receiving Team
 	var isOwner bool
-	err = tx.QueryRow(ctx, `SELECT COUNT(*) > 0 FROM teams WHERE id = $1 AND user_id = $2`, receiverID, acceptorUserID).Scan(&isOwner)
+	err = tx.QueryRow(ctx, `SELECT COUNT(*) > 0 FROM team_owners WHERE team_id = $1 AND user_id = $2`, receiverID, acceptorUserID).Scan(&isOwner)
 	if err != nil || !isOwner {
 		return fmt.Errorf("unauthorized to accept this trade")
 	}
