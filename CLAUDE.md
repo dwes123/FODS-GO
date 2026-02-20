@@ -209,7 +209,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **League Roster Browser** — `/league/rosters` with team cards showing 40-man, 26-man, and minors counts per league
 - **FA Bid Calculator** — `/bid-calculator` interactive client-side calculator with multiplier reference table
 - **Commissioner Waiver Audit** — `/admin/waiver-audit` shows all players on waivers across all leagues with claiming teams and time remaining
-- **Waiver Wire Spotlight** — Home page sidebar widget showing top 5 expiring waivers with countdown timers
+- **Waiver Wire Spotlight** — Home page sidebar widget showing top 5 expiring waivers with countdown timers and league name
 - **Trade Proposal Contract Preview** — Trade proposal page shows inline contract data per player, live trade summary preview, and salary impact table (Salary OUT/IN/Net per year 2026-2030)
 - **Waiver Wire League Filtering** — Waiver wire dropdown only shows leagues where the user has a team (not all leagues)
 - **Roster Actions Column** — Moved to left of player name on roster page for better UX
