@@ -1,0 +1,87 @@
+{{define "title"}}Balance Editor{{end}}
+
+{{define "content"}}
+<h2>ISBP / MiLB Balance Editor</h2>
+
+{{if .SaveSuccess}}
+<div class="alert alert-success" style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px;">
+    Balance updated successfully.
+</div>
+{{end}}
+
+<form method="GET" action="/admin/balance-editor" class="filter-bar" style="margin-bottom: 20px;">
+    <select name="league_id" onchange="this.form.submit()">
+        <option value="">All Leagues</option>
+        {{range .Leagues}}
+            <option value="{{.ID}}" {{if eq .ID $.LeagueID}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+    </select>
+</form>
+
+<div class="table-container">
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Team</th>
+                <th>League</th>
+                <th>ISBP Balance</th>
+                <th>MiLB Balance</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Teams}}
+            <tr id="row-{{.ID}}">
+                <td>{{.Name}}</td>
+                <td>{{.LeagueName}}</td>
+                <td class="bal-display-{{.ID}}">${{formatMoney .IsbpBalance}}</td>
+                <td class="bal-display-milb-{{.ID}}">${{formatMoney .MilbBalance}}</td>
+                <td>
+                    <button type="button" class="button button-small" onclick="showEdit('{{.ID}}', {{.IsbpBalance}}, {{.MilbBalance}}, '{{$.LeagueID}}')">Edit</button>
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="5">No teams found.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:30px; border-radius:10px; max-width:400px; width:90%; margin:auto; position:relative; top:50%; transform:translateY(-50%);">
+        <h3 style="margin-top:0;">Edit Balances</h3>
+        <form method="POST" action="/admin/balance-editor/save">
+            <input type="hidden" name="team_id" id="edit-team-id">
+            <input type="hidden" name="league_id" id="edit-league-id">
+
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">ISBP Balance ($):</label>
+            <input type="number" name="isbp_balance" id="edit-isbp" step="0.01" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; margin-bottom:15px;">
+
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">MiLB Balance ($):</label>
+            <input type="number" name="milb_balance" id="edit-milb" step="0.01" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; margin-bottom:20px;">
+
+            <div style="display:flex; gap:10px;">
+                <button type="submit" class="button" style="flex:1;">Save</button>
+                <button type="button" class="button" style="flex:1; background:#6c757d;" onclick="closeEdit()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function showEdit(teamId, isbp, milb, leagueId) {
+    document.getElementById('edit-team-id').value = teamId;
+    document.getElementById('edit-league-id').value = leagueId;
+    document.getElementById('edit-isbp').value = isbp;
+    document.getElementById('edit-milb').value = milb;
+    document.getElementById('edit-modal').style.display = 'flex';
+}
+function closeEdit() {
+    document.getElementById('edit-modal').style.display = 'none';
+}
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEdit();
+});
+</script>
+{{end}}

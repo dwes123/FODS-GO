@@ -112,6 +112,79 @@ func AppendBidHistory(db *pgxpool.Pool, playerID, teamID string, bidPoints float
 		entryJSON, playerID)
 }
 
+type PendingBidPlayer struct {
+	ID              string
+	FirstName       string
+	LastName        string
+	Position        string
+	LeagueName      string
+	LeagueID        string
+	BiddingTeamName string
+	BidAmount       float64
+	BidYears        int
+	BidAAV          float64
+	BidEndTime      time.Time
+	BidEndTimeStr   string
+	TimeRemaining   string
+	IsExpired       bool
+}
+
+func GetPendingBids(db *pgxpool.Pool, leagueID string) ([]PendingBidPlayer, error) {
+	ctx := context.Background()
+
+	query := `
+		SELECT p.id, p.first_name, p.last_name, COALESCE(p.position, ''),
+			COALESCE(l.name, 'Unknown'), COALESCE(l.id::TEXT, ''),
+			COALESCE(t.name, 'Unknown'),
+			COALESCE(p.pending_bid_amount, 0), COALESCE(p.pending_bid_years, 0),
+			COALESCE(p.pending_bid_aav, 0), COALESCE(p.bid_end_time, NOW())
+		FROM players p
+		LEFT JOIN leagues l ON p.league_id = l.id
+		LEFT JOIN teams t ON p.pending_bid_team_id = t.id
+		WHERE p.fa_status = 'pending_bid'
+	`
+	args := []interface{}{}
+	if leagueID != "" {
+		query += " AND p.league_id = $1"
+		args = append(args, leagueID)
+	}
+	query += " ORDER BY p.bid_end_time ASC"
+
+	rows, err := db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var players []PendingBidPlayer
+	for rows.Next() {
+		var p PendingBidPlayer
+		if err := rows.Scan(&p.ID, &p.FirstName, &p.LastName, &p.Position,
+			&p.LeagueName, &p.LeagueID, &p.BiddingTeamName,
+			&p.BidAmount, &p.BidYears, &p.BidAAV, &p.BidEndTime); err != nil {
+			continue
+		}
+		et := p.BidEndTime.In(time.FixedZone("EST", -5*3600))
+		p.BidEndTimeStr = et.Format("Jan 2 3:04 PM")
+		if time.Now().After(p.BidEndTime) {
+			p.IsExpired = true
+			p.TimeRemaining = "Expired"
+		} else {
+			remaining := time.Until(p.BidEndTime)
+			hours := int(remaining.Hours())
+			minutes := int(remaining.Minutes()) % 60
+			if hours > 0 {
+				p.TimeRemaining = fmt.Sprintf("%dh %dm left", hours, minutes)
+			} else {
+				p.TimeRemaining = fmt.Sprintf("%dm left", minutes)
+			}
+		}
+		players = append(players, p)
+	}
+
+	return players, nil
+}
+
 // GetPlayerBidHistory returns the bid history for a single player, with team names resolved.
 func GetPlayerBidHistory(db *pgxpool.Pool, playerID string) []BidRecord {
 	ctx := context.Background()

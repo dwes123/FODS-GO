@@ -60,7 +60,7 @@ ssh root@178.128.178.100 "docker exec -i fantasy_postgres psql -U admin -d fanta
 cmd/api/main.go          — Entry point: Gin router, CORS, workers, routes, graceful shutdown
 internal/
   handlers/              — HTTP handlers (one file per feature area)
-    admin.go             — Commissioner dashboard, player editor, dead cap, approvals, settings, Slack integration
+    admin.go             — Commissioner dashboard, player editor, dead cap, approvals, settings, Slack integration, balance editor
     admin_tools.go       — Trade reversal, Fantrax toggle, FOD IDs, bid export, trade review
     auth.go              — Login, register (approval queue), logout, RenderTemplate, formatMoney (comma-formatted)
     bids.go              — Bid submission (year cap, min bid, IFA/MiLB window checks), bid history page
@@ -220,6 +220,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Bid History Tracking** — Every bid appends to `bid_history` JSONB; displayed on player profile as collapsible table
 - **Slack Integration UI** — `/admin/settings` now has per-league Slack config: bot token, transactions channel, completed trades channel, stat alerts channel, trade block channel
 - **Commissioner Role Management** — `/admin/roles` UI to add/remove league commissioners (`league_roles` table) and update global user roles (admin/user); admin-only, linked from dashboard
+- **ISBP/MiLB Balance Editor** — `/admin/balance-editor` lets commissioners view and edit team ISBP and MiLB balances; league filter dropdown, modal edit form, linked from dashboard Financials card
 
 ### Production Hardening (pre-cutover)
 - **Caddyfile** — Updated for `frontofficedynastysports.com` (not yet deployed; sandbox still uses `app.` subdomain): security headers (HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy), gzip compression, www→root redirect

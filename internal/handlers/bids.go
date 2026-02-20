@@ -128,6 +128,29 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+func PendingBidsHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		leagueID := c.Query("league_id")
+
+		pendingBids, err := store.GetPendingBids(db, leagueID)
+		if err != nil {
+			fmt.Printf("ERROR [PendingBids]: %v\n", err)
+		}
+
+		leagues, _ := store.GetLeaguesWithTeams(db)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+
+		RenderTemplate(c, "pending_bids.html", gin.H{
+			"User":        user,
+			"PendingBids": pendingBids,
+			"Leagues":     leagues,
+			"LeagueID":    leagueID,
+			"IsCommish":   len(adminLeagues) > 0 || user.Role == "admin",
+		})
+	}
+}
+
 func BidHistoryHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := c.MustGet("user").(*store.User)

@@ -116,6 +116,7 @@ func main() {
 
 		// Trade Block & Bid History
 		authorized.GET("/trade-block", handlers.TradeBlockHandler(database))
+		authorized.GET("/bids/pending", handlers.PendingBidsHandler(database))
 		authorized.GET("/bids/history", handlers.BidHistoryHandler(database))
 
 		// Activity Feed
@@ -173,6 +174,8 @@ func main() {
 		authorized.GET("/admin/roles", handlers.AdminRolesHandler(database))
 		authorized.POST("/admin/roles/add", handlers.AdminAddRoleHandler(database))
 		authorized.POST("/admin/roles/delete", handlers.AdminDeleteRoleHandler(database))
+		authorized.GET("/admin/balance-editor", handlers.AdminBalanceEditorHandler(database))
+		authorized.POST("/admin/balance-editor/save", handlers.AdminSaveBalanceHandler(database))
 	}
 
 	// --- API ROUTES ---

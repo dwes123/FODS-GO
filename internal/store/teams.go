@@ -304,3 +304,54 @@ func GetTeamLeagueID(db *pgxpool.Pool, teamID string) (string, error) {
 		`SELECT league_id FROM teams WHERE id = $1`, teamID).Scan(&leagueID)
 	return leagueID, err
 }
+
+// --- Balance Editor ---
+
+type TeamBalance struct {
+	ID           string
+	Name         string
+	Abbreviation string
+	LeagueName   string
+	LeagueID     string
+	IsbpBalance  float64
+	MilbBalance  float64
+}
+
+func GetTeamsWithBalances(db *pgxpool.Pool, leagueID string) ([]TeamBalance, error) {
+	ctx := context.Background()
+	query := `
+		SELECT t.id, t.name, COALESCE(t.abbreviation, ''), l.name, l.id,
+			COALESCE(t.isbp_balance, 0), COALESCE(t.milb_balance, 0)
+		FROM teams t
+		JOIN leagues l ON t.league_id = l.id
+	`
+	args := []interface{}{}
+	if leagueID != "" {
+		query += " WHERE t.league_id = $1"
+		args = append(args, leagueID)
+	}
+	query += " ORDER BY l.name, t.name"
+
+	rows, err := db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var teams []TeamBalance
+	for rows.Next() {
+		var t TeamBalance
+		if err := rows.Scan(&t.ID, &t.Name, &t.Abbreviation, &t.LeagueName, &t.LeagueID, &t.IsbpBalance, &t.MilbBalance); err != nil {
+			continue
+		}
+		teams = append(teams, t)
+	}
+	return teams, nil
+}
+
+func SetTeamBalance(db *pgxpool.Pool, teamID string, isbpBalance, milbBalance float64) error {
+	_, err := db.Exec(context.Background(),
+		`UPDATE teams SET isbp_balance = $1, milb_balance = $2 WHERE id = $3`,
+		isbpBalance, milbBalance, teamID)
+	return err
+}

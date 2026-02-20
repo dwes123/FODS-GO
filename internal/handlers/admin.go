@@ -359,6 +359,65 @@ func AdminDeleteRoleHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+// --- ISBP / MiLB Balance Editor ---
+
+func AdminBalanceEditorHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		leagueID := c.Query("league_id")
+		teams, err := store.GetTeamsWithBalances(db, leagueID)
+		if err != nil {
+			fmt.Printf("ERROR [AdminBalanceEditor]: %v\n", err)
+		}
+
+		leagues, _ := store.GetLeaguesWithTeams(db)
+
+		RenderTemplate(c, "admin_balance_editor.html", gin.H{
+			"User":        user,
+			"Teams":       teams,
+			"Leagues":     leagues,
+			"LeagueID":    leagueID,
+			"SaveSuccess": c.Query("saved") == "1",
+			"IsCommish":   true,
+		})
+	}
+}
+
+func AdminSaveBalanceHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		teamID := c.PostForm("team_id")
+		isbpBalance, _ := strconv.ParseFloat(c.PostForm("isbp_balance"), 64)
+		milbBalance, _ := strconv.ParseFloat(c.PostForm("milb_balance"), 64)
+
+		err := store.SetTeamBalance(db, teamID, isbpBalance, milbBalance)
+		if err != nil {
+			fmt.Printf("ERROR [AdminSaveBalance]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		leagueID := c.PostForm("league_id")
+		redirect := "/admin/balance-editor?saved=1"
+		if leagueID != "" {
+			redirect += "&league_id=" + leagueID
+		}
+		c.Redirect(http.StatusFound, redirect)
+	}
+}
+
 // --- League Settings (Feature 16) ---
 
 func AdminSettingsHandler(db *pgxpool.Pool) gin.HandlerFunc {

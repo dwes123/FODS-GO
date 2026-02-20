@@ -1,0 +1,113 @@
+{{define "title"}}Pending Bids{{end}}
+
+{{define "content"}}
+<h2>Pending Bids</h2>
+
+<form method="GET" action="/bids/pending" class="filter-bar">
+    <select name="league_id" onchange="this.form.submit()">
+        <option value="">All Leagues</option>
+        {{range .Leagues}}
+            <option value="{{.ID}}" {{if eq .ID $.LeagueID}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+    </select>
+</form>
+
+{{if .PendingBids}}
+<div class="table-container">
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Position</th>
+                <th>League</th>
+                <th>High Bidder</th>
+                <th>Bid Points</th>
+                <th>Years</th>
+                <th>AAV</th>
+                <th>Time Remaining</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .PendingBids}}
+            <tr>
+                <td><a href="/player/{{.ID}}"><strong>{{.FirstName}} {{.LastName}}</strong></a></td>
+                <td>{{.Position}}</td>
+                <td>{{.LeagueName}}</td>
+                <td>{{.BiddingTeamName}}</td>
+                <td>{{printf "%.2f" .BidAmount}}</td>
+                <td>{{.BidYears}}</td>
+                <td>${{formatMoney .BidAAV}}</td>
+                <td>
+                    {{if .IsExpired}}
+                        <span class="time-expired">Expired — {{.BidEndTimeStr}}</span>
+                    {{else}}
+                        <span class="time-remaining" data-end="{{.BidEndTime.Unix}}">{{.TimeRemaining}}</span>
+                        <div style="font-size: 0.8rem; color: #888;">{{.BidEndTimeStr}}</div>
+                    {{end}}
+                </td>
+                <td><a href="/player/{{.ID}}" class="bid-link">Place Bid</a></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div style="padding: 40px; background: #f9f9f9; border-radius: 12px; text-align: center; border: 2px dashed #ddd;">
+    <p style="font-size: 1.1rem; color: #888; margin: 0;">No pending bids found.</p>
+</div>
+{{end}}
+
+<style>
+    .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+    .filter-bar select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; }
+    .table-container { overflow-x: auto; }
+    .time-expired { color: var(--fod-orange-accent); font-weight: bold; }
+    .time-remaining { font-weight: bold; }
+    .bid-link {
+        display: inline-block;
+        background: var(--fod-blue-primary);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    .bid-link:hover { opacity: 0.85; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function updateTimers() {
+        document.querySelectorAll('.time-remaining').forEach(function(el) {
+            var end = parseInt(el.getAttribute('data-end')) * 1000;
+            var now = Date.now();
+            var diff = end - now;
+            if (diff <= 0) {
+                el.textContent = 'Processing...';
+                el.className = 'time-expired';
+                return;
+            }
+            var hours = Math.floor(diff / 3600000);
+            var minutes = Math.floor((diff % 3600000) / 60000);
+            if (hours > 0) {
+                el.textContent = hours + 'h ' + minutes + 'm left';
+            } else {
+                el.textContent = minutes + 'm left';
+            }
+            // Color coding: green > 6h, orange < 6h, red < 1h
+            if (hours < 1) {
+                el.style.color = '#dc3545';
+            } else if (hours < 6) {
+                el.style.color = 'var(--fod-orange-accent)';
+            } else {
+                el.style.color = '#28a745';
+            }
+        });
+    }
+    updateTimers();
+    setInterval(updateTimers, 60000);
+});
+</script>
+{{end}}
