@@ -28,7 +28,7 @@ func SubmitBugReportHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		description := c.PostForm("description")
 
 		_, err := db.Exec(context.Background(),
-			"INSERT INTO bug_reports (user_id, title, description) VALUES ($1, $2, $3)",
+			"INSERT INTO bug_reports (user_id, subject, details) VALUES ($1, $2, $3)",
 			user.ID, title, description)
 
 		if err != nil {
@@ -49,7 +49,7 @@ func SubmitBugReportHandler(db *pgxpool.Pool) gin.HandlerFunc {
 func AdminBugReportsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rows, err := db.Query(context.Background(), `
-			SELECT b.id, b.title, b.description, b.status, b.created_at, u.username
+			SELECT b.id, b.subject, b.details, b.status, b.created_at, u.username
 			FROM bug_reports b
 			JOIN users u ON b.user_id = u.id
 			ORDER BY b.created_at DESC

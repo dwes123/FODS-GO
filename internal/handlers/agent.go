@@ -51,6 +51,7 @@ Key database tables and columns for run_query:
 - trade_players: trade_id (uuid), player_id (uuid), from_team_id (uuid), to_team_id (uuid) — players involved in a trade proposal
 - transactions: id (uuid), team_id (uuid), league_id (uuid), transaction_type (text — ADD/DROP/TRADE/COMMISSIONER/ROSTER/WAIVER), summary (text), created_at (timestamp), fantrax_processed (bool) — the ACTIVITY LOG of all completed actions. For trade history, use get_recent_activity with action_type='TRADE'.
 - team_owners: team_id (uuid), user_id (uuid) — junction table linking users to teams
+- bug_reports: id (uuid), user_id (uuid), team_id (uuid), subject (text), details (text), status (text, default 'OPEN'), created_at (timestamp) — user-submitted bug reports; JOIN users ON bug_reports.user_id = users.id for username
 - Contract values are TEXT like "$1000000" — to sum them, cast: REPLACE(REPLACE(contract_2026, '$', ''), ',', '')::NUMERIC
 
 Important tool behaviors:
@@ -66,6 +67,7 @@ Important tool behaviors:
 - For waiver questions (who's on waivers, waiver status), use get_waiver_status instead of run_query.
 - For deadline/window questions (trade deadline, IFA window), use get_league_deadlines instead of run_query.
 - To set or update league dates (opening day, trade deadline, etc.), use set_league_date. Pass league_id='all' to set for all leagues at once.
+- For bug report questions, ALWAYS use get_bug_reports instead of run_query. To update a bug, use the exact bug_id returned by get_bug_reports — do not retype or modify the ID.
 - For expiring contract questions (UFAs, last year of deal), use find_expiring_contracts instead of run_query.
 
 Common SQL patterns for run_query (replace <league_uuid> with the actual UUID):
@@ -507,6 +509,37 @@ func getAgentTools() []*genai.Tool {
 						Required: []string{"league_id", "date_type", "date"},
 					},
 				},
+				{
+					Name:        "get_bug_reports",
+					Description: "List bug reports, optionally filtered by status. Returns structured data with exact IDs for use with update_bug_status.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"status": {
+								Type:        genai.TypeString,
+								Description: "Filter by status: 'OPEN', 'CLOSED', or empty for all",
+							},
+						},
+					},
+				},
+				{
+					Name:        "update_bug_status",
+					Description: "Update the status of a bug report (e.g. mark as CLOSED or OPEN). Use the exact bug_id from get_bug_reports.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"bug_id": {
+								Type:        genai.TypeString,
+								Description: "Bug report UUID",
+							},
+							"status": {
+								Type:        genai.TypeString,
+								Description: "New status: 'OPEN' or 'CLOSED'",
+							},
+						},
+						Required: []string{"bug_id", "status"},
+					},
+				},
 			},
 		},
 	}
@@ -785,6 +818,10 @@ func executeTool(db *pgxpool.Pool, ac *agentCtx, name string, args map[string]in
 		return toolDFAPlayer(db, ac, args)
 	case "set_league_date":
 		return toolSetLeagueDate(db, ac, args)
+	case "get_bug_reports":
+		return toolGetBugReports(db, ac, args)
+	case "update_bug_status":
+		return toolUpdateBugStatus(db, ac, args)
 	default:
 		return map[string]interface{}{"error": "Unknown tool: " + name}
 	}
@@ -2197,5 +2234,78 @@ func toolSetLeagueDate(db *pgxpool.Pool, ac *agentCtx, args map[string]interface
 		"date":     dateStr,
 		"year":     year,
 		"message":  fmt.Sprintf("Set %s to %s for %d in: %s", dateType, dateStr, year, strings.Join(updated, ", ")),
+	}
+}
+
+func toolGetBugReports(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	status := strings.ToUpper(getStringArg(args, "status"))
+
+	ctx := context.Background()
+	query := `SELECT b.id, b.subject, b.details, b.status, b.created_at, u.username
+		FROM bug_reports b JOIN users u ON b.user_id = u.id`
+	var queryArgs []interface{}
+	if status == "OPEN" || status == "CLOSED" {
+		query += " WHERE b.status = $1"
+		queryArgs = append(queryArgs, status)
+	}
+	query += " ORDER BY b.created_at DESC LIMIT 50"
+
+	rows, err := db.Query(ctx, query, queryArgs...)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_bug_reports]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to query bug reports"}
+	}
+	defer rows.Close()
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		var id, subject, details, bugStatus, username string
+		var createdAt time.Time
+		if err := rows.Scan(&id, &subject, &details, &bugStatus, &createdAt, &username); err != nil {
+			continue
+		}
+		results = append(results, map[string]interface{}{
+			"bug_id":     id,
+			"subject":    subject,
+			"details":    details,
+			"status":     bugStatus,
+			"created_at": createdAt.Format("2006-01-02 3:04 PM"),
+			"submitted_by": username,
+		})
+	}
+
+	return map[string]interface{}{
+		"bugs":  results,
+		"count": len(results),
+	}
+}
+
+func toolUpdateBugStatus(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	bugID := getStringArg(args, "bug_id")
+	status := strings.ToUpper(getStringArg(args, "status"))
+
+	if bugID == "" || status == "" {
+		return map[string]interface{}{"error": "bug_id and status are required"}
+	}
+	if status != "OPEN" && status != "CLOSED" {
+		return map[string]interface{}{"error": "status must be 'OPEN' or 'CLOSED'"}
+	}
+
+	ctx := context.Background()
+	tag, err := db.Exec(ctx, "UPDATE bug_reports SET status = $1 WHERE id = $2", status, bugID)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:update_bug_status]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to update bug report"}
+	}
+	if tag.RowsAffected() == 0 {
+		return map[string]interface{}{"error": "Bug report not found"}
+	}
+
+	fmt.Printf("AGENT ACTION: Updated bug %s status to %s\n", bugID, status)
+	return map[string]interface{}{
+		"success": true,
+		"bug_id":  bugID,
+		"status":  status,
+		"message": fmt.Sprintf("Bug report marked as %s", status),
 	}
 }
