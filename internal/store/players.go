@@ -139,6 +139,8 @@ func GetPlayerByID(db *pgxpool.Pool, id string) (*RosterPlayer, error) {
 		       COALESCE(p.rule_5_eligibility_year, 0),
 		       COALESCE(p.roster_moves_log, '[]'::jsonb),
 		       COALESCE(p.is_international_free_agent, FALSE),
+		       p.bid_end_time, COALESCE(p.pending_bid_amount, 0),
+		       COALESCE((SELECT t.name FROM teams t WHERE t.id = p.pending_bid_team_id), ''),
 		       COALESCE(p.contract_2026, ''), COALESCE(p.contract_2027, ''), COALESCE(p.contract_2028, ''),
 		       COALESCE(p.contract_2029, ''), COALESCE(p.contract_2030, ''), COALESCE(p.contract_2031, ''),
 		       COALESCE(p.contract_2032, ''), COALESCE(p.contract_2033, ''), COALESCE(p.contract_2034, ''),
@@ -154,6 +156,7 @@ func GetPlayerByID(db *pgxpool.Pool, id string) (*RosterPlayer, error) {
 		&p.Status40Man, &p.Status26Man, &p.StatusIL, &p.OptionYears,
 		&teamID, &p.LeagueID, &p.LeagueName,
 		&p.Rule5Year, &movesLogRaw, &p.IsIFA,
+		&p.BidEndTime, &p.PendingBidAmount, &p.PendingBidTeamName,
 	}
 	for i := range contracts {
 		dest = append(dest, &contracts[i])

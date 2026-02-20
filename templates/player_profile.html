@@ -18,6 +18,31 @@
         </div>
     </div>
 
+    {{if .Player.BidEndTime}}
+    <div class="bid-status-banner" style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 8px 0; color: #856404;">Active Bid</h3>
+        <p style="margin: 0;"><strong>Current Bid:</strong> ${{formatMoney .Player.PendingBidAmount}} by <strong>{{.Player.PendingBidTeamName}}</strong></p>
+        <p style="margin: 4px 0 0 0;"><strong>Bid Expires:</strong> <span id="bid-countdown" data-end="{{.Player.BidEndTime.Format "2006-01-02T15:04:05Z"}}"></span></p>
+    </div>
+    <script>
+    (function() {
+        var el = document.getElementById('bid-countdown');
+        var end = new Date(el.getAttribute('data-end'));
+        function update() {
+            var now = new Date();
+            var diff = end - now;
+            if (diff <= 0) { el.textContent = 'Expired'; return; }
+            var h = Math.floor(diff / 3600000);
+            var m = Math.floor((diff % 3600000) / 60000);
+            var s = Math.floor((diff % 60000) / 1000);
+            el.textContent = h + 'h ' + m + 'm ' + s + 's remaining';
+            setTimeout(update, 1000);
+        }
+        update();
+    })();
+    </script>
+    {{end}}
+
     <h3>Contract Details (2026 - 2040)</h3>
     <div class="table-container">
         <table class="fantasy-table-base">

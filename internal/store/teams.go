@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -36,6 +37,9 @@ type RosterPlayer struct {
 	OnTradeBlock        bool             `json:"on_trade_block"`
 	ContractOptionYears map[int]bool    `json:"contract_option_years"`
 	IsIFA               bool            `json:"is_international_free_agent"`
+	BidEndTime          *time.Time       `json:"bid_end_time"`
+	PendingBidAmount    float64          `json:"pending_bid_amount"`
+	PendingBidTeamName  string           `json:"pending_bid_team_name"`
 }
 
 type SalaryYearSummary struct {
