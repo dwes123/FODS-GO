@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
@@ -62,6 +63,24 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 		}
 
+		// Compute roster counts
+		count26 := 0
+		for _, players := range roster26 {
+			count26 += len(players)
+		}
+		count40only := 0
+		for _, players := range roster40 {
+			count40only += len(players)
+		}
+		countMinors := 0
+		for _, players := range minors {
+			countMinors += len(players)
+		}
+		count40 := count26 + count40only
+		spCount := len(roster26["SP"])
+
+		settings := store.GetLeagueSettings(db, team.LeagueID, time.Now().Year())
+
 		user := c.MustGet("user").(*store.User)
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
 
@@ -73,6 +92,13 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"PosOrder":       posOrder,
 			"User":           user,
 			"IsCommish":      len(adminLeagues) > 0,
+			"Count26":        count26,
+			"Limit26":        settings.Roster26ManLimit,
+			"Count40":        count40,
+			"Limit40":        settings.Roster40ManLimit,
+			"CountMinors":    countMinors,
+			"SPCount":        spCount,
+			"SPLimit":        settings.SP26ManLimit,
 		}
 
 		RenderTemplate(c, "roster.html", data)

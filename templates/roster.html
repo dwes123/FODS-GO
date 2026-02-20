@@ -11,6 +11,25 @@
     {{end}}
 </div>
 
+<div class="roster-counts-bar">
+    <div class="roster-count-item">
+        <span class="roster-count-label">26-Man</span>
+        <span class="roster-count-value" style="color: {{if gt .Count26 .Limit26}}red{{else}}green{{end}};">{{.Count26}}/{{.Limit26}}</span>
+    </div>
+    <div class="roster-count-item">
+        <span class="roster-count-label">40-Man</span>
+        <span class="roster-count-value" style="color: {{if gt .Count40 .Limit40}}red{{else}}green{{end}};">{{.Count40}}/{{.Limit40}}</span>
+    </div>
+    <div class="roster-count-item">
+        <span class="roster-count-label">SP on 26-Man</span>
+        <span class="roster-count-value" style="color: {{if gt .SPCount .SPLimit}}red{{else}}green{{end}};">{{.SPCount}}/{{.SPLimit}}</span>
+    </div>
+    <div class="roster-count-item">
+        <span class="roster-count-label">Minors</span>
+        <span class="roster-count-value">{{.CountMinors}}</span>
+    </div>
+</div>
+
 <h3>Team Financials</h3>
 <div class="table-container">
     <table class="fantasy-table-base sticky-col">
@@ -223,6 +242,10 @@ async function saveDepthOrder() {
     .sortable-ghost { background-color: #e3f2fd !important; opacity: 0.8; }
     .drag-handle:hover { color: var(--fod-blue-primary); }
     .option-year { background-color: rgba(232, 116, 38, 0.15) !important; border-left: 2px solid var(--fod-orange-accent); }
+    .roster-counts-bar { display: flex; gap: 1.5rem; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px 20px; margin: 1rem 0; flex-wrap: wrap; }
+    .roster-count-item { display: flex; flex-direction: column; align-items: center; min-width: 80px; }
+    .roster-count-label { font-size: 0.8rem; color: #666; text-transform: uppercase; font-weight: 600; }
+    .roster-count-value { font-size: 1.3rem; font-weight: 700; }
 </style>
 {{end}}
 

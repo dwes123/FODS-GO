@@ -225,6 +225,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Dollar Formatting** — `formatMoney` template function now parses string values and formats all amounts with commas ($760,000 not $760000)
 - **IFA Signing Flow** — IFA players show orange "IFA" badge on free agents page; player profile shows dedicated ISBP signing form (single amount, no years/AAV/bid points) instead of standard bid form; bid worker deducts from team ISBP balance and clears IFA flag on finalization
 - **Recent Activity League Filtering** — Home page recent activity feed only shows transactions from leagues where the logged-in user has a team; users with no teams see no activity
+- **Roster Counts Summary Bar** — Roster page shows compact bar between team header and financials with 26-man (X/26), 40-man (X/40), SP on 26-man (X/6), and minors count; over-limit values colored red, under-limit green; limits pulled from `league_settings`
 
 ### Commissioner Tools Enhancements
 - **Bid/FA Management in Player Editor** — Commissioners can manually set `fa_status`, pending bid fields, and `bid_type` on any player
