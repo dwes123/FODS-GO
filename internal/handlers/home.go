@@ -15,16 +15,19 @@ type WaiverSpotlightPlayer struct {
 	FirstName     string
 	LastName      string
 	Position      string
+	LeagueName    string
 	TimeRemaining string
 	IsExpired     bool
 }
 
 func getWaiverSpotlight(db *pgxpool.Pool) []WaiverSpotlightPlayer {
 	rows, err := db.Query(context.Background(), `
-		SELECT id, first_name, last_name, position, COALESCE(waiver_end_time, NOW())
-		FROM players
-		WHERE fa_status = 'on waivers'
-		ORDER BY waiver_end_time ASC
+		SELECT p.id, p.first_name, p.last_name, p.position, COALESCE(p.waiver_end_time, NOW()),
+		       COALESCE(l.name, '')
+		FROM players p
+		LEFT JOIN leagues l ON p.league_id = l.id
+		WHERE p.fa_status = 'on waivers'
+		ORDER BY p.waiver_end_time ASC
 		LIMIT 5
 	`)
 	if err != nil {
@@ -36,7 +39,7 @@ func getWaiverSpotlight(db *pgxpool.Pool) []WaiverSpotlightPlayer {
 	for rows.Next() {
 		var p WaiverSpotlightPlayer
 		var endTime time.Time
-		if err := rows.Scan(&p.ID, &p.FirstName, &p.LastName, &p.Position, &endTime); err != nil {
+		if err := rows.Scan(&p.ID, &p.FirstName, &p.LastName, &p.Position, &endTime, &p.LeagueName); err != nil {
 			continue
 		}
 		if time.Now().After(endTime) {

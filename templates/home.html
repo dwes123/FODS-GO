@@ -97,6 +97,7 @@
                     <a href="/player/{{.ID}}" style="text-decoration: none; color: inherit;">
                         <strong>{{.FirstName}} {{.LastName}}</strong>
                         <span class="waiver-pos">{{.Position}}</span>
+                        {{if .LeagueName}}<span class="waiver-league">{{.LeagueName}}</span>{{end}}
                     </a>
                     {{if .IsExpired}}
                         <span class="waiver-time expired">Processing...</span>
@@ -163,6 +164,7 @@
     .waiver-spotlight { display: flex; flex-direction: column; gap: 0; }
     .waiver-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
     .waiver-pos { font-size: 0.75rem; color: #999; margin-left: 5px; }
+    .waiver-league { font-size: 0.7rem; color: var(--fod-blue-primary); margin-left: 4px; }
     .waiver-time { font-size: 0.8rem; font-weight: bold; color: #28a745; }
     .waiver-time.expired { color: var(--fod-orange-accent); }
     @media (max-width: 1000px) {
