@@ -25,7 +25,7 @@ func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer,
 
 	query := `
 		SELECT id, first_name, last_name, position, mlb_team, COALESCE(fa_status, ''),
-		       COALESCE(contract_2026, '')
+		       COALESCE(contract_2026, ''), COALESCE(is_international_free_agent, FALSE)
 		FROM players
 		WHERE (team_id IS NULL OR team_id = '00000000-0000-0000-0000-000000000000')
 		AND league_id = $1
@@ -62,7 +62,7 @@ func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer,
 		var p RosterPlayer
 		p.Contracts = make(map[int]string)
 		var rawStatus, c26 string
-		if err := rows.Scan(&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam, &rawStatus, &c26); err != nil {
+		if err := rows.Scan(&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam, &rawStatus, &c26, &p.IsIFA); err != nil {
 			continue
 		}
 		p.Contracts[2026] = c26

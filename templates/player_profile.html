@@ -106,6 +106,24 @@
         </div>
 
     {{else}}
+        {{if .Player.IsIFA}}
+        <!-- IFA SIGNING (ISBP) -->
+        <div class="bid-section ifa-bid-section">
+            <h3><span class="ifa-badge">IFA</span> International Free Agent Signing</h3>
+            <p class="ifa-note">IFA signings are paid from your team's ISBP balance.</p>
+            <p><strong>Your ISBP Balance:</strong> ${{formatMoney .IsbpBalance}}</p>
+            <form action="/bid" method="POST" class="bid-form">
+                <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                <input type="hidden" name="years" value="1">
+                <input type="hidden" name="ifa" value="1">
+                <div class="form-group">
+                    <label>ISBP $ Amount:</label>
+                    <input type="number" name="aav" id="ifa_amount" value="100000" min="1" step="10000">
+                </div>
+                <button type="submit" class="button button-ifa">Sign with ISBP</button>
+            </form>
+        </div>
+        {{else}}
         <!-- FREE AGENT BIDDING -->
         <div class="bid-section">
             <h3>Make an Offer</h3>
@@ -129,6 +147,7 @@
                 <button type="submit" class="button">Submit Bid</button>
             </form>
         </div>
+        {{end}}
     {{end}}
 
     <!-- BID HISTORY -->
@@ -275,6 +294,7 @@ if (document.getElementById('bid_years')) {
     document.getElementById('bid_years').addEventListener('change', calculatePoints);
     document.getElementById('bid_aav').addEventListener('input', calculatePoints);
 }
+
 </script>
 
 <style>
@@ -301,5 +321,12 @@ if (document.getElementById('bid_years')) {
 
     .moves-log-section { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
     .moves-log-section .fantasy-table-base { min-width: auto; }
+
+    .ifa-bid-section { border: 2px solid var(--fod-orange-accent); background: #fff8f0; }
+    .ifa-bid-section h3 { display: flex; align-items: center; gap: 8px; }
+    .ifa-badge { display: inline-block; background: var(--fod-orange-accent); color: white; font-size: 0.75em; font-weight: bold; padding: 2px 6px; border-radius: 4px; vertical-align: middle; }
+    .ifa-note { font-size: 0.9em; color: #856404; margin-bottom: 10px; }
+    .button-ifa { background: var(--fod-orange-accent); border-color: var(--fod-orange-accent); }
+    .button-ifa:hover { background: #c65e1a; }
 </style>
 {{end}}

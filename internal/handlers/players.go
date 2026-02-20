@@ -76,15 +76,29 @@ func PlayerProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		bidHistory := store.GetPlayerBidHistory(db, id)
 
+		// Get user's team ISBP balance for IFA bidding
+		var userIsbpBalance float64
+		if !isRostered && player.IsIFA {
+			var userTeamID string
+			err := db.QueryRow(context.Background(),
+				"SELECT t.id FROM teams t JOIN team_owners town ON t.id = town.team_id WHERE town.user_id = $1 AND t.league_id = $2 LIMIT 1",
+				user.ID, player.LeagueID).Scan(&userTeamID)
+			if err == nil {
+				db.QueryRow(context.Background(),
+					"SELECT COALESCE(isbp_balance, 0) FROM teams WHERE id = $1", userTeamID).Scan(&userIsbpBalance)
+			}
+		}
+
 		RenderTemplate(c, "player_profile.html", gin.H{
-			"Player":     player,
-			"User":       user,
-			"IsOwner":    isOwner,
-			"IsRostered": isRostered,
-			"TeamName":   teamName,
-			"TeamID":     teamID,
-			"IsCommish":  len(adminLeagues) > 0,
-			"BidHistory": bidHistory,
+			"Player":          player,
+			"User":            user,
+			"IsOwner":         isOwner,
+			"IsRostered":      isRostered,
+			"TeamName":        teamName,
+			"TeamID":          teamID,
+			"IsCommish":       len(adminLeagues) > 0,
+			"BidHistory":      bidHistory,
+			"IsbpBalance":     userIsbpBalance,
 		})
 	}
 }

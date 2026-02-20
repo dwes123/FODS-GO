@@ -17,9 +17,92 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		playerID := c.PostForm("player_id")
 		yearsStr := c.PostForm("years")
 		aavStr := c.PostForm("aav")
+		isIFAForm := c.PostForm("ifa") == "1"
 
 		years, _ := strconv.Atoi(yearsStr)
 		aav, _ := strconv.ParseFloat(aavStr, 64)
+
+		// Get User's Team
+		user := c.MustGet("user").(*store.User)
+
+		var teamID, teamName, leagueID string
+		err := db.QueryRow(context.Background(),
+			"SELECT id, name, league_id FROM teams WHERE user_id = $1 LIMIT 1", user.ID).Scan(&teamID, &teamName, &leagueID)
+
+		if err != nil {
+			c.String(http.StatusBadRequest, "You do not own a team and cannot bid.")
+			return
+		}
+
+		// Check if player is actually IFA
+		var isIFA bool
+		db.QueryRow(context.Background(),
+			"SELECT COALESCE(is_international_free_agent, FALSE) FROM players WHERE id = $1",
+			playerID).Scan(&isIFA)
+
+		if isIFA && isIFAForm {
+			// --- IFA SIGNING (ISBP) ---
+			signingBonus := aav
+			if signingBonus <= 0 {
+				c.String(http.StatusBadRequest, "Signing bonus must be greater than $0.")
+				return
+			}
+
+			// Check IFA window
+			if open, msg := store.IsWithinDateWindow(db, leagueID, time.Now().Year(), "ifa_window_open", "ifa_window_close"); !open {
+				c.String(http.StatusForbidden, "IFA signing window is closed. "+msg)
+				return
+			}
+
+			// Check ISBP balance
+			var isbpBalance float64
+			db.QueryRow(context.Background(),
+				"SELECT COALESCE(isbp_balance, 0) FROM teams WHERE id = $1", teamID).Scan(&isbpBalance)
+			if signingBonus > isbpBalance {
+				c.String(http.StatusBadRequest, fmt.Sprintf("Insufficient ISBP balance. Signing bonus: $%.0f, Available: $%.0f", signingBonus, isbpBalance))
+				return
+			}
+
+			// Check current bid — must outbid by any amount
+			var currentAmount float64
+			var currentStatus string
+			db.QueryRow(context.Background(),
+				"SELECT COALESCE(pending_bid_amount, 0), COALESCE(fa_status, '') FROM players WHERE id = $1",
+				playerID).Scan(&currentAmount, &currentStatus)
+
+			if currentStatus == "pending_bid" && signingBonus <= currentAmount {
+				c.String(http.StatusBadRequest, fmt.Sprintf("Bid too low. Current bid is $%.0f. You must offer more.", currentAmount))
+				return
+			}
+
+			// Submit IFA bid
+			endTime := time.Now().Add(24 * time.Hour)
+			_, err = db.Exec(context.Background(), `
+				UPDATE players SET
+					fa_status = 'pending_bid',
+					pending_bid_amount = $1,
+					pending_bid_years = 1,
+					pending_bid_aav = $1,
+					pending_bid_team_id = $2,
+					pending_bid_manager_id = $3,
+					bid_start_time = NOW(),
+					bid_end_time = $4,
+					bid_type = 'ifa'
+				WHERE id = $5
+			`, signingBonus, teamID, user.ID, endTime, playerID)
+
+			if err != nil {
+				fmt.Printf("ERROR [SubmitBid-IFA]: %v\n", err)
+				c.String(http.StatusInternalServerError, "Failed to submit IFA bid")
+				return
+			}
+
+			store.AppendBidHistory(db, playerID, teamID, signingBonus, 1, signingBonus)
+			c.Redirect(http.StatusFound, "/player/"+playerID)
+			return
+		}
+
+		// --- STANDARD FREE AGENT BIDDING ---
 
 		// Contract year cap: 1-5 years only
 		if years < 1 || years > 5 {
@@ -33,7 +116,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// 1. Calculate Bid Points
+		// Calculate Bid Points
 		multipliers := map[int]float64{1: 2.0, 2: 1.8, 3: 1.6, 4: 1.4, 5: 1.2}
 		multiplier := multipliers[years]
 		bidPoints := (float64(years) * aav * multiplier) / 1000000
@@ -44,32 +127,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// 2. Get User's Team
-		user := c.MustGet("user").(*store.User)
-
-		var teamID, teamName, leagueID string
-		err := db.QueryRow(context.Background(),
-			"SELECT id, name, league_id FROM teams WHERE user_id = $1 LIMIT 1", user.ID).Scan(&teamID, &teamName, &leagueID)
-
-		if err != nil {
-			c.String(http.StatusBadRequest, "You do not own a team and cannot bid.")
-			return
-		}
-
-		// 3. Check IFA and MiLB FA signing windows
-		var isIFA bool
-		db.QueryRow(context.Background(),
-			"SELECT COALESCE(is_international_free_agent, FALSE) FROM players WHERE id = $1",
-			playerID).Scan(&isIFA)
-
-		if isIFA {
-			if open, msg := store.IsWithinDateWindow(db, leagueID, time.Now().Year(), "ifa_window_open", "ifa_window_close"); !open {
-				c.String(http.StatusForbidden, "IFA signing window is closed. "+msg)
-				return
-			}
-		}
-
-		// Check for MiLB FA window (players with fa_status containing 'milb')
+		// Check for MiLB FA window
 		var faStatus string
 		db.QueryRow(context.Background(),
 			"SELECT COALESCE(fa_status, '') FROM players WHERE id = $1", playerID).Scan(&faStatus)
@@ -81,7 +139,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 		}
 
-		// 4. Check Current Bid
+		// Check Current Bid
 		var currentPoints float64
 		var currentStatus, playerName string
 		err = db.QueryRow(context.Background(),
@@ -93,11 +151,11 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// 5. Update Player with New Bid
+		// Update Player with New Bid
 		endTime := time.Now().Add(24 * time.Hour)
 
 		_, err = db.Exec(context.Background(), `
-			UPDATE players SET 
+			UPDATE players SET
 				fa_status = 'pending_bid',
 				pending_bid_amount = $1,
 				pending_bid_years = $2,

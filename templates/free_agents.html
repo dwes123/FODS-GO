@@ -45,7 +45,7 @@
             <td><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></td>
             <td>{{.Position}}</td>
             <td>{{.MLBTeam}}</td>
-            <td>{{.Status}}</td>
+            <td>{{.Status}}{{if .IsIFA}} <span class="ifa-badge">IFA</span>{{end}}</td>
             <td>
                 <a href="/player/{{.ID}}" class="button">View / Bid</a>
             </td>
@@ -61,5 +61,6 @@
 <style>
     .search-form { margin-bottom: 2rem; display: flex; gap: 10px; background: var(--fod-gray-light); padding: 15px; border-radius: 8px; }
     .search-form input, .search-form select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .ifa-badge { display: inline-block; background: var(--fod-orange-accent); color: white; font-size: 0.75em; font-weight: bold; padding: 2px 6px; border-radius: 4px; vertical-align: middle; }
 </style>
 {{end}}

@@ -28,7 +28,8 @@ func finalizeBids(db *pgxpool.Pool) {
 	ctx := context.Background()
 
 	rows, err := db.Query(ctx, `
-		SELECT id, first_name, last_name, pending_bid_team_id, pending_bid_years, pending_bid_aav
+		SELECT id, first_name, last_name, pending_bid_team_id, pending_bid_years, pending_bid_aav,
+		       COALESCE(bid_type, 'standard')
 		FROM players
 		WHERE fa_status = 'pending_bid' AND bid_end_time <= NOW()
 	`)
@@ -39,10 +40,10 @@ func finalizeBids(db *pgxpool.Pool) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var pID, fName, lName, teamID string
+		var pID, fName, lName, teamID, bidType string
 		var years int
 		var aav float64
-		if err := rows.Scan(&pID, &fName, &lName, &teamID, &years, &aav); err != nil {
+		if err := rows.Scan(&pID, &fName, &lName, &teamID, &years, &aav, &bidType); err != nil {
 			continue
 		}
 
@@ -51,20 +52,47 @@ func finalizeBids(db *pgxpool.Pool) {
 			continue
 		}
 
-		_, err = tx.Exec(ctx, `
-			UPDATE players SET 
-				team_id = $1,
-				fa_status = 'rostered',
-				contract_2026 = $2,
-				status_40_man = TRUE,
-				pending_bid_amount = NULL,
-				pending_bid_team_id = NULL
-			WHERE id = $3
-		`, teamID, fmt.Sprintf("%.0f", aav), pID)
+		if bidType == "ifa" {
+			// IFA signing: deduct from ISBP, no contract written
+			_, err = tx.Exec(ctx, `
+				UPDATE players SET
+					team_id = $1,
+					fa_status = 'rostered',
+					status_40_man = TRUE,
+					pending_bid_amount = NULL,
+					pending_bid_team_id = NULL,
+					is_international_free_agent = FALSE
+				WHERE id = $2
+			`, teamID, pID)
+			if err != nil {
+				tx.Rollback(ctx)
+				continue
+			}
 
-		if err != nil {
-			tx.Rollback(ctx)
-			continue
+			_, err = tx.Exec(ctx, `UPDATE teams SET isbp_balance = isbp_balance - $1 WHERE id = $2`, aav, teamID)
+			if err != nil {
+				tx.Rollback(ctx)
+				fmt.Printf("❌ Worker: Failed to deduct ISBP for %s %s: %v\n", fName, lName, err)
+				continue
+			}
+			fmt.Printf("💰 Worker: Deducted $%.0f ISBP from Team %s for IFA signing of %s %s\n", aav, teamID, fName, lName)
+		} else {
+			// Standard signing: write contract
+			_, err = tx.Exec(ctx, `
+				UPDATE players SET
+					team_id = $1,
+					fa_status = 'rostered',
+					contract_2026 = $2,
+					status_40_man = TRUE,
+					pending_bid_amount = NULL,
+					pending_bid_team_id = NULL
+				WHERE id = $3
+			`, teamID, fmt.Sprintf("%.0f", aav), pID)
+
+			if err != nil {
+				tx.Rollback(ctx)
+				continue
+			}
 		}
 
 		_, err = tx.Exec(ctx, `
