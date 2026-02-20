@@ -540,6 +540,19 @@ func getAgentTools() []*genai.Tool {
 						Required: []string{"bug_id", "status"},
 					},
 				},
+				{
+					Name:        "get_pending_arbitration",
+					Description: "Get all players with ARB contracts that have a pending arbitration submission awaiting commissioner approval. Optionally filter by league name (e.g. 'AAA', 'MLB').",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"league": {
+								Type:        genai.TypeString,
+								Description: "League name to filter by (e.g. 'MLB', 'AAA', 'AA', 'High-A'). Leave empty for all leagues.",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -822,6 +835,8 @@ func executeTool(db *pgxpool.Pool, ac *agentCtx, name string, args map[string]in
 		return toolGetBugReports(db, ac, args)
 	case "update_bug_status":
 		return toolUpdateBugStatus(db, ac, args)
+	case "get_pending_arbitration":
+		return toolGetPendingArbitration(db, ac, args)
 	default:
 		return map[string]interface{}{"error": "Unknown tool: " + name}
 	}
@@ -2308,4 +2323,112 @@ func toolUpdateBugStatus(db *pgxpool.Pool, ac *agentCtx, args map[string]interfa
 		"status":  status,
 		"message": fmt.Sprintf("Bug report marked as %s", status),
 	}
+}
+
+func toolGetPendingArbitration(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	ctx := context.Background()
+	year := time.Now().Year()
+
+	league := getStringArg(args, "league")
+	var leagueFilter string
+	switch strings.ToUpper(strings.TrimSpace(league)) {
+	case "MLB":
+		leagueFilter = "11111111-1111-1111-1111-111111111111"
+	case "AAA":
+		leagueFilter = "22222222-2222-2222-2222-222222222222"
+	case "AA":
+		leagueFilter = "33333333-3333-3333-3333-333333333333"
+	case "HIGH-A", "HIGHA", "HIGH A":
+		leagueFilter = "44444444-4444-4444-4444-444444444444"
+	}
+
+	contractCol := fmt.Sprintf("contract_%d", year)
+	query := fmt.Sprintf(`
+		SELECT p.first_name || ' ' || p.last_name AS player_name,
+		       t.name AS team_name,
+		       l.name AS league_name,
+		       p.%s AS arb_status,
+		       pa.salary_amount,
+		       pa.created_at
+		FROM pending_actions pa
+		JOIN players p ON pa.player_id = p.id
+		JOIN teams t ON pa.team_id = t.id
+		JOIN leagues l ON pa.league_id = l.id
+		WHERE pa.action_type = 'ARBITRATION'
+		  AND pa.status = 'PENDING'
+		  AND pa.target_year = $1
+	`, contractCol)
+
+	var queryArgs []interface{}
+	queryArgs = append(queryArgs, year)
+
+	if leagueFilter != "" {
+		query += " AND pa.league_id = $2"
+		queryArgs = append(queryArgs, leagueFilter)
+	} else if len(ac.LeagueIDs) > 0 {
+		query += " AND pa.league_id = ANY($2)"
+		queryArgs = append(queryArgs, ac.LeagueIDs)
+	}
+
+	query += " ORDER BY l.name, t.name, p.last_name"
+
+	rows, err := db.Query(ctx, query, queryArgs...)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_pending_arbitration]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to query pending arbitration cases"}
+	}
+	defer rows.Close()
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		var playerName, teamName, leagueName, arbStatus string
+		var salaryAmount float64
+		var createdAt time.Time
+		if err := rows.Scan(&playerName, &teamName, &leagueName, &arbStatus, &salaryAmount, &createdAt); err != nil {
+			continue
+		}
+		results = append(results, map[string]interface{}{
+			"player_name":     playerName,
+			"team_name":       teamName,
+			"league_name":     leagueName,
+			"arb_status":      arbStatus,
+			"proposed_salary": fmt.Sprintf("$%s", formatAgentMoney(salaryAmount)),
+			"submitted":       createdAt.Format("2006-01-02"),
+		})
+	}
+
+	if len(results) == 0 {
+		return map[string]interface{}{
+			"message": "No pending arbitration cases found",
+			"count":   0,
+		}
+	}
+
+	return map[string]interface{}{
+		"cases": results,
+		"count": len(results),
+	}
+}
+
+func formatAgentMoney(amount float64) string {
+	neg := amount < 0
+	if neg {
+		amount = -amount
+	}
+	whole := int64(amount)
+	s := fmt.Sprintf("%d", whole)
+	// Insert commas
+	if len(s) > 3 {
+		var parts []string
+		for len(s) > 3 {
+			parts = append([]string{s[len(s)-3:]}, parts...)
+			s = s[:len(s)-3]
+		}
+		parts = append([]string{s}, parts...)
+		s = strings.Join(parts, ",")
+	}
+	if neg {
+		return "-" + s
+	}
+	return s
 }
