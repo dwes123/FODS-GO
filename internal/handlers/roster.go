@@ -3,11 +3,36 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var standardPositions = map[string]bool{
+	"C": true, "1B": true, "2B": true, "SS": true, "3B": true, "OF": true, "SP": true, "RP": true,
+}
+
+var positionAliases = map[string]string{
+	"CF": "OF", "LF": "OF", "RF": "OF", "DH": "OF", "UT": "OF",
+	"P": "SP", "RHP": "SP", "LHP": "SP",
+}
+
+func normalizePosition(pos string) string {
+	pos = strings.ToUpper(strings.TrimSpace(pos))
+	// Take first position from multi-position strings like "SP,RP" or "1B,OF"
+	if idx := strings.Index(pos, ","); idx != -1 {
+		pos = strings.TrimSpace(pos[:idx])
+	}
+	if standardPositions[pos] {
+		return pos
+	}
+	if mapped, ok := positionAliases[pos]; ok {
+		return mapped
+	}
+	return "OF" // fallback for anything truly unknown
+}
 
 func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -21,18 +46,19 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		posOrder := []string{"C", "1B", "2B", "SS", "3B", "OF", "SP", "RP"}
 
-		// Categorize players
+		// Categorize players — normalize position before bucketing
 		roster26 := make(map[string][]store.RosterPlayer)
 		roster40 := make(map[string][]store.RosterPlayer)
 		minors := make(map[string][]store.RosterPlayer)
 
 		for _, p := range team.Players {
+			bucket := normalizePosition(p.Position)
 			if p.Status26Man {
-				roster26[p.Position] = append(roster26[p.Position], p)
+				roster26[bucket] = append(roster26[bucket], p)
 			} else if p.Status40Man {
-				roster40[p.Position] = append(roster40[p.Position], p)
+				roster40[bucket] = append(roster40[bucket], p)
 			} else {
-				minors[p.Position] = append(minors[p.Position], p)
+				minors[bucket] = append(minors[bucket], p)
 			}
 		}
 
