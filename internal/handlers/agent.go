@@ -566,6 +566,32 @@ func getAgentTools() []*genai.Tool {
 						},
 					},
 				},
+				{
+					Name:        "assign_team_owner",
+					Description: "Assign a user as owner of a team. Looks up the user by email and the team by name. If the team already has a different owner, returns the existing owner info and requires replace=true to proceed. Use this when a commissioner needs to assign ownership of a team to a user.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"email": {
+								Type:        genai.TypeString,
+								Description: "The user's email address",
+							},
+							"team_name": {
+								Type:        genai.TypeString,
+								Description: "The team name to assign (e.g. 'NWA Naturals')",
+							},
+							"league": {
+								Type:        genai.TypeString,
+								Description: "League name to disambiguate if multiple teams share a name (e.g. 'MLB', 'AAA', 'AA', 'High-A'). Optional.",
+							},
+							"replace": {
+								Type:        genai.TypeBoolean,
+								Description: "Set to true to replace existing owner(s). If the team has an existing owner and this is false or omitted, the tool returns the current owner info instead of making changes. Always confirm with the commissioner before setting this to true.",
+							},
+						},
+						Required: []string{"email", "team_name"},
+					},
+				},
 			},
 		},
 	}
@@ -852,6 +878,8 @@ func executeTool(db *pgxpool.Pool, ac *agentCtx, name string, args map[string]in
 		return toolGetPendingArbitration(db, ac, args)
 	case "get_unsubmitted_arbitration":
 		return toolGetUnsubmittedArbitration(db, ac, args)
+	case "assign_team_owner":
+		return toolAssignTeamOwner(db, ac, args)
 	default:
 		return map[string]interface{}{"error": "Unknown tool: " + name}
 	}
@@ -2526,5 +2554,143 @@ func toolGetUnsubmittedArbitration(db *pgxpool.Pool, ac *agentCtx, args map[stri
 	return map[string]interface{}{
 		"players": results,
 		"count":   len(results),
+	}
+}
+
+func toolAssignTeamOwner(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	ctx := context.Background()
+	email := getStringArg(args, "email")
+	teamName := getStringArg(args, "team_name")
+	league := getStringArg(args, "league")
+
+	if email == "" || teamName == "" {
+		return map[string]interface{}{"error": "Both email and team_name are required"}
+	}
+
+	// Look up user by email
+	user, err := store.GetUserByEmail(db, email)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:assign_team_owner]: user lookup: %v\n", err)
+		return map[string]interface{}{"error": fmt.Sprintf("User not found with email: %s", email)}
+	}
+
+	// Look up team by name, optionally filtered by league
+	var leagueFilter string
+	switch strings.ToUpper(strings.TrimSpace(league)) {
+	case "MLB":
+		leagueFilter = "11111111-1111-1111-1111-111111111111"
+	case "AAA":
+		leagueFilter = "22222222-2222-2222-2222-222222222222"
+	case "AA":
+		leagueFilter = "33333333-3333-3333-3333-333333333333"
+	case "HIGH-A", "HIGHA", "HIGH A":
+		leagueFilter = "44444444-4444-4444-4444-444444444444"
+	}
+
+	query := `SELECT t.id, t.name, l.name FROM teams t JOIN leagues l ON t.league_id = l.id WHERE LOWER(t.name) = LOWER($1)`
+	var queryArgs []interface{}
+	queryArgs = append(queryArgs, teamName)
+
+	if leagueFilter != "" {
+		query += " AND t.league_id = $2"
+		queryArgs = append(queryArgs, leagueFilter)
+	}
+
+	rows, err := db.Query(ctx, query, queryArgs...)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:assign_team_owner]: team lookup: %v\n", err)
+		return map[string]interface{}{"error": "Failed to look up team"}
+	}
+	defer rows.Close()
+
+	type teamMatch struct {
+		ID, Name, LeagueName string
+	}
+	var matches []teamMatch
+	for rows.Next() {
+		var m teamMatch
+		if err := rows.Scan(&m.ID, &m.Name, &m.LeagueName); err == nil {
+			matches = append(matches, m)
+		}
+	}
+
+	if len(matches) == 0 {
+		return map[string]interface{}{"error": fmt.Sprintf("No team found matching '%s'", teamName)}
+	}
+	if len(matches) > 1 {
+		var names []string
+		for _, m := range matches {
+			names = append(names, fmt.Sprintf("%s (%s)", m.Name, m.LeagueName))
+		}
+		return map[string]interface{}{
+			"error":   "Multiple teams match that name. Specify a league to disambiguate.",
+			"matches": names,
+		}
+	}
+
+	team := matches[0]
+
+	// Check if user already owns this team
+	var alreadyOwns bool
+	db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM team_owners WHERE team_id = $1 AND user_id = $2)`, team.ID, user.ID).Scan(&alreadyOwns)
+	if alreadyOwns {
+		return map[string]interface{}{
+			"message": fmt.Sprintf("%s (%s) already owns %s (%s)", user.Username, user.Email, team.Name, team.LeagueName),
+		}
+	}
+
+	// Check for existing owners
+	existingRows, _ := db.Query(ctx, `SELECT u.username, u.email FROM team_owners tow JOIN users u ON tow.user_id = u.id WHERE tow.team_id = $1`, team.ID)
+	var existingOwners []map[string]string
+	if existingRows != nil {
+		for existingRows.Next() {
+			var uname, uemail string
+			if err := existingRows.Scan(&uname, &uemail); err == nil {
+				existingOwners = append(existingOwners, map[string]string{"username": uname, "email": uemail})
+			}
+		}
+		existingRows.Close()
+	}
+
+	// If team has existing owners and replace is not set, return info for confirmation
+	replace, _ := args["replace"].(bool)
+	if len(existingOwners) > 0 && !replace {
+		return map[string]interface{}{
+			"needs_confirmation": true,
+			"team":               team.Name,
+			"league":             team.LeagueName,
+			"current_owners":     existingOwners,
+			"new_owner":          map[string]string{"username": user.Username, "email": user.Email},
+			"message":            fmt.Sprintf("%s (%s) already has %d owner(s). Set replace=true to remove existing owner(s) and assign %s (%s). Confirm with the commissioner first.", team.Name, team.LeagueName, len(existingOwners), user.Username, user.Email),
+		}
+	}
+
+	// If replacing, remove existing owners
+	if len(existingOwners) > 0 && replace {
+		_, err = db.Exec(ctx, `DELETE FROM team_owners WHERE team_id = $1`, team.ID)
+		if err != nil {
+			fmt.Printf("ERROR [AgentTool:assign_team_owner]: remove existing: %v\n", err)
+			return map[string]interface{}{"error": "Failed to remove existing owner(s)"}
+		}
+	}
+
+	// Insert ownership
+	_, err = db.Exec(ctx, `INSERT INTO team_owners (team_id, user_id) VALUES ($1, $2)`, team.ID, user.ID)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:assign_team_owner]: insert: %v\n", err)
+		return map[string]interface{}{"error": "Failed to assign team ownership"}
+	}
+
+	// Also update owner_name on the team
+	_, _ = db.Exec(ctx, `UPDATE teams SET owner_name = $1 WHERE id = $2`, user.Username, team.ID)
+
+	fmt.Printf("AGENT ACTION: Assigned %s (%s) as owner of %s (%s)\n", user.Username, user.Email, team.Name, team.LeagueName)
+	return map[string]interface{}{
+		"success":     true,
+		"user":        user.Username,
+		"email":       user.Email,
+		"team":        team.Name,
+		"league":      team.LeagueName,
+		"message":     fmt.Sprintf("Successfully assigned %s (%s) as owner of %s in %s", user.Username, user.Email, team.Name, team.LeagueName),
 	}
 }
