@@ -68,12 +68,7 @@
     </table>
 </div>
 
-{{$isOwner := false}}
-{{if .User}}
-    {{if eq .User.ID .Team.UserID}}
-        {{$isOwner = true}}
-    {{end}}
-{{end}}
+{{$isOwner := .IsOwner}}
 {{$years := .Team.Years}}
 {{$posOrder := .PosOrder}}
 

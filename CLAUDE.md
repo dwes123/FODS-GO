@@ -152,7 +152,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
   - AA:  `33333333-3333-3333-3333-333333333333`
   - High-A: `44444444-4444-4444-4444-444444444444`
 - **Contract columns:** `contract_2026` through `contract_2040` (TEXT — supports "$1000000", "TC", "ARB", "ARB 1", "ARB 2", "ARB 3", "UFA")
-- **Player status fields:** `status_40_man` (BOOL), `status_26_man` (BOOL), `status_il` (TEXT), `fa_status` (TEXT), `is_international_free_agent` (BOOL)
+- **Player status fields:** `status_40_man` (BOOL), `status_26_man` (BOOL), `status_il` (TEXT), `fa_status` (TEXT), `is_international_free_agent` (BOOL), `dfa_only` (BOOL)
 - **JSONB columns on players:** `bid_history`, `roster_moves_log`, `contract_option_years`
 - **Nullable columns:** `owner_name` on teams, all `contract_` columns on players — always use COALESCE when scanning into Go strings
 - **Teams financial columns:** `isbp_balance` (NUMERIC 12,2), `milb_balance` (NUMERIC 12,2)
@@ -239,6 +239,10 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Commissioner Role Management** — `/admin/roles` UI to add/remove league commissioners (`league_roles` table) and update global user roles (admin/user); admin-only, linked from dashboard
 - **ISBP/MiLB Balance Editor** — `/admin/balance-editor` lets commissioners view and edit team ISBP and MiLB balances; league filter dropdown, modal edit form, linked from dashboard Financials card
 - **Fantrax Processing Queue** — `/admin/fantrax-queue` shows roster-affecting transactions (ROSTER/ADD/TRADE) pending Fantrax sync; league filter dropdown, "Show Completed" toggle, "Mark Completed"/"Undo" buttons via existing `/admin/fantrax-toggle` endpoint; linked from dashboard with pink accent card
+- **Player Editor Team Dropdowns** — Team assignment and bidding team fields use league-filtered dropdowns instead of raw UUID inputs; assignment dropdown filters by selected league via JS; bidding team dropdown grouped by league with `<optgroup>`
+- **Player Editor Team Option Years** — Per-contract-year TO (Team Option) checkboxes (2026–2040) in contracts section; reads/writes `contract_option_years` JSONB column; pre-checked on edit
+- **Player Editor DFA Only** — `dfa_only` checkbox in Status section; reads/writes `dfa_only` BOOLEAN column
+- **Player Editor Save Confirmation** — Green success banner shown after saving via `?saved=1` query param
 
 ### Commissioner AI Agent
 - **Chat UI** — `/admin/agent` chat-based interface for commissioners; extends `layout.html`, vanilla JS with conversation history

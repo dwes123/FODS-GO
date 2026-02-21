@@ -83,6 +83,7 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		user := c.MustGet("user").(*store.User)
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		isOwner, _ := store.IsTeamOwner(db, teamID, user.ID)
 
 		data := gin.H{
 			"Team":           team,
@@ -91,6 +92,7 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"Minors":         minors,
 			"PosOrder":       posOrder,
 			"User":           user,
+			"IsOwner":        isOwner,
 			"IsCommish":      len(adminLeagues) > 0,
 			"Count26":        count26,
 			"Limit26":        settings.Roster26ManLimit,
