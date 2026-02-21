@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -72,6 +73,20 @@ func AdminPlayerEditorHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		searchResults := []store.RosterPlayer{}
 		if playerID != "" {
 			player, _ = store.GetPlayerByID(db, playerID)
+			if player != nil {
+				// Load contract_option_years JSONB (not fetched by GetPlayerByID)
+				var optRaw []byte
+				err := db.QueryRow(context.Background(),
+					`SELECT COALESCE(contract_option_years, '[]'::jsonb) FROM players WHERE id = $1`, playerID).Scan(&optRaw)
+				if err == nil && len(optRaw) > 0 {
+					player.ContractOptionYears = make(map[int]bool)
+					var optYears []int
+					json.Unmarshal(optRaw, &optYears)
+					for _, y := range optYears {
+						player.ContractOptionYears[y] = true
+					}
+				}
+			}
 			bidInfo = store.GetPlayerBidInfo(db, playerID)
 		} else if searchQuery != "" {
 			searchResults, _ = store.SearchAllPlayers(db, searchQuery)
@@ -84,6 +99,7 @@ func AdminPlayerEditorHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"SearchResults": searchResults,
 			"SearchQuery":   searchQuery,
 			"Leagues":       leagues,
+			"SaveSuccess":   c.Query("saved") == "1",
 			"IsCommish":     true,
 		})
 	}
@@ -97,6 +113,14 @@ func AdminSavePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			contracts[ys] = c.PostForm("contract_" + ys)
 		}
 		optYears, _ := strconv.Atoi(c.PostForm("option_years"))
+		// Collect team option year checkboxes
+		var contractOptionYears []int
+		for y := 2026; y <= 2040; y++ {
+			if c.PostForm(fmt.Sprintf("option_year_%d", y)) == "on" {
+				contractOptionYears = append(contractOptionYears, y)
+			}
+		}
+
 		bidAmt, _ := strconv.ParseFloat(c.PostForm("pending_bid_amount"), 64)
 		bidYrs, _ := strconv.Atoi(c.PostForm("pending_bid_years"))
 		bidAAV, _ := strconv.ParseFloat(c.PostForm("pending_bid_aav"), 64)
@@ -113,13 +137,15 @@ func AdminSavePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			StatusIL:    c.PostForm("status_il"),
 			OptionYears: optYears,
 			IsIFA:       c.PostForm("is_ifa") == "on",
+			DFAOnly:     c.PostForm("dfa_only") == "on",
 			Contracts:   contracts,
 			FaStatus:       c.PostForm("fa_status"),
 			PendingBidAmt:  bidAmt,
 			PendingBidYrs:  bidYrs,
 			PendingBidAAV:  bidAAV,
 			PendingBidTeam: c.PostForm("pending_bid_team_id"),
-			BidType:        c.PostForm("bid_type"),
+			BidType:            c.PostForm("bid_type"),
+			ContractOptionYears: contractOptionYears,
 		}
 		var err error
 		if update.ID == "" {
@@ -134,7 +160,7 @@ func AdminSavePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			c.String(http.StatusInternalServerError, "Internal server error")
 			return
 		}
-		c.Redirect(http.StatusFound, "/admin/player-editor?player_id=" + update.ID)
+		c.Redirect(http.StatusFound, "/admin/player-editor?player_id=" + update.ID + "&saved=1")
 	}
 }
 

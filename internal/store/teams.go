@@ -37,6 +37,7 @@ type RosterPlayer struct {
 	OnTradeBlock        bool             `json:"on_trade_block"`
 	ContractOptionYears map[int]bool    `json:"contract_option_years"`
 	IsIFA               bool            `json:"is_international_free_agent"`
+	DFAOnly             bool            `json:"dfa_only"`
 	BidEndTime          *time.Time       `json:"bid_end_time"`
 	PendingBidAmount    float64          `json:"pending_bid_amount"`
 	PendingBidTeamName  string           `json:"pending_bid_team_name"`

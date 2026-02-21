@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,7 +21,9 @@ type PlayerAdminUpdate struct {
 	StatusIL    string `json:"status_il"`
 	OptionYears int    `json:"option_years_used"`
 	IsIFA       bool   `json:"is_international_free_agent"`
+	DFAOnly     bool   `json:"dfa_only"`
 	Contracts   map[string]string `json:"contracts"`
+	ContractOptionYears []int `json:"contract_option_years"`
 	// Bid & FA fields (commissioner adjustment)
 	FaStatus       string  `json:"fa_status"`
 	PendingBidAmt  float64 `json:"pending_bid_amount"`
@@ -87,6 +90,12 @@ func AdminUpdatePlayer(db *pgxpool.Pool, u PlayerAdminUpdate) error {
 	var bidTeamID *string
 	if u.PendingBidTeam != "" { bidTeamID = &u.PendingBidTeam }
 
+	// Marshal contract option years to JSONB
+	optYearsJSON, _ := json.Marshal(u.ContractOptionYears)
+	if u.ContractOptionYears == nil {
+		optYearsJSON = []byte("[]")
+	}
+
 	_, err = tx.Exec(ctx, `
 		UPDATE players SET
 			first_name = $1, last_name = $2, position = $3, mlb_team = $4,
@@ -98,8 +107,10 @@ func AdminUpdatePlayer(db *pgxpool.Pool, u PlayerAdminUpdate) error {
 			fa_status = $26,
 			pending_bid_amount = $27, pending_bid_years = $28, pending_bid_aav = $29,
 			pending_bid_team_id = $30, bid_type = $31,
-			is_international_free_agent = $32
-		WHERE id = $33
+			is_international_free_agent = $32,
+			contract_option_years = $33::jsonb,
+			dfa_only = $34
+		WHERE id = $35
 	`, u.FirstName, u.LastName, u.Position, u.MLBTeam, teamID, u.LeagueID,
 		u.Status40Man, u.Status26Man, u.StatusIL, u.OptionYears,
 		u.Contracts["2026"], u.Contracts["2027"], u.Contracts["2028"], u.Contracts["2029"], u.Contracts["2030"],
@@ -108,6 +119,8 @@ func AdminUpdatePlayer(db *pgxpool.Pool, u PlayerAdminUpdate) error {
 		faStatus,
 		u.PendingBidAmt, u.PendingBidYrs, u.PendingBidAAV, bidTeamID, u.BidType,
 		u.IsIFA,
+		optYearsJSON,
+		u.DFAOnly,
 		u.ID)
 	if err != nil { return err }
 	return tx.Commit(ctx)
