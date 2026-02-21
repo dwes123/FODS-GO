@@ -320,7 +320,7 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 - HR monitor requires `players.mlb_id` to be populated for cross-referencing with MLB Stats API
 - Email notifications require SMTP env vars; silently disabled if not configured
 - Registration now goes through approval queue — existing users are unaffected
-- **Team ownership is via `team_owners` junction table** — never query `teams.user_id` directly (column exists but is legacy); always JOIN `team_owners` to find a user's teams
+- **Team ownership is via `team_owners` junction table** — never query `teams.user_id` directly (column exists but is legacy); always JOIN `team_owners` to find a user's teams; roster page uses `IsOwner` from handler (via `store.IsTeamOwner()`) for action buttons and "Propose Trade" visibility
 - **`GetManagedTeams` is lightweight** — does NOT populate `.Players`; use `GetTeamWithRoster` when player data is needed (e.g., trade proposal page)
 - **PostgreSQL COALESCE type matching** — `COALESCE(uuid_col, 'text')` fails; must cast: `COALESCE(uuid_col::TEXT, 'text')`
 - **ISBP data lives in WP options table** — not on WP users' ACF fields (those are always 0); use the `fod-api-bridge.php` plugin to access via REST API
