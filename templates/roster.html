@@ -5,7 +5,7 @@
     <h2>{{.Team.Name}}</h2>
     <p>Owner: {{.Team.Owner}} | ISBP Balance: ${{formatMoney .Team.IsbpBalance}}</p>
     {{if .User}}
-        {{if ne .User.ID .Team.UserID}}
+        {{if not .IsOwner}}
             <a href="/trades/new?team_id={{.Team.ID}}" class="button button-info">Propose Trade</a>
         {{end}}
     {{end}}
