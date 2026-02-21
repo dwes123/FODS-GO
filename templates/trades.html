@@ -18,7 +18,7 @@
                 <ul>
                     {{$proposerID := .ProposingTeamID}}
                     {{range .Items}}
-                        {{if eq .SenderTeamID $proposerID}}<li>{{.PlayerName}}</li>{{end}}
+                        {{if eq .SenderTeamID $proposerID}}<li>{{.PlayerName}}{{if .RetainSalary}} <span class="retain-badge">50% retained</span>{{end}}</li>{{end}}
                     {{end}}
                 </ul>
             </div>
@@ -27,7 +27,7 @@
                 <ul>
                     {{$receiverID := .ReceivingTeamID}}
                     {{range .Items}}
-                        {{if eq .SenderTeamID $receiverID}}<li>{{.PlayerName}}</li>{{end}}
+                        {{if eq .SenderTeamID $receiverID}}<li>{{.PlayerName}}{{if .RetainSalary}} <span class="retain-badge">50% retained</span>{{end}}</li>{{end}}
                     {{end}}
                 </ul>
             </div>
@@ -69,6 +69,7 @@
     .trade-assets { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .asset-col ul { padding-left: 20px; }
     .trade-status { background: var(--fod-orange-accent); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
-    .trade-actions { margin-top: 20px; border-top: 1px solid #eee; pt: 15px; text-align: right; }
+    .trade-actions { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; text-align: right; }
+    .retain-badge { font-size: 0.75rem; background: var(--fod-orange-accent); color: white; padding: 1px 6px; border-radius: 3px; }
 </style>
 {{end}}

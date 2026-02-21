@@ -14,6 +14,7 @@ type TradeItem struct {
 	PlayerID     string `json:"player_id"`
 	PlayerName   string `json:"player_name"`
 	SenderTeamID string `json:"sender_team_id"`
+	RetainSalary bool   `json:"retain_salary"`
 }
 
 type TradeProposal struct {
@@ -61,7 +62,7 @@ func IsTradeWindowOpen(db *pgxpool.Pool, leagueID string) (bool, string) {
 	return true, ""
 }
 
-func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offeredPlayers, requestedPlayers []string, isbpOffered, isbpRequested int) error {
+func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offeredPlayers, requestedPlayers, retainedPlayers []string, isbpOffered, isbpRequested int) error {
 	ctx := context.Background()
 
 	// ISBP balance validation at proposal time
@@ -97,12 +98,18 @@ func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offere
 		return err
 	}
 
+	// Build retained set for quick lookup
+	retainedSet := make(map[string]bool)
+	for _, pID := range retainedPlayers {
+		retainedSet[pID] = true
+	}
+
 	// 2. Add Offered Players
 	for _, pID := range offeredPlayers {
 		_, err = tx.Exec(ctx, `
-			INSERT INTO trade_items (trade_id, sender_team_id, player_id)
-			VALUES ($1, $2, $3)
-		`, tradeID, proposerID, pID)
+			INSERT INTO trade_items (trade_id, sender_team_id, player_id, retain_salary)
+			VALUES ($1, $2, $3, $4)
+		`, tradeID, proposerID, pID, retainedSet[pID])
 		if err != nil {
 			return err
 		}
@@ -111,9 +118,9 @@ func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offere
 	// 3. Add Requested Players
 	for _, pID := range requestedPlayers {
 		_, err = tx.Exec(ctx, `
-			INSERT INTO trade_items (trade_id, sender_team_id, player_id)
-			VALUES ($1, $2, $3)
-		`, tradeID, receiverID, pID)
+			INSERT INTO trade_items (trade_id, sender_team_id, player_id, retain_salary)
+			VALUES ($1, $2, $3, $4)
+		`, tradeID, receiverID, pID, retainedSet[pID])
 		if err != nil {
 			return err
 		}
@@ -147,7 +154,7 @@ func GetPendingTrades(db *pgxpool.Pool, teamIDs []string) ([]TradeProposal, erro
 
 		// Fetch items for this trade
 		itemRows, err := db.Query(context.Background(), `
-			SELECT ti.player_id, p.first_name || ' ' || p.last_name, ti.sender_team_id
+			SELECT ti.player_id, p.first_name || ' ' || p.last_name, ti.sender_team_id, COALESCE(ti.retain_salary, false)
 			FROM trade_items ti
 			JOIN players p ON ti.player_id = p.id
 			WHERE ti.trade_id = $1
@@ -155,7 +162,7 @@ func GetPendingTrades(db *pgxpool.Pool, teamIDs []string) ([]TradeProposal, erro
 		if err == nil {
 			for itemRows.Next() {
 				var item TradeItem
-				if err := itemRows.Scan(&item.PlayerID, &item.PlayerName, &item.SenderTeamID); err == nil {
+				if err := itemRows.Scan(&item.PlayerID, &item.PlayerName, &item.SenderTeamID, &item.RetainSalary); err == nil {
 					t.Items = append(t.Items, item)
 				}
 			}
@@ -215,29 +222,31 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 	}
 
 	// 3. Process Players (Ownership Transfer & Retention)
-	rows, err := tx.Query(ctx, `SELECT player_id, sender_team_id FROM trade_items WHERE trade_id = $1`, tradeID)
+	rows, err := tx.Query(ctx, `SELECT player_id, sender_team_id, COALESCE(retain_salary, false) FROM trade_items WHERE trade_id = $1`, tradeID)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
 	type TradeMove struct {
-		PlayerID string
-		SenderID string
-		TargetID string
+		PlayerID     string
+		SenderID     string
+		TargetID     string
+		RetainSalary bool
 	}
 	var moves []TradeMove
 
 	for rows.Next() {
 		var pid, sender string
-		if err := rows.Scan(&pid, &sender); err != nil {
+		var retain bool
+		if err := rows.Scan(&pid, &sender, &retain); err != nil {
 			continue
 		}
 		target := receiverID
 		if sender == receiverID {
 			target = proposerID
 		}
-		moves = append(moves, TradeMove{pid, sender, target})
+		moves = append(moves, TradeMove{pid, sender, target, retain})
 	}
 	rows.Close()
 
@@ -264,34 +273,57 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 			return err
 		}
 
-		// Apply Retention if in-season
+		var contractStr string
+		err = tx.QueryRow(ctx, fmt.Sprintf("SELECT COALESCE(contract_%d, '') FROM players WHERE id = $1", currentYear), m.PlayerID).Scan(&contractStr)
+		if err != nil || contractStr == "" {
+			continue
+		}
+		// Clean string "$1,500,000" -> 1500000
+		cleanStr := strings.ReplaceAll(strings.ReplaceAll(contractStr, "$", ""), ",", "")
+		salary, _ := strconv.ParseFloat(cleanStr, 64)
+		if salary <= 0 {
+			continue
+		}
+
+		totalDeadCap := 0.0
+		remaining := salary
+
+		// 1. Mandatory date-based retention
 		if retentionPct > 0 {
-			var contractStr string
-			err = tx.QueryRow(ctx, fmt.Sprintf("SELECT COALESCE(contract_%d, '') FROM players WHERE id = $1", currentYear), m.PlayerID).Scan(&contractStr)
-			if err == nil && contractStr != "" {
-				// Clean string "$1,500,000" -> 1500000
-				cleanStr := strings.ReplaceAll(strings.ReplaceAll(contractStr, "$", ""), ",", "")
-				salary, _ := strconv.ParseFloat(cleanStr, 64)
+			dateDeadCap := salary * retentionPct
+			totalDeadCap += dateDeadCap
+			remaining -= dateDeadCap
+		}
 
-				if salary > 0 {
-					deadCap := salary * retentionPct
-					newSalary := salary - deadCap
+		// 2. Optional 50% retention (on remainder)
+		if m.RetainSalary && remaining > 0 {
+			extraRetention := remaining * 0.50
+			totalDeadCap += extraRetention
+			remaining -= extraRetention
+		}
 
-					// Update Player Contract
-					_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET contract_%d = $1 WHERE id = $2", currentYear), fmt.Sprintf("%.0f", newSalary), m.PlayerID)
-					if err != nil {
-						return err
-					}
+		if totalDeadCap > 0 {
+			// Update Player Contract
+			_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET contract_%d = $1 WHERE id = $2", currentYear), fmt.Sprintf("%.0f", remaining), m.PlayerID)
+			if err != nil {
+				return err
+			}
 
-					// Insert Dead Cap Record
-					_, err = tx.Exec(ctx, `
-						INSERT INTO dead_cap_penalties (team_id, player_id, amount, year, note)
-						VALUES ($1, $2, $3, $4, $5)
-					`, m.SenderID, m.PlayerID, deadCap, currentYear, fmt.Sprintf("Trade Retention (%.0f%%)", retentionPct*100))
-					if err != nil {
-						return err
-					}
-				}
+			// Insert Dead Cap Record
+			note := ""
+			if retentionPct > 0 && m.RetainSalary {
+				note = fmt.Sprintf("Pro-Rated (%.0f%%) + 50%% Retained", retentionPct*100)
+			} else if m.RetainSalary {
+				note = "50% Salary Retained"
+			} else {
+				note = fmt.Sprintf("Trade Retention (%.0f%%)", retentionPct*100)
+			}
+			_, err = tx.Exec(ctx, `
+				INSERT INTO dead_cap_penalties (team_id, player_id, amount, year, note)
+				VALUES ($1, $2, $3, $4, $5)
+			`, m.SenderID, m.PlayerID, totalDeadCap, currentYear, note)
+			if err != nil {
+				return err
 			}
 		}
 	}

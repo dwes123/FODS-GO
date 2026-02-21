@@ -23,8 +23,12 @@
             <div id="proposer_roster" class="player-select-list">
                 <!-- Populated by JS -->
             </div>
+            <div id="retention-container" class="retention-section" style="display:none;">
+                <strong>Retain 50% Salary (Current Year):</strong>
+                <div id="retention-checkboxes"></div>
+            </div>
             <div class="cash-input">
-                <label>ISBP Offered ($):</label>
+                <label>ISBP Offered ($): <span class="isbp-available" id="proposer-isbp"></span></label>
                 <input type="number" name="isbp_offered" id="isbp_offered" value="0" min="0" step="50000" onchange="updatePreview()">
             </div>
         </div>
@@ -45,8 +49,12 @@
                 </label>
                 {{end}}
             </div>
+            <div id="retention-requested-container" class="retention-section" style="display:none;">
+                <strong>Their Team Retains 50% Salary (Current Year):</strong>
+                <div id="retention-requested-checkboxes"></div>
+            </div>
             <div class="cash-input">
-                <label>ISBP Requested ($):</label>
+                <label>ISBP Requested ($): <span class="isbp-available">Available: ${{formatMoney .TargetTeam.IsbpBalance}}</span></label>
                 <input type="number" name="isbp_requested" id="isbp_requested" value="0" min="0" step="50000" onchange="updatePreview()">
             </div>
         </div>
@@ -72,7 +80,7 @@
             <strong>Projected Salary Impact (Your Team):</strong>
             <table class="fantasy-table-base" style="margin-top: 10px; font-size: 0.9em;">
                 <thead>
-                    <tr><th>Year</th><th>Salary OUT</th><th>Salary IN</th><th>Net Change</th></tr>
+                    <tr><th>Year</th><th>Salary OUT</th><th>Salary IN</th><th>Dead Cap</th><th>Net Change</th></tr>
                 </thead>
                 <tbody id="salary-impact-body"></tbody>
             </table>
@@ -121,6 +129,14 @@ function updateProposerRoster() {
     var team = myTeams.find(function(t) { return t.id === teamID; });
     var container = document.getElementById('proposer_roster');
 
+    // Update ISBP available display
+    var isbpEl = document.getElementById('proposer-isbp');
+    if (team && team.isbp_balance !== undefined) {
+        isbpEl.textContent = 'Available: $' + Math.round(team.isbp_balance).toLocaleString();
+    } else {
+        isbpEl.textContent = '';
+    }
+
     container.innerHTML = '';
     if (team && team.players) {
         team.players.forEach(function(p) {
@@ -147,11 +163,51 @@ function updateProposerRoster() {
     updatePreview();
 }
 
+function buildRetentionSection(playerCheckboxes, inputName, containerId, sectionId, label) {
+    var container = document.getElementById(containerId);
+    var section = document.getElementById(sectionId);
+
+    // Save currently checked retention IDs before rebuilding
+    var previouslyRetained = {};
+    document.querySelectorAll('input[name="' + inputName + '"]:checked').forEach(function(cb) {
+        previouslyRetained[cb.value] = true;
+    });
+
+    container.innerHTML = '';
+    if (playerCheckboxes.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    var hasAnySalary = false;
+    playerCheckboxes.forEach(function(cb) {
+        var salary2026 = cb.getAttribute('data-c2026') || '';
+        var parsed = parseSalary(salary2026);
+        if (parsed <= 0) return;
+        hasAnySalary = true;
+        var checked = previouslyRetained[cb.value] ? ' checked' : '';
+        var el = document.createElement('label');
+        el.className = 'retention-row';
+        el.innerHTML = '<input type="checkbox" name="' + inputName + '" value="' + cb.value + '"' + checked + ' onchange="updatePreview()">'
+            + ' ' + label + ' <strong>' + cb.getAttribute('data-name') + '</strong> (' + formatSalary(salary2026) + ')';
+        container.appendChild(el);
+    });
+    section.style.display = hasAnySalary ? 'block' : 'none';
+}
+
+function updateRetentionCheckboxes() {
+    var offeredChecks = document.querySelectorAll('input[name="offered_players"]:checked');
+    var requestedChecks = document.querySelectorAll('input[name="requested_players"]:checked');
+    buildRetentionSection(offeredChecks, 'retained_players', 'retention-checkboxes', 'retention-container', 'Retain 50% of');
+    buildRetentionSection(requestedChecks, 'retained_requested_players', 'retention-requested-checkboxes', 'retention-requested-container', 'Their team retains 50% of');
+}
+
 function updatePreview() {
     var offeredChecks = document.querySelectorAll('input[name="offered_players"]:checked');
     var requestedChecks = document.querySelectorAll('input[name="requested_players"]:checked');
     var isbpOffered = parseInt(document.getElementById('isbp_offered').value) || 0;
     var isbpRequested = parseInt(document.getElementById('isbp_requested').value) || 0;
+
+    updateRetentionCheckboxes();
 
     var preview = document.getElementById('trade-preview');
     if (offeredChecks.length === 0 && requestedChecks.length === 0 && isbpOffered === 0 && isbpRequested === 0) {
@@ -160,12 +216,24 @@ function updatePreview() {
     }
     preview.style.display = 'block';
 
+    // Build retained sets for both sides
+    var retainedOffered = {};
+    document.querySelectorAll('input[name="retained_players"]:checked').forEach(function(cb) {
+        retainedOffered[cb.value] = true;
+    });
+    var retainedRequested = {};
+    document.querySelectorAll('input[name="retained_requested_players"]:checked').forEach(function(cb) {
+        retainedRequested[cb.value] = true;
+    });
+
     // Build offered list
     var offeredList = document.getElementById('preview-offered');
     offeredList.innerHTML = '';
     offeredChecks.forEach(function(cb) {
         var li = document.createElement('li');
-        li.textContent = cb.getAttribute('data-name') + ' (' + cb.getAttribute('data-pos') + ')';
+        var text = cb.getAttribute('data-name') + ' (' + cb.getAttribute('data-pos') + ')';
+        if (retainedOffered[cb.value]) text += ' — 50% salary retained by you';
+        li.textContent = text;
         offeredList.appendChild(li);
     });
 
@@ -174,7 +242,9 @@ function updatePreview() {
     requestedList.innerHTML = '';
     requestedChecks.forEach(function(cb) {
         var li = document.createElement('li');
-        li.textContent = cb.getAttribute('data-name') + ' (' + cb.getAttribute('data-pos') + ')';
+        var text = cb.getAttribute('data-name') + ' (' + cb.getAttribute('data-pos') + ')';
+        if (retainedRequested[cb.value]) text += ' — 50% salary retained by them';
+        li.textContent = text;
         requestedList.appendChild(li);
     });
 
@@ -185,22 +255,33 @@ function updatePreview() {
     // Salary impact table
     var tbody = document.getElementById('salary-impact-body');
     tbody.innerHTML = '';
+    var currentYear = new Date().getFullYear();
     years.forEach(function(y) {
         var salaryOut = 0;
         var salaryIn = 0;
+        var deadCap = 0;
         offeredChecks.forEach(function(cb) {
-            salaryOut += parseSalary(cb.getAttribute('data-c' + y));
+            var sal = parseSalary(cb.getAttribute('data-c' + y));
+            if (y === currentYear && retainedOffered[cb.value] && sal > 0) {
+                deadCap += sal * 0.50;
+            }
+            salaryOut += sal;
         });
         requestedChecks.forEach(function(cb) {
-            salaryIn += parseSalary(cb.getAttribute('data-c' + y));
+            var sal = parseSalary(cb.getAttribute('data-c' + y));
+            if (y === currentYear && retainedRequested[cb.value] && sal > 0) {
+                sal = sal * 0.50; // You only receive 50% since their team retains the rest
+            }
+            salaryIn += sal;
         });
         if (salaryOut === 0 && salaryIn === 0) return;
-        var net = salaryIn - salaryOut;
+        var net = salaryIn - salaryOut + deadCap;
         var tr = document.createElement('tr');
         var netClass = net > 0 ? 'color: #dc3545;' : net < 0 ? 'color: #28a745;' : '';
         tr.innerHTML = '<td>' + y + '</td>'
             + '<td>$' + salaryOut.toLocaleString() + '</td>'
             + '<td>$' + salaryIn.toLocaleString() + '</td>'
+            + '<td>' + (deadCap > 0 ? '$' + deadCap.toLocaleString() : '--') + '</td>'
             + '<td style="font-weight:bold;' + netClass + '">' + (net >= 0 ? '+' : '') + '$' + net.toLocaleString() + '</td>';
         tbody.appendChild(tr);
     });
@@ -227,5 +308,8 @@ updateProposerRoster();
     .preview-grid li { padding: 3px 0; }
     .preview-isbp { font-weight: bold; color: var(--fod-blue-primary); margin-top: 5px; }
     .salary-impact { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px; }
+    .retention-section { background: #fff8e1; padding: 12px; border-radius: 4px; border: 1px solid #ffe082; margin-bottom: 15px; }
+    .retention-row { display: block; padding: 4px 0; cursor: pointer; }
+    .isbp-available { font-size: 0.85rem; color: var(--fod-blue-primary); font-weight: 600; }
 </style>
 {{end}}

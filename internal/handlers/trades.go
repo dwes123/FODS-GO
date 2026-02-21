@@ -87,7 +87,9 @@ func SubmitTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		receiverID := c.PostForm("receiver_team_id")
 		offered := c.PostFormArray("offered_players")
 		requested := c.PostFormArray("requested_players")
-		
+		retained := c.PostFormArray("retained_players")
+		retainedRequested := c.PostFormArray("retained_requested_players")
+
 		isbpOffered, _ := strconv.Atoi(c.PostForm("isbp_offered"))
 		isbpRequested, _ := strconv.Atoi(c.PostForm("isbp_requested"))
 
@@ -105,7 +107,8 @@ func SubmitTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		err := store.CreateTradeProposal(db, proposerID, receiverID, offered, requested, isbpOffered, isbpRequested)
+		allRetained := append(retained, retainedRequested...)
+		err := store.CreateTradeProposal(db, proposerID, receiverID, offered, requested, allRetained, isbpOffered, isbpRequested)
 		if err != nil {
 			fmt.Printf("ERROR [SubmitTrade]: %v\n", err)
 			c.String(http.StatusInternalServerError, "Internal server error")
