@@ -166,7 +166,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **Bid points:** `(years × AAV × multiplier) / 1,000,000`
 - **Bid validation:** Contract length 1-5 years only, minimum $1M AAV, minimum 1.0 bid point
 - **Extension pricing (WAR-based):** Base rates SP=3.3755, RP=5.0131, Hitter=2.8354; decay factors per year
-- **Trade retention:** 50% salary retained by sending team
+- **Trade retention:** Two layers — (1) mandatory date-based retention (10%/25%/50% based on season timing) applied automatically, then (2) optional per-player 50% retention checkbox on trade form (applied on remainder after date-based); tracked via `trade_items.retain_salary` boolean; dead cap created for sending team; both sides of trade can retain
 - **ISBP validation:** Balance checked at both proposal and acceptance time; cannot go negative
 - **DFA dead cap:** 75% current year, 50% future years
 - **Team option buyout:** 30% of option salary
@@ -227,6 +227,8 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Recent Activity League Filtering** — Home page recent activity feed only shows transactions from leagues where the logged-in user has a team; users with no teams see no activity
 - **Roster Counts Summary Bar** — Roster page shows compact bar between team header and financials with 26-man (X/26), 40-man (X/40), SP on 26-man (X/6), and minors count; over-limit values colored red, under-limit green; limits pulled from `league_settings`
 - **Trade Center Role-Aware Buttons** — Proposer sees "Cancel Trade", receiver sees "Reject" + "Accept Trade"; `RejectTradeHandler` with ownership verification at `POST /trades/reject`
+- **50% Salary Retention in Trades** — Per-player retention checkboxes on both sides of trade proposal form; `trade_items.retain_salary` column tracks per-item; `AcceptTrade` applies optional 50% on remainder after date-based retention; dead cap note reflects both layers; salary impact table includes Dead Cap column; pending trades show orange "50% retained" badge
+- **ISBP Balance on Trade Form** — Both ISBP input fields show "Available: $X" for each team; proposer updates dynamically on team switch, target is server-rendered
 
 ### Commissioner Tools Enhancements
 - **Bid/FA Management in Player Editor** — Commissioners can manually set `fa_status`, pending bid fields, and `bid_type` on any player
