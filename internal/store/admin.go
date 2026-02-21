@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -190,52 +189,3 @@ func CreatePendingAction(db *pgxpool.Pool, leagueID, teamID, actionType, summary
 	return err
 }
 
-// GenerateFODIDs batch-assigns FOD-XXXXX IDs to players that don't have one.
-func GenerateFODIDs(db *pgxpool.Pool, batchSize int) (int, error) {
-	ctx := context.Background()
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback(ctx)
-
-	// Lock and get current counter
-	var counter int
-	err = tx.QueryRow(ctx, `SELECT value FROM system_counters WHERE key = 'fod_id_counter' FOR UPDATE`).Scan(&counter)
-	if err != nil {
-		return 0, fmt.Errorf("counter not found: %w", err)
-	}
-
-	// Get players without FOD IDs
-	rows, err := tx.Query(ctx, `SELECT id FROM players WHERE fod_id IS NULL LIMIT $1`, batchSize)
-	if err != nil {
-		return 0, err
-	}
-
-	var playerIDs []string
-	for rows.Next() {
-		var id string
-		rows.Scan(&id)
-		playerIDs = append(playerIDs, id)
-	}
-	rows.Close()
-
-	// Assign IDs
-	for _, pid := range playerIDs {
-		counter++
-		fodID := fmt.Sprintf("FOD-%05d", counter)
-		_, err = tx.Exec(ctx, `UPDATE players SET fod_id = $1 WHERE id = $2`, fodID, pid)
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	// Update counter
-	_, err = tx.Exec(ctx, `UPDATE system_counters SET value = $1 WHERE key = 'fod_id_counter'`, counter)
-	if err != nil {
-		return 0, err
-	}
-
-	err = tx.Commit(ctx)
-	return len(playerIDs), err
-}

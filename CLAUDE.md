@@ -191,7 +191,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 5. **Trade Block Page** — `/trade-block` showing all players on the block, grouped by team
 6. **Trade Reversal** — Commissioner tool: swaps players back, reverses ISBP, removes dead cap, sets status to REVERSED
 7. **Fantrax Processing Toggle** — AJAX toggle on activity feed for commissioners
-8. **FOD ID Generator** — Batch assigns FOD-XXXXX IDs using atomic `system_counters`
+8. **~~FOD ID Generator~~** — Removed; all players have UUIDs natively via PostgreSQL
 9. **Bid Export CSV** — `/admin/export-bids` downloads CSV of bid history
 10. **Trade Deadline Enforcement** — `IsTradeWindowOpen()` checks `league_dates` table; offseason always open
 11. **DFA Clear Actions** — Modal with "Release" (dead cap 75%/50%) or "Send to Minors" (off 40-man, stays on team)

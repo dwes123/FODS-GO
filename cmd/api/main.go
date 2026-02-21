@@ -160,7 +160,6 @@ func main() {
 		// Commissioner Power Tools
 		authorized.POST("/admin/trade-reverse", handlers.AdminReverseTradeHandler(database))
 		authorized.POST("/admin/fantrax-toggle", handlers.ToggleFantraxHandler(database))
-		authorized.POST("/admin/generate-fod-ids", handlers.AdminGenerateFODIDsHandler(database))
 		authorized.GET("/admin/export-bids", handlers.BidExportHandler(database))
 		authorized.GET("/admin/csv-import", handlers.AdminCSVImporterHandler(database))
 		authorized.POST("/admin/csv-import", handlers.AdminProcessCSVHandler(database))

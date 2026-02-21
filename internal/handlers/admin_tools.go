@@ -182,24 +182,6 @@ func ToggleFantraxHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
-// --- FOD ID Generator (Feature 10) ---
-func AdminGenerateFODIDsHandler(db *pgxpool.Pool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		user := c.MustGet("user").(*store.User)
-		if user.Role != "admin" {
-			c.String(http.StatusForbidden, "Admin Only")
-			return
-		}
-		count, err := store.GenerateFODIDs(db, 1000)
-		if err != nil {
-			fmt.Printf("ERROR [GenerateFODIDs]: %v\n", err)
-			c.String(http.StatusInternalServerError, "Internal server error")
-			return
-		}
-		c.Redirect(http.StatusFound, "/admin/?fod_msg=Generated+"+strconv.Itoa(count)+"+FOD+IDs")
-	}
-}
-
 // --- Bid Export CSV (Feature 11) ---
 func BidExportHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
