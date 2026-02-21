@@ -132,6 +132,9 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 			}
 			return s
 		},
+		"hasPrefix": func(s, prefix string) bool {
+			return strings.HasPrefix(s, prefix)
+		},
 		"formatMoney": func(v interface{}) string {
 			p := message.NewPrinter(language.English)
 			switch val := v.(type) {

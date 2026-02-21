@@ -71,7 +71,7 @@ internal/
     auth.go              — Login, register (approval queue), logout, RenderTemplate, formatMoney (comma-formatted)
     bids.go              — Bid submission (year cap, min bid, IFA/MiLB window checks), bid history page
     contracts.go         — Team options (deadline enforced), extensions (deadline enforced), restructures
-    moves.go             — Roster moves (dynamic limits, SP limit, 40-man, 26-man, option, IL, DFA, trade block)
+    moves.go             — Roster moves (dynamic limits, SP limit, 40-man, 26-man, option, IL, DFA, trade block, rookie contract auto-assign)
     players.go           — Player profile, free agents, trade block page
     roster.go            — Roster page, depth chart save
     trades.go            — Trade center, new trade (contract preview + salary impact), submit, accept
@@ -151,7 +151,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
   - AAA: `22222222-2222-2222-2222-222222222222`
   - AA:  `33333333-3333-3333-3333-333333333333`
   - High-A: `44444444-4444-4444-4444-444444444444`
-- **Contract columns:** `contract_2026` through `contract_2040` (TEXT — supports "$1000000", "TC", "ARB", "UFA")
+- **Contract columns:** `contract_2026` through `contract_2040` (TEXT — supports "$1000000", "TC", "ARB", "ARB 1", "ARB 2", "ARB 3", "UFA")
 - **Player status fields:** `status_40_man` (BOOL), `status_26_man` (BOOL), `status_il` (TEXT), `fa_status` (TEXT), `is_international_free_agent` (BOOL)
 - **JSONB columns on players:** `bid_history`, `roster_moves_log`, `contract_option_years`
 - **Nullable columns:** `owner_name` on teams, all `contract_` columns on players — always use COALESCE when scanning into Go strings
@@ -176,6 +176,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **Roster expansion:** Optional date window in `league_dates` (`roster_expansion_start`/`roster_expansion_end`)
 - **Deadline enforcement:** Extension deadline, team option deadline, IFA window, MiLB FA window — all configurable per league/year via `league_dates`
 - **IFA signing:** International free agents use a separate ISBP-based signing flow — single dollar amount (no contract years/AAV/bid points); validates ISBP balance on bid, deducts on finalization; no contract written; IFA flag cleared on signing
+- **Rookie contract auto-assign:** When a player with no current-year contract is promoted to 40-man or 26-man, `assignRookieContractIfEmpty()` automatically writes: $760,000 (current year), TC, TC, ARB 1, ARB 2, ARB 3 across 6 years; contract values "ARB 1"/"ARB 2"/"ARB 3" are displayed as text via `hasPrefix` template function
 
 ## Feature Implementation Status
 

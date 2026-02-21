@@ -307,7 +307,7 @@ async function saveDepthOrder() {
                             {{$isOptionYear := index $p.ContractOptionYears .}}
                             <td{{if $isOptionYear}} class="option-year"{{end}}>
                                 {{$val := index $p.Contracts .}}
-                                {{if $val}}{{if or (eq $val "TC") (eq $val "ARB") (eq $val "UFA")}} {{$val}} {{else}}${{formatMoney $val}}{{end}}{{else}}--{{end}}
+                                {{if $val}}{{if or (eq $val "TC") (eq $val "UFA") (hasPrefix $val "ARB")}} {{$val}} {{else}}${{formatMoney $val}}{{end}}{{else}}--{{end}}
                             </td>
                         {{end}}
                     </tr>

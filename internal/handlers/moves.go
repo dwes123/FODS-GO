@@ -28,6 +28,42 @@ type TradeBlockRequest struct {
 	Notes   string `json:"notes"`
 }
 
+// assignRookieContractIfEmpty checks if a player has no contract for the current year
+// and assigns the default rookie contract: $760,000 current year, TC, TC, ARB 1, ARB 2, ARB 3
+func assignRookieContractIfEmpty(db *pgxpool.Pool, playerID string) {
+	ctx := context.Background()
+	year := time.Now().Year()
+	contractCol := fmt.Sprintf("contract_%d", year)
+
+	var currentContract *string
+	db.QueryRow(ctx, fmt.Sprintf("SELECT %s FROM players WHERE id = $1", contractCol), playerID).Scan(&currentContract)
+
+	if currentContract != nil && *currentContract != "" {
+		return
+	}
+
+	// Assign rookie contract: current year $760K, then TC, TC, ARB 1, ARB 2, ARB 3
+	values := []struct {
+		offset int
+		value  string
+	}{
+		{0, "760000"},
+		{1, "TC"},
+		{2, "TC"},
+		{3, "ARB 1"},
+		{4, "ARB 2"},
+		{5, "ARB 3"},
+	}
+
+	for _, v := range values {
+		col := fmt.Sprintf("contract_%d", year+v.offset)
+		if year+v.offset > 2040 {
+			break
+		}
+		db.Exec(ctx, fmt.Sprintf("UPDATE players SET %s = $1 WHERE id = $2", col), v.value, playerID)
+	}
+}
+
 func getPlayerAndTeamName(db *pgxpool.Pool, playerID, teamID string) (playerName, teamName, leagueID string) {
 	db.QueryRow(context.Background(),
 		"SELECT first_name || ' ' || last_name FROM players WHERE id = $1", playerID).Scan(&playerName)
@@ -69,6 +105,9 @@ func PromoteTo40ManHandler(db *pgxpool.Pool) gin.HandlerFunc {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
                         return
                 }
+
+                // Auto-assign rookie contract if player has no contract data
+                assignRookieContractIfEmpty(db, req.PlayerID)
 
                 store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Promoted to 40-Man")
                 pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
@@ -131,6 +170,9 @@ func PromoteTo26ManHandler(db *pgxpool.Pool) gin.HandlerFunc {
                         c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
                         return
                 }
+
+                // Auto-assign rookie contract if player has no contract data
+                assignRookieContractIfEmpty(db, req.PlayerID)
 
                 store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Promoted to 26-Man")
                 pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)

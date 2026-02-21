@@ -52,7 +52,7 @@
             <tbody>
                 <tr>
                     {{range $year, $val := .Player.Contracts}}
-                        <td>{{if $val}}{{if eq $val "TC"}}TC{{else if eq $val "ARB"}}ARB{{else}}${{formatMoney $val}}{{end}}{{else}}--{{end}}</td>
+                        <td>{{if $val}}{{if or (eq $val "TC") (eq $val "UFA") (hasPrefix $val "ARB")}}{{$val}}{{else}}${{formatMoney $val}}{{end}}{{else}}--{{end}}</td>
                     {{end}}
                 </tr>
             </tbody>
