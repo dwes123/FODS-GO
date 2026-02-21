@@ -113,6 +113,7 @@ func main() {
 		authorized.GET("/trades/new", handlers.NewTradeHandler(database))
 		authorized.POST("/trades/submit", handlers.SubmitTradeHandler(database))
 		authorized.POST("/trades/accept", handlers.AcceptTradeHandler(database))
+		authorized.POST("/trades/reject", handlers.RejectTradeHandler(database))
 
 		// Trade Block & Bid History
 		authorized.GET("/trade-block", handlers.TradeBlockHandler(database))

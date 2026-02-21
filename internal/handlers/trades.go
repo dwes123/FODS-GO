@@ -29,6 +29,7 @@ func TradeCenterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		RenderTemplate(c, "trades.html", gin.H{
 			"User":          user,
 			"MyTeams":       myTeams,
+			"MyTeamIDs":     teamIDs,
 			"PendingTrades": pendingTrades,
 			"IsCommish":     len(adminLeagues) > 0,
 		})
@@ -149,6 +150,40 @@ func AcceptTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		msg := fmt.Sprintf("🤝 *TRADE COMPLETE!* The trade between *%s* and *%s* has been accepted and processed.", pName, rName)
 		notification.SendSlackNotification(db, lID, "transaction", msg)
+
+		c.Redirect(http.StatusFound, "/trades")
+	}
+}
+
+func RejectTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		tradeID := c.PostForm("trade_id")
+
+		// Verify the user owns one of the teams in this trade
+		var proposingTeamID, receivingTeamID string
+		err := db.QueryRow(context.Background(),
+			`SELECT proposing_team_id, receiving_team_id FROM trades WHERE id = $1 AND status = 'PROPOSED'`,
+			tradeID).Scan(&proposingTeamID, &receivingTeamID)
+		if err != nil {
+			c.String(http.StatusNotFound, "Trade not found")
+			return
+		}
+
+		isProposer, _ := store.IsTeamOwner(db, proposingTeamID, user.ID)
+		isReceiver, _ := store.IsTeamOwner(db, receivingTeamID, user.ID)
+		if !isProposer && !isReceiver {
+			c.String(http.StatusForbidden, "You are not part of this trade")
+			return
+		}
+
+		_, err = db.Exec(context.Background(),
+			`UPDATE trades SET status = 'REJECTED' WHERE id = $1 AND status = 'PROPOSED'`, tradeID)
+		if err != nil {
+			fmt.Printf("ERROR [RejectTrade]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Failed to reject trade")
+			return
+		}
 
 		c.Redirect(http.StatusFound, "/trades")
 	}

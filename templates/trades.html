@@ -5,7 +5,7 @@
 
 <h3>Pending Offers</h3>
 {{if .PendingTrades}}
-    {{$userID := .User.ID}}
+    {{$myTeamIDs := .MyTeamIDs}}
     {{range .PendingTrades}}
     <div class="trade-card">
         <div class="trade-header">
@@ -33,11 +33,29 @@
             </div>
         </div>
         <div class="trade-actions">
-            <button class="button button-danger">Cancel / Reject</button>
-            <form action="/trades/accept" method="POST" style="display:inline;">
-                <input type="hidden" name="trade_id" value="{{.ID}}">
-                <button type="submit" class="button">Accept Trade</button>
-            </form>
+            {{$isProposer := false}}
+            {{$isReceiver := false}}
+            {{$propID := .ProposingTeamID}}
+            {{$recvID := .ReceivingTeamID}}
+            {{range $myTeamIDs}}
+                {{if eq . $propID}}{{$isProposer = true}}{{end}}
+                {{if eq . $recvID}}{{$isReceiver = true}}{{end}}
+            {{end}}
+            {{if $isProposer}}
+                <form action="/trades/reject" method="POST" style="display:inline;">
+                    <input type="hidden" name="trade_id" value="{{.ID}}">
+                    <button type="submit" class="button button-danger">Cancel Trade</button>
+                </form>
+            {{else if $isReceiver}}
+                <form action="/trades/reject" method="POST" style="display:inline;">
+                    <input type="hidden" name="trade_id" value="{{.ID}}">
+                    <button type="submit" class="button button-danger">Reject</button>
+                </form>
+                <form action="/trades/accept" method="POST" style="display:inline;">
+                    <input type="hidden" name="trade_id" value="{{.ID}}">
+                    <button type="submit" class="button">Accept Trade</button>
+                </form>
+            {{end}}
         </div>
     </div>
     {{end}}
