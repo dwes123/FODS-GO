@@ -278,7 +278,13 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 	}
 
 	// 3. Process Players (Ownership Transfer & Retention)
-	rows, err := tx.Query(ctx, `SELECT player_id, sender_team_id, COALESCE(retain_salary, false) FROM trade_items WHERE trade_id = $1`, tradeID)
+	rows, err := tx.Query(ctx, `
+		SELECT ti.player_id, ti.sender_team_id, COALESCE(ti.retain_salary, false),
+		       p.first_name || ' ' || p.last_name
+		FROM trade_items ti
+		JOIN players p ON ti.player_id = p.id
+		WHERE ti.trade_id = $1
+	`, tradeID)
 	if err != nil {
 		return err
 	}
@@ -288,21 +294,22 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 		PlayerID     string
 		SenderID     string
 		TargetID     string
+		PlayerName   string
 		RetainSalary bool
 	}
 	var moves []TradeMove
 
 	for rows.Next() {
-		var pid, sender string
+		var pid, sender, name string
 		var retain bool
-		if err := rows.Scan(&pid, &sender, &retain); err != nil {
+		if err := rows.Scan(&pid, &sender, &retain, &name); err != nil {
 			continue
 		}
 		target := receiverID
 		if sender == receiverID {
 			target = proposerID
 		}
-		moves = append(moves, TradeMove{pid, sender, target, retain})
+		moves = append(moves, TradeMove{pid, sender, target, name, retain})
 	}
 	rows.Close()
 
@@ -421,11 +428,35 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 		`, rootID, tradeID)
 	}
 
+	// Build trade summary for transaction log
+	var proposerName, receiverName string
+	tx.QueryRow(ctx, `SELECT name FROM teams WHERE id = $1`, proposerID).Scan(&proposerName)
+	tx.QueryRow(ctx, `SELECT name FROM teams WHERE id = $1`, receiverID).Scan(&receiverName)
+
+	var proposerSends, receiverSends []string
+	for _, m := range moves {
+		if m.SenderID == proposerID {
+			proposerSends = append(proposerSends, m.PlayerName)
+		} else {
+			receiverSends = append(receiverSends, m.PlayerName)
+		}
+	}
+	summary := proposerName + " sends " + strings.Join(proposerSends, ", ")
+	if len(receiverSends) > 0 {
+		summary += " | " + receiverName + " sends " + strings.Join(receiverSends, ", ")
+	}
+	if isbpOffered > 0 {
+		summary += fmt.Sprintf(" | %s sends $%d ISBP", proposerName, isbpOffered)
+	}
+	if isbpRequested > 0 {
+		summary += fmt.Sprintf(" | %s sends $%d ISBP", receiverName, isbpRequested)
+	}
+
 	// Create transaction log
 	_, err = tx.Exec(ctx, `
-		INSERT INTO transactions (team_id, transaction_type, status, related_transaction_id)
-		VALUES ($1, 'TRADE', 'COMPLETED', $2)
-	`, proposerID, tradeID)
+		INSERT INTO transactions (team_id, transaction_type, status, related_transaction_id, summary)
+		VALUES ($1, 'TRADE', 'COMPLETED', $2, $3)
+	`, proposerID, tradeID, summary)
 
 	return tx.Commit(ctx)
 }
