@@ -82,17 +82,16 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		currentYear := time.Now().Year()
 		settings := store.GetLeagueSettings(db, team.LeagueID, currentYear)
 
-		// Count restructures and extensions used (PENDING + APPROVED) for current year
+		// Query restructure and extension player names (PENDING + APPROVED) for current year
 		ctx := context.Background()
-		var restructureCount, extensionCount int
-		db.QueryRow(ctx, `SELECT COUNT(*) FROM pending_actions
-			WHERE team_id = $1 AND action_type = 'RESTRUCTURE'
-			AND status IN ('PENDING', 'APPROVED')
-			AND EXTRACT(YEAR FROM created_at) = $2`, teamID, currentYear).Scan(&restructureCount)
-		db.QueryRow(ctx, `SELECT COUNT(*) FROM pending_actions
-			WHERE team_id = $1 AND action_type = 'EXTENSION'
-			AND status IN ('PENDING', 'APPROVED')
-			AND EXTRACT(YEAR FROM created_at) = $2`, teamID, currentYear).Scan(&extensionCount)
+		actionNameQuery := `SELECT p.first_name || ' ' || p.last_name
+			FROM pending_actions pa JOIN players p ON p.id = pa.player_id
+			WHERE pa.team_id = $1 AND pa.action_type = $2
+			AND pa.status IN ('PENDING', 'APPROVED')
+			AND EXTRACT(YEAR FROM pa.created_at) = $3`
+
+		restructureNames := queryActionPlayerNames(ctx, db, actionNameQuery, teamID, "RESTRUCTURE", currentYear)
+		extensionNames := queryActionPlayerNames(ctx, db, actionNameQuery, teamID, "EXTENSION", currentYear)
 
 		user := c.MustGet("user").(*store.User)
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
@@ -114,10 +113,12 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"CountMinors":      countMinors,
 			"SPCount":          spCount,
 			"SPLimit":          settings.SP26ManLimit,
-			"RestructuresUsed": restructureCount,
-			"RestructureLimit": 1,
-			"ExtensionsUsed":   extensionCount,
-			"ExtensionLimit":   2,
+			"RestructuresUsed":    len(restructureNames),
+			"RestructureLimit":    1,
+			"RestructureTooltip":  strings.Join(restructureNames, ", "),
+			"ExtensionsUsed":      len(extensionNames),
+			"ExtensionLimit":      2,
+			"ExtensionTooltip":    strings.Join(extensionNames, ", "),
 		}
 
 		RenderTemplate(c, "roster.html", data)
@@ -151,4 +152,20 @@ func SaveDepthOrderHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{"message": "Depth order saved"})
 	}
+}
+
+func queryActionPlayerNames(ctx context.Context, db *pgxpool.Pool, query, teamID, actionType string, year int) []string {
+	rows, err := db.Query(ctx, query, teamID, actionType, year)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err == nil {
+			names = append(names, name)
+		}
+	}
+	return names
 }
