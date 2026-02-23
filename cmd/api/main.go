@@ -114,6 +114,8 @@ func main() {
 		authorized.POST("/trades/submit", handlers.SubmitTradeHandler(database))
 		authorized.POST("/trades/accept", handlers.AcceptTradeHandler(database))
 		authorized.POST("/trades/reject", handlers.RejectTradeHandler(database))
+		authorized.GET("/trades/counter", handlers.CounterTradeHandler(database))
+		authorized.POST("/trades/counter", handlers.SubmitCounterHandler(database))
 
 		// Trade Block & Bid History
 		authorized.GET("/trade-block", handlers.TradeBlockHandler(database))

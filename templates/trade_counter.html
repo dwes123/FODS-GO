@@ -1,0 +1,379 @@
+{{define "title"}}Counter Proposal{{end}}
+
+{{define "content"}}
+<h2>Counter Proposal to {{.TargetTeam.Name}}</h2>
+
+<!-- Chain context banner -->
+<div class="counter-banner">
+    <strong>Countering trade from {{.OriginalTrade.ProposingTeamName}}</strong>
+    <div class="counter-banner-details">
+        <div>
+            <em>Original offer from {{.OriginalTrade.ProposingTeamName}}:</em>
+            <ul>
+                {{$propID := .OriginalTrade.ProposingTeamID}}
+                {{range .OriginalTrade.Items}}
+                    {{if eq .SenderTeamID $propID}}<li>{{.PlayerName}}{{if .RetainSalary}} <span class="retain-badge">50% retained</span>{{end}}</li>{{end}}
+                {{end}}
+                {{if gt .OriginalTrade.IsbpOffered 0}}<li>${{formatMoney .OriginalTrade.IsbpOffered}} ISBP</li>{{end}}
+            </ul>
+        </div>
+        <div>
+            <em>Original request from {{.OriginalTrade.ReceivingTeamName}}:</em>
+            <ul>
+                {{$recvID := .OriginalTrade.ReceivingTeamID}}
+                {{range .OriginalTrade.Items}}
+                    {{if eq .SenderTeamID $recvID}}<li>{{.PlayerName}}{{if .RetainSalary}} <span class="retain-badge">50% retained</span>{{end}}</li>{{end}}
+                {{end}}
+                {{if gt .OriginalTrade.IsbpRequested 0}}<li>${{formatMoney .OriginalTrade.IsbpRequested}} ISBP</li>{{end}}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<form action="/trades/counter" method="POST" id="trade-form">
+    <input type="hidden" name="parent_trade_id" value="{{.OriginalTrade.ID}}">
+    <input type="hidden" name="proposer_team_id" value="{{.MyTeam.ID}}">
+    <input type="hidden" name="receiver_team_id" value="{{.TargetTeam.ID}}">
+
+    <div class="trade-setup">
+        <div class="setup-col">
+            <h3>Your Team: {{.MyTeam.Name}}</h3>
+        </div>
+    </div>
+
+    <div class="trade-grid">
+        <div class="trade-col">
+            <h3>Your Players (Offered)</h3>
+            <div id="proposer_roster" class="player-select-list">
+                <!-- Populated by JS -->
+            </div>
+            <div id="retention-container" class="retention-section" style="display:none;">
+                <strong>Retain 50% Salary (Current Year):</strong>
+                <div id="retention-checkboxes"></div>
+            </div>
+            <div class="cash-input">
+                <label>ISBP Offered ($): <span class="isbp-available" id="proposer-isbp"></span></label>
+                <input type="number" name="isbp_offered" id="isbp_offered" value="0" min="0" step="50000" onchange="updatePreview()">
+            </div>
+        </div>
+
+        <div class="trade-col">
+            <h3>Their Players (Requested)</h3>
+            <div id="target_roster" class="player-select-list">
+                {{range .TargetTeam.Players}}
+                <label class="player-row">
+                    <input type="checkbox" name="requested_players" value="{{.ID}}" onchange="updatePreview()"
+                        data-name="{{.FirstName}} {{.LastName}}"
+                        data-pos="{{.Position}}"
+                        {{range $year, $val := .Contracts}}{{if $val}}data-c{{$year}}="{{$val}}"{{end}}{{end}}>
+                    <span class="player-info">
+                        <strong>{{.FirstName}} {{.LastName}}</strong> <span class="pos-tag">{{.Position}}</span>
+                        <span class="contract-preview">{{with index .Contracts 2026}}{{if .}} '26:{{.}}{{end}}{{end}}{{with index .Contracts 2027}}{{if .}} '27:{{.}}{{end}}{{end}}{{with index .Contracts 2028}}{{if .}} '28:{{.}}{{end}}{{end}}</span>
+                    </span>
+                </label>
+                {{end}}
+            </div>
+            <div id="retention-requested-container" class="retention-section" style="display:none;">
+                <strong>Their Team Retains 50% Salary (Current Year):</strong>
+                <div id="retention-requested-checkboxes"></div>
+            </div>
+            <div class="cash-input">
+                <label>ISBP Requested ($): <span class="isbp-available">Available: ${{formatMoney .TargetTeam.IsbpBalance}}</span></label>
+                <input type="number" name="isbp_requested" id="isbp_requested" value="0" min="0" step="50000" onchange="updatePreview()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Trade Summary Preview -->
+    <div id="trade-preview" class="trade-preview" style="display: none;">
+        <h3>Trade Summary</h3>
+        <div class="preview-grid">
+            <div>
+                <strong>You Send:</strong>
+                <ul id="preview-offered"></ul>
+                <div id="preview-isbp-offered" class="preview-isbp"></div>
+            </div>
+            <div>
+                <strong>You Receive:</strong>
+                <ul id="preview-requested"></ul>
+                <div id="preview-isbp-requested" class="preview-isbp"></div>
+            </div>
+        </div>
+
+        <div class="salary-impact">
+            <strong>Projected Salary Impact (Your Team):</strong>
+            <table class="fantasy-table-base" style="margin-top: 10px; font-size: 0.9em;">
+                <thead>
+                    <tr><th>Year</th><th>Salary OUT</th><th>Salary IN</th><th>Dead Cap</th><th>Net Change</th></tr>
+                </thead>
+                <tbody id="salary-impact-body"></tbody>
+            </table>
+            <small style="color: #888;"><em>Non-numeric values (ARB, UFA, TC) are not included in totals.</em></small>
+        </div>
+    </div>
+
+    <div style="margin-top: 30px; text-align: center;">
+        <button type="submit" class="button button-counter-submit">Submit Counter Proposal</button>
+    </div>
+</form>
+
+<script>
+const myTeams = {{if .MyTeamsJSON}}JSON.parse(`{{.MyTeamsJSON}}`){{else}}[]{{end}};
+const preSelected = JSON.parse(`{{.PreSelectedJSON}}`);
+const years = [2026, 2027, 2028, 2029, 2030];
+
+function formatSalary(val) {
+    if (!val || val === '') return '';
+    var n = parseFloat(val.replace(/[$,]/g, ''));
+    if (isNaN(n)) return val;
+    if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return '$' + Math.round(n / 1000) + 'K';
+    return '$' + n;
+}
+
+function contractLine(contracts) {
+    if (!contracts) return '';
+    var parts = [];
+    years.forEach(function(y) {
+        var val = contracts[y];
+        if (val && val !== '') {
+            parts.push("'" + String(y).slice(-2) + ':' + formatSalary(val));
+        }
+    });
+    return parts.length > 0 ? ' (' + parts.join(', ') + ')' : '';
+}
+
+function parseSalary(val) {
+    if (!val || val === '') return 0;
+    var n = parseFloat(String(val).replace(/[$,]/g, ''));
+    return isNaN(n) ? 0 : n;
+}
+
+function updateProposerRoster() {
+    var team = myTeams[0]; // Locked to one team for counter
+    var container = document.getElementById('proposer_roster');
+
+    var isbpEl = document.getElementById('proposer-isbp');
+    if (team && team.isbp_balance !== undefined) {
+        isbpEl.textContent = 'Available: $' + Math.round(team.isbp_balance).toLocaleString();
+    } else {
+        isbpEl.textContent = '';
+    }
+
+    container.innerHTML = '';
+    if (team && team.players) {
+        team.players.forEach(function(p) {
+            var label = document.createElement('label');
+            label.className = 'player-row';
+            var dataAttrs = '';
+            years.forEach(function(y) {
+                if (p.contracts && p.contracts[y]) {
+                    dataAttrs += ' data-c' + y + '="' + p.contracts[y] + '"';
+                }
+            });
+            var isPreSelected = preSelected.offered_player_ids && preSelected.offered_player_ids.indexOf(p.id) !== -1;
+            label.innerHTML = '<input type="checkbox" name="offered_players" value="' + p.id + '" onchange="updatePreview()"'
+                + ' data-name="' + p.first_name + ' ' + p.last_name + '"'
+                + ' data-pos="' + p.position + '"'
+                + dataAttrs
+                + (isPreSelected ? ' checked' : '') + '>'
+                + ' <span class="player-info"><strong>' + p.first_name + ' ' + p.last_name + '</strong>'
+                + ' <span class="pos-tag">' + p.position + '</span>'
+                + '<span class="contract-preview">' + contractLine(p.contracts) + '</span></span>';
+            container.appendChild(label);
+        });
+    } else {
+        container.innerHTML = '<p>No players found for this team.</p>';
+    }
+}
+
+function applyPreSelections() {
+    // Pre-check requested players
+    if (preSelected.requested_player_ids) {
+        preSelected.requested_player_ids.forEach(function(pid) {
+            var cb = document.querySelector('input[name="requested_players"][value="' + pid + '"]');
+            if (cb) cb.checked = true;
+        });
+    }
+
+    // Pre-fill ISBP
+    if (preSelected.isbp_offered) {
+        document.getElementById('isbp_offered').value = preSelected.isbp_offered;
+    }
+    if (preSelected.isbp_requested) {
+        document.getElementById('isbp_requested').value = preSelected.isbp_requested;
+    }
+
+    updatePreview();
+
+    // After retention checkboxes are built, pre-check retained
+    setTimeout(function() {
+        if (preSelected.retained_offered) {
+            preSelected.retained_offered.forEach(function(pid) {
+                var cb = document.querySelector('input[name="retained_players"][value="' + pid + '"]');
+                if (cb) cb.checked = true;
+            });
+        }
+        if (preSelected.retained_requested) {
+            preSelected.retained_requested.forEach(function(pid) {
+                var cb = document.querySelector('input[name="retained_requested_players"][value="' + pid + '"]');
+                if (cb) cb.checked = true;
+            });
+        }
+        updatePreview();
+    }, 50);
+}
+
+function buildRetentionSection(playerCheckboxes, inputName, containerId, sectionId, label) {
+    var container = document.getElementById(containerId);
+    var section = document.getElementById(sectionId);
+
+    var previouslyRetained = {};
+    document.querySelectorAll('input[name="' + inputName + '"]:checked').forEach(function(cb) {
+        previouslyRetained[cb.value] = true;
+    });
+
+    container.innerHTML = '';
+    if (playerCheckboxes.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    var hasAnySalary = false;
+    playerCheckboxes.forEach(function(cb) {
+        var salary2026 = cb.getAttribute('data-c2026') || '';
+        var parsed = parseSalary(salary2026);
+        if (parsed <= 0) return;
+        hasAnySalary = true;
+        var checked = previouslyRetained[cb.value] ? ' checked' : '';
+        var el = document.createElement('label');
+        el.className = 'retention-row';
+        el.innerHTML = '<input type="checkbox" name="' + inputName + '" value="' + cb.value + '"' + checked + ' onchange="updatePreview()">'
+            + ' ' + label + ' <strong>' + cb.getAttribute('data-name') + '</strong> (' + formatSalary(salary2026) + ')';
+        container.appendChild(el);
+    });
+    section.style.display = hasAnySalary ? 'block' : 'none';
+}
+
+function updateRetentionCheckboxes() {
+    var offeredChecks = document.querySelectorAll('input[name="offered_players"]:checked');
+    var requestedChecks = document.querySelectorAll('input[name="requested_players"]:checked');
+    buildRetentionSection(offeredChecks, 'retained_players', 'retention-checkboxes', 'retention-container', 'Retain 50% of');
+    buildRetentionSection(requestedChecks, 'retained_requested_players', 'retention-requested-checkboxes', 'retention-requested-container', 'Their team retains 50% of');
+}
+
+function updatePreview() {
+    var offeredChecks = document.querySelectorAll('input[name="offered_players"]:checked');
+    var requestedChecks = document.querySelectorAll('input[name="requested_players"]:checked');
+    var isbpOffered = parseInt(document.getElementById('isbp_offered').value) || 0;
+    var isbpRequested = parseInt(document.getElementById('isbp_requested').value) || 0;
+
+    updateRetentionCheckboxes();
+
+    var preview = document.getElementById('trade-preview');
+    if (offeredChecks.length === 0 && requestedChecks.length === 0 && isbpOffered === 0 && isbpRequested === 0) {
+        preview.style.display = 'none';
+        return;
+    }
+    preview.style.display = 'block';
+
+    var retainedOffered = {};
+    document.querySelectorAll('input[name="retained_players"]:checked').forEach(function(cb) {
+        retainedOffered[cb.value] = true;
+    });
+    var retainedRequested = {};
+    document.querySelectorAll('input[name="retained_requested_players"]:checked').forEach(function(cb) {
+        retainedRequested[cb.value] = true;
+    });
+
+    var offeredList = document.getElementById('preview-offered');
+    offeredList.innerHTML = '';
+    offeredChecks.forEach(function(cb) {
+        var li = document.createElement('li');
+        var text = cb.getAttribute('data-name') + ' (' + cb.getAttribute('data-pos') + ')';
+        if (retainedOffered[cb.value]) text += ' — 50% salary retained by you';
+        li.textContent = text;
+        offeredList.appendChild(li);
+    });
+
+    var requestedList = document.getElementById('preview-requested');
+    requestedList.innerHTML = '';
+    requestedChecks.forEach(function(cb) {
+        var li = document.createElement('li');
+        var text = cb.getAttribute('data-name') + ' (' + cb.getAttribute('data-pos') + ')';
+        if (retainedRequested[cb.value]) text += ' — 50% salary retained by them';
+        li.textContent = text;
+        requestedList.appendChild(li);
+    });
+
+    document.getElementById('preview-isbp-offered').textContent = isbpOffered > 0 ? '+ $' + isbpOffered.toLocaleString() + ' ISBP' : '';
+    document.getElementById('preview-isbp-requested').textContent = isbpRequested > 0 ? '+ $' + isbpRequested.toLocaleString() + ' ISBP' : '';
+
+    var tbody = document.getElementById('salary-impact-body');
+    tbody.innerHTML = '';
+    var currentYear = new Date().getFullYear();
+    years.forEach(function(y) {
+        var salaryOut = 0;
+        var salaryIn = 0;
+        var deadCap = 0;
+        offeredChecks.forEach(function(cb) {
+            var sal = parseSalary(cb.getAttribute('data-c' + y));
+            if (y === currentYear && retainedOffered[cb.value] && sal > 0) {
+                deadCap += sal * 0.50;
+            }
+            salaryOut += sal;
+        });
+        requestedChecks.forEach(function(cb) {
+            var sal = parseSalary(cb.getAttribute('data-c' + y));
+            if (y === currentYear && retainedRequested[cb.value] && sal > 0) {
+                sal = sal * 0.50;
+            }
+            salaryIn += sal;
+        });
+        if (salaryOut === 0 && salaryIn === 0) return;
+        var net = salaryIn - salaryOut + deadCap;
+        var tr = document.createElement('tr');
+        var netClass = net > 0 ? 'color: #dc3545;' : net < 0 ? 'color: #28a745;' : '';
+        tr.innerHTML = '<td>' + y + '</td>'
+            + '<td>$' + salaryOut.toLocaleString() + '</td>'
+            + '<td>$' + salaryIn.toLocaleString() + '</td>'
+            + '<td>' + (deadCap > 0 ? '$' + deadCap.toLocaleString() : '--') + '</td>'
+            + '<td style="font-weight:bold;' + netClass + '">' + (net >= 0 ? '+' : '') + '$' + net.toLocaleString() + '</td>';
+        tbody.appendChild(tr);
+    });
+}
+
+// Initial Load
+updateProposerRoster();
+applyPreSelections();
+</script>
+
+<style>
+    .counter-banner { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px 20px; margin-bottom: 25px; }
+    .counter-banner strong { font-size: 1.05rem; }
+    .counter-banner-details { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 10px; }
+    .counter-banner-details ul { margin: 5px 0; padding-left: 20px; font-size: 0.9rem; }
+    .counter-banner-details em { color: #856404; font-size: 0.85rem; }
+    .trade-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }
+    .player-select-list { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: white; margin-bottom: 15px; }
+    .player-row { display: block; padding: 6px 4px; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
+    .player-row:hover { background: rgba(46, 109, 164, 0.05); }
+    .player-info { display: inline; }
+    .pos-tag { font-size: 0.75rem; color: #888; }
+    .contract-preview { font-size: 0.78rem; color: var(--fod-blue-primary); margin-left: 4px; }
+    .cash-input { background: #f0f7ff; padding: 10px; border-radius: 4px; border: 1px solid #bcd; }
+    .cash-input input { width: 100%; padding: 5px; margin-top: 5px; }
+    .trade-preview { background: #f0f0f1; padding: 20px; border-radius: 8px; margin-top: 25px; }
+    .trade-preview h3 { margin-top: 0; }
+    .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .preview-grid ul { margin: 8px 0; padding-left: 20px; }
+    .preview-grid li { padding: 3px 0; }
+    .preview-isbp { font-weight: bold; color: var(--fod-blue-primary); margin-top: 5px; }
+    .salary-impact { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px; }
+    .retention-section { background: #fff8e1; padding: 12px; border-radius: 4px; border: 1px solid #ffe082; margin-bottom: 15px; }
+    .retention-row { display: block; padding: 4px 0; cursor: pointer; }
+    .isbp-available { font-size: 0.85rem; color: var(--fod-blue-primary); font-weight: 600; }
+    .retain-badge { font-size: 0.75rem; background: var(--fod-orange-accent); color: white; padding: 1px 6px; border-radius: 3px; }
+    .button-counter-submit { background: var(--fod-orange-accent); border-color: var(--fod-orange-accent); color: white; font-size: 1.05rem; padding: 10px 30px; }
+    .button-counter-submit:hover { background: #d06820; }
+</style>
+{{end}}

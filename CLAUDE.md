@@ -74,7 +74,7 @@ internal/
     moves.go             — Roster moves (dynamic limits, SP limit, 40-man, 26-man, option, IL, DFA, trade block, rookie contract auto-assign)
     players.go           — Player profile, free agents, trade block page
     roster.go            — Roster page, depth chart save
-    trades.go            — Trade center, new trade (contract preview + salary impact), submit, accept
+    trades.go            — Trade center, new trade (contract preview + salary impact), submit, accept, counter proposals
     waivers.go           — Waiver wire (league-filtered), waiver claims
     league_rosters.go    — League roster browser, bid calculator, commissioner waiver audit
     home.go              — Home page with waiver wire spotlight widget
@@ -83,7 +83,7 @@ internal/
     leagues.go           — League/team queries, league dates, league settings, date window helpers
     players.go           — Player queries, AppendRosterMove, GetTradeBlockPlayers
     teams.go             — Team roster queries, roster counts, SP count, salary summaries
-    trades.go            — CreateTradeProposal (ISBP validation), AcceptTrade (ISBP validation), ReverseTrade, IsTradeWindowOpen
+    trades.go            — CreateTradeProposal (ISBP validation, counter support), AcceptTrade (ISBP validation, chain cleanup), GetTradeByID, ReverseTrade, IsTradeWindowOpen
     users.go             — User CRUD, sessions, registration requests, GetTeamOwnerEmails
   middleware/auth.go     — Session-based auth middleware
   middleware/security.go — Defense-in-depth security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy)
@@ -158,6 +158,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **Teams financial columns:** `isbp_balance` (NUMERIC 12,2), `milb_balance` (NUMERIC 12,2)
 - **league_settings columns:** `luxury_tax_limit`, `roster_26_man_limit` (default 26), `roster_40_man_limit` (default 40), `sp_26_man_limit` (default 6)
 - **league_integrations columns:** `slack_bot_token`, `slack_channel_transactions`, `slack_channel_completed_trades`, `slack_channel_stat_alerts`, `slack_channel_trade_block`
+- **trades columns:** `parent_trade_id` (UUID, nullable FK to trades) — links counter proposals to their parent; `status` TEXT supports `PROPOSED`, `ACCEPTED`, `REJECTED`, `REVERSED`, `COUNTERED`
 - **league_dates date_type values:** `trade_deadline`, `opening_day`, `extension_deadline`, `option_deadline`, `ifa_window_open`, `ifa_window_close`, `milb_fa_window_open`, `milb_fa_window_close`, `roster_expansion_start`, `roster_expansion_end`
 
 ## Key Business Logic
@@ -177,6 +178,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **Deadline enforcement:** Extension deadline, team option deadline, IFA window, MiLB FA window — all configurable per league/year via `league_dates`
 - **IFA signing:** International free agents use a separate ISBP-based signing flow — single dollar amount (no contract years/AAV/bid points); validates ISBP balance on bid, deducts on finalization; no contract written; IFA flag cleared on signing
 - **Rookie contract auto-assign:** When a player with no current-year contract is promoted to 40-man or 26-man, `assignRookieContractIfEmpty()` automatically writes: $760,000 (current year), TC, TC, ARB 1, ARB 2, ARB 3 across 6 years; contract values "ARB 1"/"ARB 2"/"ARB 3" are displayed as text via `hasPrefix` template function
+- **Trade counter proposals:** Receiver of a PROPOSED trade can counter instead of accept/reject; counter creates a new trade with `parent_trade_id` linking to the original, marks original as `COUNTERED`; roles flip (receiver becomes proposer); players/ISBP pre-populated from original with flipped sides; chainable — either side can keep countering; on accept, recursive CTE cleans up any stale PROPOSED trades in the chain
 
 ## Feature Implementation Status
 
@@ -231,6 +233,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **50% Salary Retention in Trades** — Per-player retention checkboxes on both sides of trade proposal form; `trade_items.retain_salary` column tracks per-item; `AcceptTrade` applies optional 50% on remainder after date-based retention; dead cap note reflects both layers; salary impact table includes Dead Cap column; pending trades show orange "50% retained" badge
 - **ISBP Balance on Trade Form** — Both ISBP input fields show "Available: $X" for each team; proposer updates dynamically on team switch, target is server-rendered
 - **Weekly Rotations Enhancements** — Full-week submission (all 7 days at once) replacing per-day saves; banked starters system (pitcher_2 can be "banked" and used on a later day, invalidated if pitcher has regular start in between); week navigation with prev/next arrows and date range display; `GetTeamWeekRotation` API endpoint to load existing rotation data; server-side validation (roster ownership, banked usage rules, duplicate pitcher checks); submission progress tracking (X/Y teams submitted per league); `rotations.day_of_week` stored as integer (0=Monday through 6=Sunday); `banked_starters` JSONB column on rotations table
+- **Trade Counter Proposals** — Receivers can counter a trade instead of only accepting/rejecting; `GET /trades/counter?trade_id=X` loads `trade_counter.html` with pre-populated players and ISBP (roles flipped from original); `POST /trades/counter` creates new trade with `parent_trade_id` FK and marks parent as `COUNTERED`; chainable (either side can keep countering); trade center shows purple "Counter Proposal" badge and orange "Counter" button for receivers; `GetTradeByID` store function fetches single trade with items; `AcceptTrade` uses recursive CTE to clean up stale PROPOSED trades in the chain; email notification sent on counter; `migrations/016_counter_proposals.sql`
 
 ### Commissioner Tools Enhancements
 - **Bid/FA Management in Player Editor** — Commissioners can manually set `fa_status`, pending bid fields, and `bid_type` on any player
@@ -301,6 +304,7 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 ### Migrations Required
 - `migrations/013_feature_batch.sql` — Adds: `transactions.fantrax_processed`, `players.fod_id`, `registration_requests` table, `league_dates` table, `system_counters` table
 - `migrations/014_business_rules.sql` — Adds: `roster_26_man_limit`, `roster_40_man_limit`, `sp_26_man_limit` columns to `league_settings`
+- `migrations/016_counter_proposals.sql` — Adds: `parent_trade_id` UUID column (FK to trades) + index for counter proposal chains
 
 ### Not Implemented (deferred)
 - Draft Room (Feature 2) — complex real-time feature, deferred

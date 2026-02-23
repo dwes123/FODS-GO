@@ -28,6 +28,7 @@ type TradeProposal struct {
 	Status            string      `json:"status"`
 	CreatedAt         time.Time   `json:"created_at"`
 	Items             []TradeItem `json:"items"`
+	ParentTradeID     string      `json:"parent_trade_id"`
 }
 
 // IsTradeWindowOpen checks if trades are allowed for the given league.
@@ -62,7 +63,7 @@ func IsTradeWindowOpen(db *pgxpool.Pool, leagueID string) (bool, string) {
 	return true, ""
 }
 
-func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offeredPlayers, requestedPlayers, retainedPlayers []string, isbpOffered, isbpRequested int) error {
+func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offeredPlayers, requestedPlayers, retainedPlayers []string, isbpOffered, isbpRequested int, parentTradeID string) error {
 	ctx := context.Background()
 
 	// ISBP balance validation at proposal time
@@ -89,13 +90,29 @@ func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offere
 
 	// 1. Create Trade record
 	var tradeID string
-	err = tx.QueryRow(ctx, `
-		INSERT INTO trades (proposing_team_id, receiving_team_id, status, isbp_offered, isbp_requested)
-		VALUES ($1, $2, 'PROPOSED', $3, $4)
-		RETURNING id
-	`, proposerID, receiverID, isbpOffered, isbpRequested).Scan(&tradeID)
+	if parentTradeID != "" {
+		err = tx.QueryRow(ctx, `
+			INSERT INTO trades (proposing_team_id, receiving_team_id, status, isbp_offered, isbp_requested, parent_trade_id)
+			VALUES ($1, $2, 'PROPOSED', $3, $4, $5)
+			RETURNING id
+		`, proposerID, receiverID, isbpOffered, isbpRequested, parentTradeID).Scan(&tradeID)
+	} else {
+		err = tx.QueryRow(ctx, `
+			INSERT INTO trades (proposing_team_id, receiving_team_id, status, isbp_offered, isbp_requested)
+			VALUES ($1, $2, 'PROPOSED', $3, $4)
+			RETURNING id
+		`, proposerID, receiverID, isbpOffered, isbpRequested).Scan(&tradeID)
+	}
 	if err != nil {
 		return err
+	}
+
+	// Mark parent trade as COUNTERED
+	if parentTradeID != "" {
+		_, err = tx.Exec(ctx, `UPDATE trades SET status = 'COUNTERED' WHERE id = $1 AND status = 'PROPOSED'`, parentTradeID)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Build retained set for quick lookup
@@ -132,7 +149,7 @@ func CreateTradeProposal(db *pgxpool.Pool, proposerID, receiverID string, offere
 func GetPendingTrades(db *pgxpool.Pool, teamIDs []string) ([]TradeProposal, error) {
 	rows, err := db.Query(context.Background(), `
 		SELECT t.id, t.proposing_team_id, tp.name, t.receiving_team_id, tr.name, t.status, t.created_at,
-		       t.isbp_offered, t.isbp_requested
+		       t.isbp_offered, t.isbp_requested, COALESCE(t.parent_trade_id::TEXT, '')
 		FROM trades t
 		JOIN teams tp ON t.proposing_team_id = tp.id
 		JOIN teams tr ON t.receiving_team_id = tr.id
@@ -148,7 +165,7 @@ func GetPendingTrades(db *pgxpool.Pool, teamIDs []string) ([]TradeProposal, erro
 	var trades []TradeProposal
 	for rows.Next() {
 		var t TradeProposal
-		if err := rows.Scan(&t.ID, &t.ProposingTeamID, &t.ProposingTeamName, &t.ReceivingTeamID, &t.ReceivingTeamName, &t.Status, &t.CreatedAt, &t.IsbpOffered, &t.IsbpRequested); err != nil {
+		if err := rows.Scan(&t.ID, &t.ProposingTeamID, &t.ProposingTeamName, &t.ReceivingTeamID, &t.ReceivingTeamName, &t.Status, &t.CreatedAt, &t.IsbpOffered, &t.IsbpRequested, &t.ParentTradeID); err != nil {
 			continue
 		}
 
@@ -172,6 +189,45 @@ func GetPendingTrades(db *pgxpool.Pool, teamIDs []string) ([]TradeProposal, erro
 		trades = append(trades, t)
 	}
 	return trades, nil
+}
+
+func GetTradeByID(db *pgxpool.Pool, tradeID string) (*TradeProposal, error) {
+	ctx := context.Background()
+	var t TradeProposal
+	err := db.QueryRow(ctx, `
+		SELECT t.id, t.proposing_team_id, tp.name, t.receiving_team_id, tr.name,
+		       t.status, t.created_at, t.isbp_offered, t.isbp_requested,
+		       COALESCE(t.parent_trade_id::TEXT, '')
+		FROM trades t
+		JOIN teams tp ON t.proposing_team_id = tp.id
+		JOIN teams tr ON t.receiving_team_id = tr.id
+		WHERE t.id = $1
+	`, tradeID).Scan(&t.ID, &t.ProposingTeamID, &t.ProposingTeamName,
+		&t.ReceivingTeamID, &t.ReceivingTeamName, &t.Status, &t.CreatedAt,
+		&t.IsbpOffered, &t.IsbpRequested, &t.ParentTradeID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch items
+	rows, err := db.Query(ctx, `
+		SELECT ti.player_id, p.first_name || ' ' || p.last_name, ti.sender_team_id, COALESCE(ti.retain_salary, false)
+		FROM trade_items ti
+		JOIN players p ON ti.player_id = p.id
+		WHERE ti.trade_id = $1
+	`, tradeID)
+	if err != nil {
+		return &t, nil
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var item TradeItem
+		if err := rows.Scan(&item.PlayerID, &item.PlayerName, &item.SenderTeamID, &item.RetainSalary); err == nil {
+			t.Items = append(t.Items, item)
+		}
+	}
+	return &t, nil
 }
 
 func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
@@ -340,7 +396,31 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 
 	// 5. Update Status & Log
 	_, err = tx.Exec(ctx, `UPDATE trades SET status = 'ACCEPTED' WHERE id = $1`, tradeID)
-	
+
+	// 5b. Chain cleanup: mark any other PROPOSED trades in this counter chain as COUNTERED
+	// Walk up the chain to find the root trade, then mark all PROPOSED descendants
+	var rootID string
+	err = tx.QueryRow(ctx, `
+		WITH RECURSIVE chain AS (
+			SELECT id, parent_trade_id FROM trades WHERE id = $1
+			UNION ALL
+			SELECT t.id, t.parent_trade_id FROM trades t JOIN chain c ON t.id = c.parent_trade_id
+		)
+		SELECT id FROM chain WHERE parent_trade_id IS NULL
+	`, tradeID).Scan(&rootID)
+	if err == nil {
+		// Mark all PROPOSED trades in this chain (except the one being accepted) as COUNTERED
+		tx.Exec(ctx, `
+			WITH RECURSIVE chain AS (
+				SELECT id FROM trades WHERE id = $1
+				UNION ALL
+				SELECT t.id FROM trades t JOIN chain c ON t.parent_trade_id = c.id
+			)
+			UPDATE trades SET status = 'COUNTERED'
+			WHERE id IN (SELECT id FROM chain) AND id != $2 AND status = 'PROPOSED'
+		`, rootID, tradeID)
+	}
+
 	// Create transaction log
 	_, err = tx.Exec(ctx, `
 		INSERT INTO transactions (team_id, transaction_type, status, related_transaction_id)

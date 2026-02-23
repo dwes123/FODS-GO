@@ -108,7 +108,7 @@ func SubmitTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		allRetained := append(retained, retainedRequested...)
-		err := store.CreateTradeProposal(db, proposerID, receiverID, offered, requested, allRetained, isbpOffered, isbpRequested)
+		err := store.CreateTradeProposal(db, proposerID, receiverID, offered, requested, allRetained, isbpOffered, isbpRequested, "")
 		if err != nil {
 			fmt.Printf("ERROR [SubmitTrade]: %v\n", err)
 			c.String(http.StatusInternalServerError, "Internal server error")
@@ -187,6 +187,165 @@ func RejectTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			c.String(http.StatusInternalServerError, "Failed to reject trade")
 			return
 		}
+
+		c.Redirect(http.StatusFound, "/trades")
+	}
+}
+
+func CounterTradeHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		tradeID := c.Query("trade_id")
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+
+		if tradeID == "" {
+			c.String(http.StatusBadRequest, "Missing trade_id")
+			return
+		}
+
+		original, err := store.GetTradeByID(db, tradeID)
+		if err != nil {
+			c.String(http.StatusNotFound, "Trade not found")
+			return
+		}
+
+		if original.Status != "PROPOSED" {
+			c.String(http.StatusBadRequest, "This trade is no longer pending")
+			return
+		}
+
+		// Verify user owns the receiving team of the original trade
+		isReceiver, _ := store.IsTeamOwner(db, original.ReceivingTeamID, user.ID)
+		if !isReceiver {
+			c.String(http.StatusForbidden, "You can only counter trades sent to your team")
+			return
+		}
+
+		// In a counter, the receiver becomes the proposer
+		counterProposerTeam, err := store.GetTeamWithRoster(db, original.ReceivingTeamID)
+		if err != nil {
+			fmt.Printf("ERROR [CounterTrade]: loading counter-proposer team: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		targetTeam, err := store.GetTeamWithRoster(db, original.ProposingTeamID)
+		if err != nil {
+			fmt.Printf("ERROR [CounterTrade]: loading target team: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		// Build pre-selected data: roles flip
+		type PreSelected struct {
+			OfferedPlayerIDs   []string `json:"offered_player_ids"`
+			RequestedPlayerIDs []string `json:"requested_player_ids"`
+			RetainedOffered    []string `json:"retained_offered"`
+			RetainedRequested  []string `json:"retained_requested"`
+			IsbpOffered        int      `json:"isbp_offered"`
+			IsbpRequested      int      `json:"isbp_requested"`
+		}
+
+		pre := PreSelected{
+			IsbpOffered:   original.IsbpRequested, // flip
+			IsbpRequested: original.IsbpOffered,    // flip
+		}
+
+		for _, item := range original.Items {
+			if item.SenderTeamID == original.ProposingTeamID {
+				// Was offered by proposer -> now requested from target
+				pre.RequestedPlayerIDs = append(pre.RequestedPlayerIDs, item.PlayerID)
+				if item.RetainSalary {
+					pre.RetainedRequested = append(pre.RetainedRequested, item.PlayerID)
+				}
+			} else {
+				// Was requested from receiver -> now offered by counter-proposer
+				pre.OfferedPlayerIDs = append(pre.OfferedPlayerIDs, item.PlayerID)
+				if item.RetainSalary {
+					pre.RetainedOffered = append(pre.RetainedOffered, item.PlayerID)
+				}
+			}
+		}
+
+		preJSON, _ := json.Marshal(pre)
+		myTeamsJSON, _ := json.Marshal([]store.TeamDetail{*counterProposerTeam})
+
+		RenderTemplate(c, "trade_counter.html", gin.H{
+			"User":            user,
+			"OriginalTrade":   original,
+			"MyTeam":          counterProposerTeam,
+			"MyTeamsJSON":     string(myTeamsJSON),
+			"TargetTeam":      targetTeam,
+			"PreSelectedJSON": string(preJSON),
+			"IsCommish":       len(adminLeagues) > 0,
+		})
+	}
+}
+
+func SubmitCounterHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+
+		proposerID := c.PostForm("proposer_team_id")
+		receiverID := c.PostForm("receiver_team_id")
+		parentTradeID := c.PostForm("parent_trade_id")
+		offered := c.PostFormArray("offered_players")
+		requested := c.PostFormArray("requested_players")
+		retained := c.PostFormArray("retained_players")
+		retainedRequested := c.PostFormArray("retained_requested_players")
+
+		isbpOffered, _ := strconv.Atoi(c.PostForm("isbp_offered"))
+		isbpRequested, _ := strconv.Atoi(c.PostForm("isbp_requested"))
+
+		// Verify user owns the proposer team
+		isOwner, _ := store.IsTeamOwner(db, proposerID, user.ID)
+		if !isOwner {
+			c.String(http.StatusForbidden, "Unauthorized")
+			return
+		}
+
+		// Verify parent trade exists, is PROPOSED, and user's team is the receiver of it
+		if parentTradeID == "" {
+			c.String(http.StatusBadRequest, "Missing parent trade")
+			return
+		}
+		parentTrade, err := store.GetTradeByID(db, parentTradeID)
+		if err != nil || parentTrade.Status != "PROPOSED" {
+			c.String(http.StatusBadRequest, "Original trade is no longer pending")
+			return
+		}
+		isParentReceiver, _ := store.IsTeamOwner(db, parentTrade.ReceivingTeamID, user.ID)
+		if !isParentReceiver {
+			c.String(http.StatusForbidden, "You can only counter trades sent to your team")
+			return
+		}
+
+		// Check trade deadline
+		var leagueID string
+		db.QueryRow(c, `SELECT league_id FROM teams WHERE id = $1`, proposerID).Scan(&leagueID)
+		if open, msg := store.IsTradeWindowOpen(db, leagueID); !open {
+			c.String(http.StatusForbidden, msg)
+			return
+		}
+
+		allRetained := append(retained, retainedRequested...)
+		err = store.CreateTradeProposal(db, proposerID, receiverID, offered, requested, allRetained, isbpOffered, isbpRequested, parentTradeID)
+		if err != nil {
+			fmt.Printf("ERROR [SubmitCounter]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		// Email notification
+		go func() {
+			var proposerName string
+			db.QueryRow(context.Background(), `SELECT name FROM teams WHERE id = $1`, proposerID).Scan(&proposerName)
+			emails, _ := store.GetTeamOwnerEmails(db, receiverID)
+			for _, email := range emails {
+				body := fmt.Sprintf("<h2>Counter Proposal</h2><p><strong>%s</strong> has sent a counter proposal.</p><p><a href=\"https://frontofficedynastysports.com/trades\">View Trade</a></p>", proposerName)
+				notification.SendEmail(email, "Counter Proposal from "+proposerName, body)
+			}
+		}()
 
 		c.Redirect(http.StatusFound, "/trades")
 	}
