@@ -11,6 +11,7 @@ import (
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func AdminDashboardHandler(db *pgxpool.Pool) gin.HandlerFunc {
@@ -571,5 +572,215 @@ func AdminSaveSettingsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		c.Redirect(http.StatusFound, fmt.Sprintf("/admin/settings?year=%d&saved=1", year))
+	}
+}
+
+// --- Team & User Management ---
+
+var allLeagueIDs = []string{
+	"11111111-1111-1111-1111-111111111111",
+	"22222222-2222-2222-2222-222222222222",
+	"33333333-3333-3333-3333-333333333333",
+	"44444444-4444-4444-4444-444444444444",
+}
+
+func AdminTeamOwnersHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		leagueIDs := adminLeagues
+		if user.Role == "admin" {
+			leagueIDs = allLeagueIDs
+		}
+
+		owners, err := store.GetAllTeamOwners(db, leagueIDs)
+		if err != nil {
+			fmt.Printf("ERROR [AdminTeamOwners]: %v\n", err)
+		}
+
+		allUsers, err := store.GetAllUsers(db)
+		if err != nil {
+			fmt.Printf("ERROR [AdminTeamOwners-Users]: %v\n", err)
+		}
+
+		leagues, _ := store.GetLeaguesWithTeams(db)
+		// Filter leagues for commissioners
+		if user.Role != "admin" {
+			var filtered []store.League
+			leagueSet := make(map[string]bool)
+			for _, id := range adminLeagues {
+				leagueSet[id] = true
+			}
+			for _, l := range leagues {
+				if leagueSet[l.ID] {
+					filtered = append(filtered, l)
+				}
+			}
+			leagues = filtered
+		}
+
+		RenderTemplate(c, "admin_team_owners.html", gin.H{
+			"User":        user,
+			"Owners":      owners,
+			"AllUsers":    allUsers,
+			"Leagues":     leagues,
+			"SaveSuccess": c.Query("saved") == "1",
+			"IsCommish":   true,
+		})
+	}
+}
+
+func AdminAddTeamOwnerHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		teamID := c.PostForm("team_id")
+		userID := c.PostForm("user_id")
+
+		// Verify team is in commissioner's leagues
+		if user.Role != "admin" {
+			teamLeague, err := store.GetTeamLeagueID(db, teamID)
+			if err != nil {
+				c.String(http.StatusBadRequest, "Invalid team")
+				return
+			}
+			allowed := false
+			for _, l := range adminLeagues {
+				if l == teamLeague {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				c.String(http.StatusForbidden, "Not authorized for this league")
+				return
+			}
+		}
+
+		err := store.AddTeamOwner(db, teamID, userID)
+		if err != nil {
+			fmt.Printf("ERROR [AdminAddTeamOwner]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/admin/team-owners?saved=1")
+	}
+}
+
+func AdminRemoveTeamOwnerHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		teamID := c.PostForm("team_id")
+		userID := c.PostForm("user_id")
+
+		// Verify team is in commissioner's leagues
+		if user.Role != "admin" {
+			teamLeague, err := store.GetTeamLeagueID(db, teamID)
+			if err != nil {
+				c.String(http.StatusBadRequest, "Invalid team")
+				return
+			}
+			allowed := false
+			for _, l := range adminLeagues {
+				if l == teamLeague {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				c.String(http.StatusForbidden, "Not authorized for this league")
+				return
+			}
+		}
+
+		err := store.RemoveTeamOwner(db, teamID, userID)
+		if err != nil {
+			fmt.Printf("ERROR [AdminRemoveTeamOwner]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/admin/team-owners?saved=1")
+	}
+}
+
+func AdminCreateUserHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		username := c.PostForm("username")
+		email := c.PostForm("email")
+		password := c.PostForm("password")
+
+		if username == "" || email == "" || password == "" {
+			c.String(http.StatusBadRequest, "All fields are required")
+			return
+		}
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			fmt.Printf("ERROR [AdminCreateUser]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		_, err = store.CreateUser(db, username, email, string(hash))
+		if err != nil {
+			fmt.Printf("ERROR [AdminCreateUser]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/admin/team-owners?saved=1")
+	}
+}
+
+func AdminDeleteUserHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		userID := c.PostForm("user_id")
+
+		// Prevent deleting yourself
+		if userID == user.ID {
+			c.String(http.StatusBadRequest, "Cannot delete your own account")
+			return
+		}
+
+		err := store.DeleteUser(db, userID)
+		if err != nil {
+			fmt.Printf("ERROR [AdminDeleteUser]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/admin/team-owners?saved=1")
 	}
 }

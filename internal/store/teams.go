@@ -360,3 +360,109 @@ func SetTeamBalance(db *pgxpool.Pool, teamID string, isbpBalance, milbBalance fl
 		isbpBalance, milbBalance, teamID)
 	return err
 }
+
+// --- Team Owner Management ---
+
+type TeamOwnerEntry struct {
+	ID         string
+	TeamID     string
+	TeamName   string
+	LeagueName string
+	LeagueID   string
+	UserID     string
+	Username   string
+	Email      string
+}
+
+func GetAllTeamOwners(db *pgxpool.Pool, leagueIDs []string) ([]TeamOwnerEntry, error) {
+	ctx := context.Background()
+	rows, err := db.Query(ctx, `
+		SELECT town.id, town.team_id, t.name, l.name, t.league_id,
+		       town.user_id, u.username, u.email
+		FROM team_owners town
+		JOIN teams t ON town.team_id = t.id
+		JOIN leagues l ON t.league_id = l.id
+		JOIN users u ON town.user_id = u.id
+		WHERE t.league_id = ANY($1)
+		ORDER BY l.name, t.name, u.username
+	`, leagueIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []TeamOwnerEntry
+	for rows.Next() {
+		var e TeamOwnerEntry
+		if err := rows.Scan(&e.ID, &e.TeamID, &e.TeamName, &e.LeagueName, &e.LeagueID,
+			&e.UserID, &e.Username, &e.Email); err != nil {
+			continue
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
+func AddTeamOwner(db *pgxpool.Pool, teamID, userID string) error {
+	ctx := context.Background()
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO team_owners (team_id, user_id)
+		VALUES ($1, $2)
+		ON CONFLICT (team_id, user_id) DO NOTHING
+	`, teamID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Update teams.owner_name to comma-joined usernames of all owners
+	_, err = tx.Exec(ctx, `
+		UPDATE teams SET owner_name = (
+			SELECT STRING_AGG(u.username, ', ' ORDER BY u.username)
+			FROM team_owners town
+			JOIN users u ON town.user_id = u.id
+			WHERE town.team_id = $1
+		) WHERE id = $1
+	`, teamID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func RemoveTeamOwner(db *pgxpool.Pool, teamID, userID string) error {
+	ctx := context.Background()
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		DELETE FROM team_owners WHERE team_id = $1 AND user_id = $2
+	`, teamID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Update teams.owner_name to remaining owners (or NULL if none left)
+	_, err = tx.Exec(ctx, `
+		UPDATE teams SET owner_name = (
+			SELECT STRING_AGG(u.username, ', ' ORDER BY u.username)
+			FROM team_owners town
+			JOIN users u ON town.user_id = u.id
+			WHERE town.team_id = $1
+		) WHERE id = $1
+	`, teamID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}

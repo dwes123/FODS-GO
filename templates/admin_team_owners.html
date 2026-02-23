@@ -1,0 +1,130 @@
+{{define "title"}}Team & User Management{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Team & User Management</h2>
+
+    {{if .SaveSuccess}}
+    <div style="background: #d4edda; color: #155724; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #c3e6cb;">
+        Changes saved successfully.
+    </div>
+    {{end}}
+
+    <h3>Current Team Owners</h3>
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Team</th>
+                <th>League</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Owners}}
+            <tr>
+                <td><strong>{{.TeamName}}</strong></td>
+                <td>{{.LeagueName}}</td>
+                <td>{{.Username}}</td>
+                <td>{{.Email}}</td>
+                <td>
+                    <form action="/admin/team-owners/remove" method="POST" style="display: inline;" onsubmit="return confirm('Remove {{.Username}} from {{.TeamName}}?');">
+                        <input type="hidden" name="team_id" value="{{.TeamID}}">
+                        <input type="hidden" name="user_id" value="{{.UserID}}">
+                        <button type="submit" class="button button-small" style="background: #d9534f;">Remove</button>
+                    </form>
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="5">No team owners found.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px;">
+        <div style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid var(--fod-blue-primary);">
+            <h3 style="margin-top: 0;">Add Owner to Team</h3>
+            <form action="/admin/team-owners/add" method="POST">
+                <div style="margin-bottom: 12px;">
+                    <label><strong>Team</strong></label><br>
+                    <select name="team_id" required style="width: 100%; padding: 8px; margin-top: 4px;">
+                        <option value="">-- Select Team --</option>
+                        {{range .Leagues}}
+                        <optgroup label="{{.Name}}">
+                            {{range .Teams}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </optgroup>
+                        {{end}}
+                    </select>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label><strong>User</strong></label><br>
+                    <select name="user_id" required style="width: 100%; padding: 8px; margin-top: 4px;">
+                        <option value="">-- Select User --</option>
+                        {{range .AllUsers}}
+                        <option value="{{.ID}}">{{.Username}} ({{.Email}})</option>
+                        {{end}}
+                    </select>
+                </div>
+                <button type="submit" class="button">Add Owner</button>
+            </form>
+        </div>
+
+        <div style="background: white; border: 1px solid #ddd; padding: 20px; border-radius: 8px; border-top: 4px solid #5cb85c;">
+            <h3 style="margin-top: 0;">Create New User</h3>
+            <form action="/admin/team-owners/create-user" method="POST">
+                <div style="margin-bottom: 12px;">
+                    <label><strong>Username</strong></label><br>
+                    <input type="text" name="username" required style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label><strong>Email</strong></label><br>
+                    <input type="email" name="email" required style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label><strong>Password</strong></label><br>
+                    <input type="password" name="password" required minlength="6" style="width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;">
+                </div>
+                <button type="submit" class="button" style="background: #5cb85c;">Create User</button>
+            </form>
+        </div>
+    </div>
+
+    <h3 style="margin-top: 40px;">All Users</h3>
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .AllUsers}}
+            <tr>
+                <td><strong>{{.Username}}</strong></td>
+                <td>{{.Email}}</td>
+                <td>{{.Role}}</td>
+                <td>{{.CreatedAt.Format "2006-01-02"}}</td>
+                <td>
+                    {{if eq .ID $.User.ID}}
+                    <span style="color: #999;">You</span>
+                    {{else}}
+                    <form action="/admin/team-owners/delete-user" method="POST" style="display: inline;" onsubmit="return confirm('Delete user {{.Username}}? This will remove all team ownership and sessions.');">
+                        <input type="hidden" name="user_id" value="{{.ID}}">
+                        <button type="submit" class="button button-small" style="background: #d9534f;">Delete</button>
+                    </form>
+                    {{end}}
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="5">No users found.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}

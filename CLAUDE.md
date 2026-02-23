@@ -243,6 +243,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Player Editor Team Option Years** — Per-contract-year TO (Team Option) checkboxes (2026–2040) in contracts section; reads/writes `contract_option_years` JSONB column; pre-checked on edit
 - **Player Editor DFA Only** — `dfa_only` checkbox in Status section; reads/writes `dfa_only` BOOLEAN column
 - **Player Editor Save Confirmation** — Green success banner shown after saving via `?saved=1` query param
+- **Team & User Management** — `/admin/team-owners` page for adding/removing team owners (`team_owners` table), creating new users (bcrypt, bypasses approval queue), and deleting users (cascading FK cleanup); global admins see all leagues, commissioners see only their leagues; `AddTeamOwner`/`RemoveTeamOwner` update `teams.owner_name` automatically; linked from dashboard
 
 ### Commissioner AI Agent
 - **Chat UI** — `/admin/agent` chat-based interface for commissioners; extends `layout.html`, vanilla JS with conversation history

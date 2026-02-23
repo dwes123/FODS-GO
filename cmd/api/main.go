@@ -177,6 +177,11 @@ func main() {
 		authorized.POST("/admin/roles/delete", handlers.AdminDeleteRoleHandler(database))
 		authorized.GET("/admin/balance-editor", handlers.AdminBalanceEditorHandler(database))
 		authorized.POST("/admin/balance-editor/save", handlers.AdminSaveBalanceHandler(database))
+		authorized.GET("/admin/team-owners", handlers.AdminTeamOwnersHandler(database))
+		authorized.POST("/admin/team-owners/add", handlers.AdminAddTeamOwnerHandler(database))
+		authorized.POST("/admin/team-owners/remove", handlers.AdminRemoveTeamOwnerHandler(database))
+		authorized.POST("/admin/team-owners/create-user", handlers.AdminCreateUserHandler(database))
+		authorized.POST("/admin/team-owners/delete-user", handlers.AdminDeleteUserHandler(database))
 
 		// AI Agent
 		authorized.GET("/admin/agent", handlers.AdminAgentPageHandler(database))

@@ -198,6 +198,31 @@ func GetTeamOwnerEmails(db *pgxpool.Pool, teamID string) ([]string, error) {
 	return emails, nil
 }
 
+func GetAllUsers(db *pgxpool.Pool) ([]User, error) {
+	rows, err := db.Query(context.Background(),
+		`SELECT id, username, email, role, created_at FROM users ORDER BY username`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.CreatedAt); err != nil {
+			continue
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+func DeleteUser(db *pgxpool.Pool, userID string) error {
+	_, err := db.Exec(context.Background(),
+		`DELETE FROM users WHERE id = $1`, userID)
+	return err
+}
+
 func GetAdminLeagues(db *pgxpool.Pool, userID string) ([]string, error) {
 	rows, err := db.Query(context.Background(), `
 		SELECT league_id FROM league_roles WHERE user_id = $1 AND role = 'commissioner'
