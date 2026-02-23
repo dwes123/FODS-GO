@@ -28,6 +28,14 @@
         <span class="roster-count-label">Minors</span>
         <span class="roster-count-value">{{.CountMinors}}</span>
     </div>
+    <div class="roster-count-item">
+        <span class="roster-count-label">Restructures</span>
+        <span class="roster-count-value" style="color: {{if ge .RestructuresUsed .RestructureLimit}}red{{else}}green{{end}};">{{.RestructuresUsed}}/{{.RestructureLimit}}</span>
+    </div>
+    <div class="roster-count-item">
+        <span class="roster-count-label">Extensions</span>
+        <span class="roster-count-value" style="color: {{if ge .ExtensionsUsed .ExtensionLimit}}red{{else}}green{{end}};">{{.ExtensionsUsed}}/{{.ExtensionLimit}}</span>
+    </div>
 </div>
 
 <h3>Team Financials</h3>
