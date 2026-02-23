@@ -110,6 +110,33 @@ func LogoutHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+func UpdateThemeHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+
+		var req struct {
+			Theme string `json:"theme"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		if req.Theme != "light" && req.Theme != "dark" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Theme must be 'light' or 'dark'"})
+			return
+		}
+
+		if err := store.UpdateThemePreference(db, user.ID, req.Theme); err != nil {
+			fmt.Printf("ERROR [UpdateThemeHandler]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update theme"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Theme updated", "theme": req.Theme})
+	}
+}
+
 func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 	funcMap := template.FuncMap{
 		"dict": func(values ...interface{}) (map[string]interface{}, error) {

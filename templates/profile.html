@@ -26,6 +26,28 @@
         </form>
     </div>
 
+    <h3>Display Preferences</h3>
+    <div class="profile-card">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <strong>Theme:</strong>
+                <span id="current-theme-label">{{if eq .User.ThemePreference "dark"}}Dark Mode (Broadcast War Room){{else}}Light Mode (Default){{end}}</span>
+            </div>
+            <button onclick="toggleTheme(); updateProfileThemeLabel();" class="button" id="profile-theme-btn">
+                {{if eq .User.ThemePreference "dark"}}Switch to Light{{else}}Switch to Dark{{end}}
+            </button>
+        </div>
+    </div>
+    <script>
+    function updateProfileThemeLabel() {
+        var isDark = document.body.classList.contains('dark-mode');
+        var label = document.getElementById('current-theme-label');
+        var btn = document.getElementById('profile-theme-btn');
+        if (label) label.textContent = isDark ? 'Dark Mode (Broadcast War Room)' : 'Light Mode (Default)';
+        if (btn) btn.textContent = isDark ? 'Switch to Light' : 'Switch to Dark';
+    }
+    </script>
+
     <h3>My Managed Teams</h3>
     {{if .MyTeams}}
         <div class="team-list">

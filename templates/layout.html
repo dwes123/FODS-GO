@@ -107,9 +107,729 @@
         .button:hover {
             background-color: #CF611A;
         }
+
+        /* ============================================
+           DARK MODE — "BROADCAST WAR ROOM"
+           ESPN+ broadcast overlays / Bloomberg terminal
+           ============================================ */
+
+        body.dark-mode {
+            --fod-blue-primary: #00E5FF;
+            --fod-orange-accent: #FF8C42;
+            --fod-gray-dark: #E8EDF2;
+            --fod-gray-medium: #8899AA;
+            --fod-gray-light: #152238;
+            --fod-white: #0D1B2A;
+            color: #E8EDF2;
+            background-color: #0D1B2A;
+        }
+
+        /* --- Header & Navigation --- */
+        body.dark-mode header {
+            background-color: #0A1628 !important;
+            border-bottom-color: #00E5FF !important;
+        }
+        body.dark-mode .logo {
+            color: #00E5FF !important;
+        }
+        body.dark-mode nav a {
+            color: #8899AA !important;
+        }
+        body.dark-mode nav a:hover {
+            color: #00E5FF !important;
+        }
+        body.dark-mode nav a[style*="color: #d9534f"] {
+            color: #FF6B6B !important;
+        }
+        body.dark-mode nav span[style*="color: #888"] {
+            color: #8899AA !important;
+        }
+
+        /* --- Typography --- */
+        body.dark-mode h1,
+        body.dark-mode h2,
+        body.dark-mode h3,
+        body.dark-mode h4 {
+            color: #00E5FF !important;
+        }
+        body.dark-mode h2 {
+            border-bottom-color: #FF8C42 !important;
+        }
+        body.dark-mode a {
+            color: #00E5FF;
+        }
+        body.dark-mode a:hover {
+            color: #FF8C42;
+        }
+        body.dark-mode p, body.dark-mode span, body.dark-mode li, body.dark-mode td, body.dark-mode th, body.dark-mode label, body.dark-mode div {
+            color: inherit;
+        }
+        body.dark-mode strong, body.dark-mode b {
+            color: #E8EDF2;
+        }
+
+        /* --- Tables --- */
+        body.dark-mode .fantasy-table-base {
+            background: #152238 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+        }
+        body.dark-mode .fantasy-table-base thead {
+            background-color: #0A1628 !important;
+            color: #00E5FF !important;
+        }
+        body.dark-mode .fantasy-table-base th {
+            color: #00E5FF !important;
+            border-bottom-color: #2E4057 !important;
+        }
+        body.dark-mode .fantasy-table-base td {
+            border-bottom-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .fantasy-table-base tbody tr:nth-child(odd) {
+            background-color: #1B2D45 !important;
+        }
+        body.dark-mode .fantasy-table-base tbody tr:nth-child(even) {
+            background-color: #152238 !important;
+        }
+        body.dark-mode .fantasy-table-base tbody tr:hover {
+            background-color: #243B53 !important;
+        }
+
+        /* --- Forms & Inputs --- */
+        body.dark-mode input[type="text"],
+        body.dark-mode input[type="number"],
+        body.dark-mode input[type="password"],
+        body.dark-mode input[type="email"],
+        body.dark-mode input[type="search"],
+        body.dark-mode input[type="date"],
+        body.dark-mode select,
+        body.dark-mode textarea {
+            background-color: #1B2D45 !important;
+            color: #E8EDF2 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode input:focus,
+        body.dark-mode select:focus,
+        body.dark-mode textarea:focus {
+            border-color: #00E5FF !important;
+            box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.2) !important;
+            outline: none !important;
+        }
+        body.dark-mode input::placeholder,
+        body.dark-mode textarea::placeholder {
+            color: #5A7089 !important;
+        }
+        body.dark-mode option {
+            background-color: #1B2D45;
+            color: #E8EDF2;
+        }
+        body.dark-mode .form-group label,
+        body.dark-mode label {
+            color: #8899AA !important;
+        }
+
+        /* --- Buttons --- */
+        body.dark-mode .button {
+            background-color: #FF8C42 !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .button:hover {
+            background-color: #FF6B6B !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .button-danger {
+            background-color: #FF6B6B !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .button-danger:hover {
+            background-color: #FF4757 !important;
+        }
+        body.dark-mode .button-info {
+            background-color: #00E5FF !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .button-info:hover {
+            background-color: #00B8D4 !important;
+        }
+        body.dark-mode .button-warning {
+            background-color: #FFD700 !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .button-counter {
+            background-color: #BB86FC !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .button-counter:hover {
+            background-color: #9C64FC !important;
+        }
+        body.dark-mode .button-secondary,
+        body.dark-mode button[style*="background: #6c757d"],
+        body.dark-mode button[style*="background-color: #6c757d"] {
+            background-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .button-small {
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .button-ifa {
+            background-color: #FF8C42 !important;
+            color: #0D1B2A !important;
+        }
+
+        /* --- Cards & Surfaces --- */
+        body.dark-mode .trade-card,
+        body.dark-mode .team-card,
+        body.dark-mode .profile-card,
+        body.dark-mode .tool-card,
+        body.dark-mode .meta-card,
+        body.dark-mode .sidebar-widget,
+        body.dark-mode .calculator-card,
+        body.dark-mode .bid-section,
+        body.dark-mode .ifa-bid-section,
+        body.dark-mode .content-container,
+        body.dark-mode .card,
+        body.dark-mode .highlight-card,
+        body.dark-mode .team-roster-card,
+        body.dark-mode .league-date-card,
+        body.dark-mode .home-section,
+        body.dark-mode .owner-tools,
+        body.dark-mode .tool-section,
+        body.dark-mode .auth-container,
+        body.dark-mode .claim-form,
+        body.dark-mode .moves-log-section,
+        body.dark-mode .bid-history-section,
+        body.dark-mode .player-profile,
+        body.dark-mode .player-meta-grid .meta-card {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+        }
+        body.dark-mode .card-header,
+        body.dark-mode .roster-card-header {
+            background-color: #0A1628 !important;
+            border-bottom-color: #2E4057 !important;
+            color: #00E5FF !important;
+        }
+        body.dark-mode .card-body,
+        body.dark-mode .roster-card-body {
+            background-color: #152238 !important;
+        }
+        body.dark-mode .card-footer,
+        body.dark-mode .roster-card-footer {
+            background-color: #0A1628 !important;
+            border-top-color: #2E4057 !important;
+        }
+
+        /* --- Admin Dashboard Tool Cards --- */
+        body.dark-mode .admin-tools-grid .tool-card {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .admin-tools-grid .tool-card[style*="border-top"] {
+            border-top-width: 4px !important;
+            border-top-style: solid !important;
+        }
+
+        /* --- Trade Form Specific --- */
+        body.dark-mode .trade-grid,
+        body.dark-mode .trade-setup {
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .trade-col,
+        body.dark-mode .setup-col {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .player-select-list {
+            background: #1B2D45 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .player-row {
+            border-bottom-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .player-row:hover {
+            background-color: #243B53 !important;
+        }
+        body.dark-mode .player-row.selected {
+            background-color: rgba(0, 229, 255, 0.1) !important;
+            border-left: 3px solid #00E5FF !important;
+        }
+        body.dark-mode .player-info {
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .pos-tag {
+            background: #2E4057 !important;
+            color: #00E5FF !important;
+        }
+        body.dark-mode .contract-preview {
+            background: #1B2D45 !important;
+            color: #8899AA !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .cash-input {
+            background: #1B2D45 !important;
+            color: #E8EDF2 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .trade-preview {
+            background: #0A1628 !important;
+            border-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .preview-grid {
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .preview-isbp {
+            color: #FFD700 !important;
+        }
+        body.dark-mode .salary-impact {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .retention-section {
+            background: #1B2D45 !important;
+            border-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .retention-row {
+            border-bottom-color: #2E4057 !important;
+        }
+        body.dark-mode .isbp-available {
+            color: #00E676 !important;
+        }
+        body.dark-mode .trade-header {
+            border-bottom-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .trade-actions {
+            border-top-color: #2E4057 !important;
+        }
+        body.dark-mode .trade-status {
+            background: #FF8C42 !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .counter-badge {
+            background: #BB86FC !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .retain-badge {
+            background: #FF8C42 !important;
+            color: #0D1B2A !important;
+        }
+
+        /* --- Bid Calculator --- */
+        body.dark-mode .calc-field {
+            background: #1B2D45 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .calc-results {
+            background: #0A1628 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .result-row {
+            border-bottom-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .result-highlight {
+            color: #00E5FF !important;
+        }
+        body.dark-mode .calc-note {
+            color: #8899AA !important;
+        }
+        body.dark-mode .multiplier-reference {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+
+        /* --- Roster Page --- */
+        body.dark-mode .roster-counts-bar {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .roster-count-item {
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .roster-count-label {
+            color: #8899AA !important;
+        }
+        body.dark-mode .roster-count-value {
+            color: #00E5FF !important;
+        }
+        body.dark-mode .section-title {
+            color: #00E5FF !important;
+            border-bottom-color: #2E4057 !important;
+        }
+        body.dark-mode .option-year {
+            border-left-color: #FF8C42 !important;
+            background-color: rgba(255, 140, 66, 0.1) !important;
+        }
+        body.dark-mode .sortable-ghost {
+            background: #243B53 !important;
+            opacity: 0.7 !important;
+        }
+        body.dark-mode .drag-handle {
+            color: #5A7089 !important;
+        }
+        body.dark-mode .roster-section {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .info-hint {
+            color: #8899AA !important;
+        }
+        body.dark-mode .action-buttons button,
+        body.dark-mode .action-buttons a {
+            color: #E8EDF2 !important;
+        }
+
+        /* --- Home Page --- */
+        body.dark-mode .welcome-banner {
+            background: linear-gradient(135deg, #0A1628 0%, #152238 100%) !important;
+            border-color: #00E5FF !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .action-btn {
+            background: #1B2D45 !important;
+            border-color: #2E4057 !important;
+            color: #00E5FF !important;
+        }
+        body.dark-mode .action-btn:hover {
+            background: #243B53 !important;
+            border-color: #00E5FF !important;
+        }
+        body.dark-mode .activity-item {
+            border-bottom-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .activity-date {
+            color: #8899AA !important;
+        }
+        body.dark-mode .view-all {
+            color: #00E5FF !important;
+        }
+        body.dark-mode .empty-state,
+        body.dark-mode .empty-text {
+            color: #5A7089 !important;
+        }
+        body.dark-mode .date-row {
+            border-bottom-color: #2E4057 !important;
+        }
+        body.dark-mode .event-date {
+            color: #FF8C42 !important;
+        }
+        body.dark-mode .event-name {
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .action-links {
+            color: #E8EDF2 !important;
+        }
+
+        /* --- Waiver Spotlight --- */
+        body.dark-mode .waiver-spotlight {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .waiver-item {
+            border-bottom-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .waiver-pos {
+            color: #00E5FF !important;
+        }
+        body.dark-mode .waiver-league {
+            color: #8899AA !important;
+        }
+        body.dark-mode .waiver-time {
+            color: #FFD700 !important;
+        }
+        body.dark-mode .waiver-time.expired {
+            color: #FF6B6B !important;
+        }
+
+        /* --- Agent Chat --- */
+        body.dark-mode .assistant-bubble,
+        body.dark-mode .assistant-msg .msg-bubble {
+            background: #1B2D45 !important;
+            color: #E8EDF2 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .user-bubble,
+        body.dark-mode .user-msg .msg-bubble {
+            background: #00E5FF !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .tool-calls-section {
+            background: #0A1628 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .tool-calls-toggle {
+            color: #8899AA !important;
+        }
+        body.dark-mode .tool-calls-list {
+            background: #0A1628 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .tool-call-item {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .tool-name {
+            color: #BB86FC !important;
+        }
+        body.dark-mode code, body.dark-mode pre {
+            background: #0A1628 !important;
+            color: #00E676 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .typing-indicator {
+            color: #8899AA !important;
+        }
+
+        /* --- Profile & Auth --- */
+        body.dark-mode .auth-container,
+        body.dark-mode .claim-form {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+
+        /* --- Badges & Status Indicators --- */
+        body.dark-mode .ifa-badge {
+            background: #FF8C42 !important;
+            color: #0D1B2A !important;
+        }
+        body.dark-mode .ifa-note {
+            color: #FF8C42 !important;
+        }
+        body.dark-mode .bid-status-banner {
+            background: #1B2D45 !important;
+            border-color: #FFD700 !important;
+            color: #FFD700 !important;
+        }
+        body.dark-mode .time-remaining {
+            color: #00E676 !important;
+        }
+        body.dark-mode .time-expired {
+            color: #FF6B6B !important;
+        }
+        body.dark-mode .bid-link {
+            color: #00E5FF !important;
+        }
+        body.dark-mode .notes-cell {
+            color: #8899AA !important;
+        }
+
+        /* --- Alert Banners --- */
+        body.dark-mode [style*="background: #d4edda"],
+        body.dark-mode [style*="background-color: #d4edda"],
+        body.dark-mode [style*="background:#d4edda"],
+        body.dark-mode div[style*="background: #dff0d8"],
+        body.dark-mode div[style*="background-color: #dff0d8"] {
+            background: rgba(0, 230, 118, 0.15) !important;
+            border-color: #00E676 !important;
+            color: #00E676 !important;
+        }
+        body.dark-mode [style*="background: #fff3cd"],
+        body.dark-mode [style*="background-color: #fff3cd"],
+        body.dark-mode [style*="background:#fff3cd"],
+        body.dark-mode [style*="background: #fff8e1"],
+        body.dark-mode [style*="background-color: #fff8e1"] {
+            background: rgba(255, 215, 0, 0.12) !important;
+            border-color: #FFD700 !important;
+            color: #FFD700 !important;
+        }
+        body.dark-mode [style*="background: #fff0f0"],
+        body.dark-mode [style*="background-color: #fff0f0"],
+        body.dark-mode [style*="background:#fff0f0"],
+        body.dark-mode [style*="background: #fff1f0"],
+        body.dark-mode [style*="background-color: #fff1f0"] {
+            background: rgba(255, 107, 107, 0.12) !important;
+            border-color: #FF6B6B !important;
+            color: #FF6B6B !important;
+        }
+
+        /* --- Inline Style Attribute Overrides --- */
+        body.dark-mode [style*="background: white"],
+        body.dark-mode [style*="background: #fff"],
+        body.dark-mode [style*="background: #FFFFFF"],
+        body.dark-mode [style*="background-color: white"],
+        body.dark-mode [style*="background-color: #fff"],
+        body.dark-mode [style*="background-color: #FFFFFF"] {
+            background: #152238 !important;
+        }
+        body.dark-mode [style*="background: #f9f9f9"],
+        body.dark-mode [style*="background-color: #f9f9f9"],
+        body.dark-mode [style*="background: #f8f8f8"],
+        body.dark-mode [style*="background-color: #f8f8f8"],
+        body.dark-mode [style*="background: #fcfcfc"],
+        body.dark-mode [style*="background: #f8f9fa"],
+        body.dark-mode [style*="background-color: #f8f9fa"],
+        body.dark-mode [style*="background: #f0f0f0"],
+        body.dark-mode [style*="background-color: #f0f0f0"],
+        body.dark-mode [style*="background: #f0f0f1"],
+        body.dark-mode [style*="background-color: #f0f0f1"] {
+            background: #1B2D45 !important;
+        }
+        body.dark-mode [style*="background: #f0f7ff"],
+        body.dark-mode [style*="background-color: #f0f7ff"] {
+            background: rgba(0, 229, 255, 0.06) !important;
+        }
+        body.dark-mode [style*="background: #e8e8e8"],
+        body.dark-mode [style*="background-color: #e8e8e8"] {
+            background: #1B2D45 !important;
+        }
+        body.dark-mode [style*="background: #fff8f0"],
+        body.dark-mode [style*="background-color: #fff8f0"] {
+            background: rgba(255, 140, 66, 0.1) !important;
+        }
+        body.dark-mode [style*="color: #888"],
+        body.dark-mode [style*="color: #888888"],
+        body.dark-mode [style*="color: #999"],
+        body.dark-mode [style*="color: #999999"] {
+            color: #8899AA !important;
+        }
+        body.dark-mode [style*="color: #333"],
+        body.dark-mode [style*="color: #333333"],
+        body.dark-mode [style*="color: #4A4A4A"],
+        body.dark-mode [style*="color: #555"],
+        body.dark-mode [style*="color: #666"],
+        body.dark-mode [style*="color: #666666"] {
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode [style*="color: #155724"] {
+            color: #00E676 !important;
+        }
+        body.dark-mode [style*="color: #856404"] {
+            color: #FFD700 !important;
+        }
+        body.dark-mode [style*="color: #cf1322"],
+        body.dark-mode [style*="color: #d9534f"],
+        body.dark-mode [style*="color: #dc3545"] {
+            color: #FF6B6B !important;
+        }
+        body.dark-mode [style*="color: #3f8600"],
+        body.dark-mode [style*="color: #28a745"] {
+            color: #00E676 !important;
+        }
+        body.dark-mode [style*="color: #e69c00"] {
+            color: #FFD700 !important;
+        }
+        body.dark-mode [style*="border: 1px solid #ddd"],
+        body.dark-mode [style*="border: 1px solid #ccc"],
+        body.dark-mode [style*="border: 1px solid #eee"] {
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode [style*="border: 2px dashed #ddd"] {
+            border-color: #2E4057 !important;
+        }
+
+        /* --- Filter Bars & Selectors --- */
+        body.dark-mode .filter-bar,
+        body.dark-mode .header-with-filter,
+        body.dark-mode .filters {
+            background: #152238 !important;
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .league-selector,
+        body.dark-mode .league-filter,
+        body.dark-mode .team-selector {
+            background: #1B2D45 !important;
+            color: #E8EDF2 !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .pos-tab {
+            background: #1B2D45 !important;
+            color: #8899AA !important;
+            border-color: #2E4057 !important;
+        }
+        body.dark-mode .pos-tab.active {
+            background: #00E5FF !important;
+            color: #0D1B2A !important;
+        }
+
+        /* --- Modals & Dialogs --- */
+        body.dark-mode .modal {
+            background: rgba(10, 22, 40, 0.85) !important;
+        }
+        body.dark-mode .modal > div,
+        body.dark-mode .modal-content {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* --- Scrollbar Theming --- */
+        body.dark-mode ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        body.dark-mode ::-webkit-scrollbar-track {
+            background: #0D1B2A;
+        }
+        body.dark-mode ::-webkit-scrollbar-thumb {
+            background: #2E4057;
+            border-radius: 5px;
+        }
+        body.dark-mode ::-webkit-scrollbar-thumb:hover {
+            background: #3A5068;
+        }
+
+        /* --- Teams Grid --- */
+        body.dark-mode .teams-grid,
+        body.dark-mode .teams-roster-grid {
+            color: #E8EDF2 !important;
+        }
+        body.dark-mode .team-header {
+            color: #00E5FF !important;
+            border-bottom-color: #2E4057 !important;
+        }
+        body.dark-mode .trade-block-team {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+
+        /* --- Table Container --- */
+        body.dark-mode .table-container {
+            background: #152238 !important;
+            border-color: #2E4057 !important;
+        }
+
+        /* --- Input Groups --- */
+        body.dark-mode .input-group {
+            color: #E8EDF2 !important;
+        }
+
+        /* --- Search Forms --- */
+        body.dark-mode .search-form input {
+            background: #1B2D45 !important;
+            border-color: #2E4057 !important;
+            color: #E8EDF2 !important;
+        }
+
+        /* --- Rotations --- */
+        body.dark-mode .compact td,
+        body.dark-mode .compact th {
+            color: #E8EDF2 !important;
+        }
+
+        /* --- Misc --- */
+        body.dark-mode .note {
+            color: #8899AA !important;
+        }
+        body.dark-mode hr {
+            border-color: #2E4057 !important;
+        }
+
+        /* --- Theme Toggle Button --- */
+        body.dark-mode #theme-toggle-btn {
+            color: #FFD700 !important;
+        }
     </style>
 </head>
-<body>
+<body{{if and .User (eq .User.ThemePreference "dark")}} class="dark-mode"{{end}}>
     <header>
         <a href="/" class="logo">Front Office Dynasty</a>
         <nav>
@@ -134,6 +854,7 @@
                     <a href="/admin/" style="color: #d9534f;">Commissioner</a>
                 {{end}}
                 <span style="margin-left: 20px; color: #888;">Hello, {{.User.Username}}</span>
+                <button id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; margin-left: 10px; color: #888; vertical-align: middle; padding: 2px 6px;">{{if eq .User.ThemePreference "dark"}}&#9788;{{else}}&#9790;{{end}}</button>
                 <a href="/profile">My Profile</a>
                 <a href="/logout">Logout</a>
             {{else}}
@@ -144,6 +865,19 @@
     <main>
         {{template "content" .}}
     </main>
+<script>
+function toggleTheme() {
+    var isDark = document.body.classList.toggle('dark-mode');
+    var newTheme = isDark ? 'dark' : 'light';
+    var btn = document.getElementById('theme-toggle-btn');
+    if (btn) btn.innerHTML = isDark ? '&#9788;' : '&#9790;';
+    fetch('/profile/update-theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: newTheme })
+    });
+}
+</script>
 </body>
 </html>
 {{end}}

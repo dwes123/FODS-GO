@@ -159,6 +159,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **league_settings columns:** `luxury_tax_limit`, `roster_26_man_limit` (default 26), `roster_40_man_limit` (default 40), `sp_26_man_limit` (default 6)
 - **league_integrations columns:** `slack_bot_token`, `slack_channel_transactions`, `slack_channel_completed_trades`, `slack_channel_stat_alerts`, `slack_channel_trade_block`
 - **trades columns:** `parent_trade_id` (UUID, nullable FK to trades) — links counter proposals to their parent; `status` TEXT supports `PROPOSED`, `ACCEPTED`, `REJECTED`, `REVERSED`, `COUNTERED`
+- **users columns:** `theme_preference` (VARCHAR(10), NOT NULL, DEFAULT 'light') — stores 'light' or 'dark'; scanned with `COALESCE` in all user queries
 - **league_dates date_type values:** `trade_deadline`, `opening_day`, `extension_deadline`, `option_deadline`, `ifa_window_open`, `ifa_window_close`, `milb_fa_window_open`, `milb_fa_window_close`, `roster_expansion_start`, `roster_expansion_end`
 
 ## Key Business Logic
@@ -234,6 +235,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **ISBP Balance on Trade Form** — Both ISBP input fields show "Available: $X" for each team; proposer updates dynamically on team switch, target is server-rendered
 - **Weekly Rotations Enhancements** — Full-week submission (all 7 days at once) replacing per-day saves; banked starters system (pitcher_2 can be "banked" and used on a later day, invalidated if pitcher has regular start in between); week navigation with prev/next arrows and date range display; `GetTeamWeekRotation` API endpoint to load existing rotation data; server-side validation (roster ownership, banked usage rules, duplicate pitcher checks); submission progress tracking (X/Y teams submitted per league); `rotations.day_of_week` stored as integer (0=Monday through 6=Sunday); `banked_starters` JSONB column on rotations table
 - **Trade Counter Proposals** — Receivers can counter a trade instead of only accepting/rejecting; `GET /trades/counter?trade_id=X` loads `trade_counter.html` with pre-populated players and ISBP (roles flipped from original); `POST /trades/counter` creates new trade with `parent_trade_id` FK and marks parent as `COUNTERED`; chainable (either side can keep countering); trade center shows purple "Counter Proposal" badge and orange "Counter" button for receivers; `GetTradeByID` store function fetches single trade with items; `AcceptTrade` uses recursive CTE to clean up stale PROPOSED trades in the chain; email notification sent on counter; `migrations/016_counter_proposals.sql`
+- **Dark Mode Toggle** — Per-user "Broadcast War Room" dark theme (deep navy `#0D1B2A`, electric cyan `#00E5FF`, warm orange `#FF8C42`); `theme_preference` column on users (default 'light'); server-rendered `<body class="dark-mode">` conditional (no FOUC); moon/sun toggle button in nav bar next to username; `POST /profile/update-theme` persists preference; profile page has explicit Display Preferences section; ~400 lines of dark mode CSS in `layout.html` using `body.dark-mode` selectors with `!important` to override inline styles across 30+ templates; `migrations/017_user_theme_preference.sql`
 
 ### Commissioner Tools Enhancements
 - **Bid/FA Management in Player Editor** — Commissioners can manually set `fa_status`, pending bid fields, and `bid_type` on any player
@@ -305,6 +307,7 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 - `migrations/013_feature_batch.sql` — Adds: `transactions.fantrax_processed`, `players.fod_id`, `registration_requests` table, `league_dates` table, `system_counters` table
 - `migrations/014_business_rules.sql` — Adds: `roster_26_man_limit`, `roster_40_man_limit`, `sp_26_man_limit` columns to `league_settings`
 - `migrations/016_counter_proposals.sql` — Adds: `parent_trade_id` UUID column (FK to trades) + index for counter proposal chains
+- `migrations/017_user_theme_preference.sql` — Adds: `theme_preference` VARCHAR(10) column to users (default 'light')
 
 ### Not Implemented (deferred)
 - Draft Room (Feature 2) — complex real-time feature, deferred

@@ -10,12 +10,13 @@ import (
 )
 
 type User struct {
-	ID           string    `json:"id"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	Role         string    `json:"role"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID              string    `json:"id"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	PasswordHash    string    `json:"-"`
+	Role            string    `json:"role"`
+	CreatedAt       time.Time `json:"created_at"`
+	ThemePreference string    `json:"theme_preference"`
 }
 
 type Session struct {
@@ -28,10 +29,10 @@ type Session struct {
 func CreateUser(db *pgxpool.Pool, username, email, passwordHash string) (*User, error) {
 	var u User
 	err := db.QueryRow(context.Background(),
-		`INSERT INTO users (username, email, password_hash) 
-		 VALUES ($1, $2, $3) 
-		 RETURNING id, username, email, role, created_at`,
-		username, email, passwordHash).Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.CreatedAt)
+		`INSERT INTO users (username, email, password_hash)
+		 VALUES ($1, $2, $3)
+		 RETURNING id, username, email, role, created_at, COALESCE(theme_preference, 'light')`,
+		username, email, passwordHash).Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.CreatedAt, &u.ThemePreference)
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +42,8 @@ func CreateUser(db *pgxpool.Pool, username, email, passwordHash string) (*User, 
 func GetUserByEmail(db *pgxpool.Pool, email string) (*User, error) {
 	var u User
 	err := db.QueryRow(context.Background(),
-		`SELECT id, username, email, password_hash, role, created_at FROM users WHERE email = $1`,
-		email).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt)
+		`SELECT id, username, email, password_hash, role, created_at, COALESCE(theme_preference, 'light') FROM users WHERE email = $1`,
+		email).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.ThemePreference)
 	if err != nil {
 		return nil, err
 	}
@@ -52,9 +53,9 @@ func GetUserByEmail(db *pgxpool.Pool, email string) (*User, error) {
 func GetUserByEmailOrUsername(db *pgxpool.Pool, identifier string) (*User, error) {
 	var u User
 	err := db.QueryRow(context.Background(),
-		`SELECT id, username, email, password_hash, role, created_at FROM users
+		`SELECT id, username, email, password_hash, role, created_at, COALESCE(theme_preference, 'light') FROM users
 		 WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)`,
-		identifier).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt)
+		identifier).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.ThemePreference)
 	if err != nil {
 		return nil, err
 	}
@@ -78,11 +79,11 @@ func CreateSession(db *pgxpool.Pool, userID, token string, expiresAt time.Time) 
 func GetUserBySessionToken(db *pgxpool.Pool, token string) (*User, error) {
 	var u User
 	err := db.QueryRow(context.Background(),
-		`SELECT u.id, u.username, u.email, u.role 
+		`SELECT u.id, u.username, u.email, u.role, COALESCE(u.theme_preference, 'light')
 		 FROM sessions s
 		 JOIN users u ON s.user_id = u.id
 		 WHERE s.token = $1 AND s.expires_at > NOW()`,
-		token).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+		token).Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.ThemePreference)
 	
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -200,7 +201,7 @@ func GetTeamOwnerEmails(db *pgxpool.Pool, teamID string) ([]string, error) {
 
 func GetAllUsers(db *pgxpool.Pool) ([]User, error) {
 	rows, err := db.Query(context.Background(),
-		`SELECT id, username, email, role, created_at FROM users ORDER BY username`)
+		`SELECT id, username, email, role, created_at, COALESCE(theme_preference, 'light') FROM users ORDER BY username`)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +210,7 @@ func GetAllUsers(db *pgxpool.Pool) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.CreatedAt, &u.ThemePreference); err != nil {
 			continue
 		}
 		users = append(users, u)
@@ -220,6 +221,13 @@ func GetAllUsers(db *pgxpool.Pool) ([]User, error) {
 func DeleteUser(db *pgxpool.Pool, userID string) error {
 	_, err := db.Exec(context.Background(),
 		`DELETE FROM users WHERE id = $1`, userID)
+	return err
+}
+
+func UpdateThemePreference(db *pgxpool.Pool, userID, theme string) error {
+	_, err := db.Exec(context.Background(),
+		"UPDATE users SET theme_preference = $1 WHERE id = $2",
+		theme, userID)
 	return err
 }
 

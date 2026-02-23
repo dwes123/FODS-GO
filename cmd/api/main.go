@@ -98,6 +98,7 @@ func main() {
 		authorized.GET("/profile", handlers.ProfileHandler(database))
 		authorized.POST("/claim-team", handlers.ClaimTeamHandler(database))
 		authorized.POST("/profile/update-password", handlers.UpdatePasswordHandler(database))
+		authorized.POST("/profile/update-theme", handlers.UpdateThemeHandler(database))
 
 		// Bug Reporting
 		authorized.GET("/bug-report", handlers.BugReportFormHandler(database))
