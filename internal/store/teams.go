@@ -202,6 +202,33 @@ func CalculateYearlySummary(db *pgxpool.Pool, teamID, leagueID string, year int)
 	return s
 }
 
+func GetTeamDeadCap(db *pgxpool.Pool, teamID string) ([]DeadCapEntry, error) {
+	ctx := context.Background()
+	rows, err := db.Query(ctx, `
+		SELECT dc.id, '' AS team_name,
+		       COALESCE(p.first_name || ' ' || p.last_name, 'Manual Entry'),
+		       dc.amount, dc.year, COALESCE(dc.note, '')
+		FROM dead_cap_penalties dc
+		LEFT JOIN players p ON dc.player_id = p.id
+		WHERE dc.team_id = $1
+		ORDER BY dc.year ASC, dc.amount DESC
+	`, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []DeadCapEntry
+	for rows.Next() {
+		var e DeadCapEntry
+		if err := rows.Scan(&e.ID, &e.TeamName, &e.PlayerName, &e.Amount, &e.Year, &e.Note); err != nil {
+			continue
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
 func IsTeamOwner(db *pgxpool.Pool, teamID, userID string) (bool, error) {
 	var count int
 	err := db.QueryRow(context.Background(),

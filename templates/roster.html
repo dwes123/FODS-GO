@@ -95,6 +95,34 @@
     {{template "roster_table" dict "Grouped" .Minors "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID}}
 </div>
 
+{{if .DeadCap}}
+<div class="roster-section">
+    <h2 class="section-title">Dead Cap</h2>
+    <div class="table-container">
+        <table class="fantasy-table-base">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Year</th>
+                    <th>Amount</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .DeadCap}}
+                <tr>
+                    <td>{{.PlayerName}}</td>
+                    <td>{{.Year}}</td>
+                    <td>${{formatMoney .Amount}}</td>
+                    <td>{{.Note}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}
+
 <!-- Modals -->
 <dialog id="ilModal" class="modal">
     <h3>Move to Injured List</h3>

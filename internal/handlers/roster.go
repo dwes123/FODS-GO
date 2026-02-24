@@ -93,6 +93,8 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		restructureNames := queryActionPlayerNames(ctx, db, actionNameQuery, teamID, "RESTRUCTURE", currentYear)
 		extensionNames := queryActionPlayerNames(ctx, db, actionNameQuery, teamID, "EXTENSION", currentYear)
 
+		deadCapEntries, _ := store.GetTeamDeadCap(db, teamID)
+
 		user := c.MustGet("user").(*store.User)
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
 		isOwner, _ := store.IsTeamOwner(db, teamID, user.ID)
@@ -119,6 +121,7 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"ExtensionsUsed":      len(extensionNames),
 			"ExtensionLimit":      2,
 			"ExtensionTooltip":    strings.Join(extensionNames, ", "),
+			"DeadCap":             deadCapEntries,
 		}
 
 		RenderTemplate(c, "roster.html", data)
