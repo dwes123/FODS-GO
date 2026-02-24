@@ -219,6 +219,28 @@
         </table>
     </div>
     {{end}}
+
+    <!-- DEAD CAP -->
+    {{if .DeadCap}}
+    <div class="moves-log-section">
+        <h3>Dead Cap Penalties</h3>
+        <table class="fantasy-table-base">
+            <thead>
+                <tr><th>Team</th><th>Year</th><th>Amount</th><th>Note</th></tr>
+            </thead>
+            <tbody>
+                {{range .DeadCap}}
+                <tr>
+                    <td>{{.TeamName}}</td>
+                    <td>{{.Year}}</td>
+                    <td>${{formatMoney .Amount}}</td>
+                    <td>{{.Note}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{end}}
 </div>
 
 <script>

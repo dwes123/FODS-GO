@@ -75,6 +75,7 @@ func PlayerProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		bidHistory := store.GetPlayerBidHistory(db, id)
+		playerDeadCap, _ := store.GetPlayerDeadCap(db, id)
 
 		// Get user's team ISBP balance for IFA bidding
 		var userIsbpBalance float64
@@ -98,6 +99,7 @@ func PlayerProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"TeamID":          teamID,
 			"IsCommish":       len(adminLeagues) > 0,
 			"BidHistory":      bidHistory,
+			"DeadCap":         playerDeadCap,
 			"IsbpBalance":     userIsbpBalance,
 		})
 	}
