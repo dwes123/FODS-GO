@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
@@ -181,12 +182,14 @@ func PlayerRequestFormHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 		}
 
+		successCount, _ := strconv.Atoi(c.Query("success"))
+
 		RenderTemplate(c, "player_request.html", gin.H{
-			"User":      user,
-			"Leagues":   leagues,
-			"HasTeams":  len(teams) > 0,
-			"Success":   c.Query("success") == "1",
-			"IsCommish": len(adminLeagues) > 0 || user.Role == "admin",
+			"User":         user,
+			"Leagues":      leagues,
+			"HasTeams":     len(teams) > 0,
+			"SuccessCount": successCount,
+			"IsCommish":    len(adminLeagues) > 0 || user.Role == "admin",
 		})
 	}
 }
@@ -211,23 +214,50 @@ func SubmitPlayerRequestHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		req := store.PlayerAddRequest{
-			FirstName:   c.PostForm("first_name"),
-			LastName:    c.PostForm("last_name"),
-			Position:    c.PostForm("position"),
-			MLBTeam:     c.PostForm("mlb_team"),
-			LeagueID:    leagueID,
-			IsIFA:       c.PostForm("is_ifa") == "on",
-			Notes:       c.PostForm("notes"),
-			SubmittedBy: user.ID,
+		playerCount, _ := strconv.Atoi(c.PostForm("player_count"))
+		if playerCount < 1 {
+			playerCount = 1
+		}
+		if playerCount > 10 {
+			playerCount = 10
 		}
 
-		if err := store.CreatePlayerAddRequest(db, req); err != nil {
-			fmt.Printf("ERROR [SubmitPlayerRequest]: %v\n", err)
-			c.String(http.StatusInternalServerError, "Internal server error")
+		notes := c.PostForm("notes")
+		successCount := 0
+
+		for i := 0; i < playerCount; i++ {
+			suffix := fmt.Sprintf("_%d", i)
+			firstName := c.PostForm("first_name" + suffix)
+			lastName := c.PostForm("last_name" + suffix)
+
+			// Skip rows with empty names
+			if firstName == "" || lastName == "" {
+				continue
+			}
+
+			req := store.PlayerAddRequest{
+				FirstName:   firstName,
+				LastName:    lastName,
+				Position:    c.PostForm("position" + suffix),
+				MLBTeam:     c.PostForm("mlb_team" + suffix),
+				LeagueID:    leagueID,
+				IsIFA:       c.PostForm("is_ifa"+suffix) == "on",
+				Notes:       notes,
+				SubmittedBy: user.ID,
+			}
+
+			if err := store.CreatePlayerAddRequest(db, req); err != nil {
+				fmt.Printf("ERROR [SubmitPlayerRequest]: player %d: %v\n", i, err)
+				continue
+			}
+			successCount++
+		}
+
+		if successCount == 0 {
+			c.String(http.StatusBadRequest, "No valid player requests submitted")
 			return
 		}
 
-		c.Redirect(http.StatusFound, "/player/request?success=1")
+		c.Redirect(http.StatusFound, fmt.Sprintf("/player/request?success=%d", successCount))
 	}
 }
