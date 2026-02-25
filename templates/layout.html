@@ -79,7 +79,8 @@
             z-index: 1000;
             padding: 4px 0;
         }
-        .nav-dropdown:hover .nav-dropdown-menu {
+        .nav-dropdown:hover .nav-dropdown-menu,
+        .nav-dropdown.open .nav-dropdown-menu {
             display: block;
         }
         .nav-dropdown-menu a {
@@ -969,6 +970,33 @@ function toggleTheme() {
         body: JSON.stringify({ theme: newTheme })
     });
 }
+
+// Nav dropdown click support (fixes Safari which doesn't trigger :hover on tap)
+document.addEventListener('click', function(e) {
+    var label = e.target.closest('.nav-dropdown-label');
+    if (label) {
+        e.preventDefault();
+        var dropdown = label.parentElement;
+        var wasOpen = dropdown.classList.contains('open');
+        // Close all dropdowns first
+        document.querySelectorAll('.nav-dropdown.open').forEach(function(d) {
+            d.classList.remove('open');
+        });
+        // Toggle the clicked one
+        if (!wasOpen) {
+            dropdown.classList.add('open');
+        }
+        return;
+    }
+    // If click is inside an open dropdown menu, let it navigate (don't close)
+    if (e.target.closest('.nav-dropdown-menu')) {
+        return;
+    }
+    // Click outside — close all dropdowns
+    document.querySelectorAll('.nav-dropdown.open').forEach(function(d) {
+        d.classList.remove('open');
+    });
+});
 </script>
 </body>
 </html>
