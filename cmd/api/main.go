@@ -125,6 +125,7 @@ func main() {
 
 		// Trade Block & Bid History
 		authorized.GET("/trade-block", handlers.TradeBlockHandler(database))
+		authorized.GET("/bids/my-bids", handlers.MyBidsHandler(database))
 		authorized.GET("/bids/pending", handlers.PendingBidsHandler(database))
 		authorized.GET("/bids/history", handlers.BidHistoryHandler(database))
 
