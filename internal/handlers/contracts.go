@@ -99,7 +99,7 @@ func SubmitExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		store.LogActivity(db, player.LeagueID, player.TeamID, "Extension Request", 
+		store.LogActivity(db, player.LeagueID, player.TeamID, "Roster Move",
 			fmt.Sprintf("%s submitted an extension request for %s %s.", user.Username, player.FirstName, player.LastName))
 
 		c.Redirect(http.StatusFound, "/player/"+playerID)
@@ -123,7 +123,7 @@ func ProcessRestructureHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		store.LogActivity(db, player.LeagueID, player.TeamID, "Restructure Request", 
+		store.LogActivity(db, player.LeagueID, player.TeamID, "Roster Move",
 			fmt.Sprintf("%s submitted a restructure request for %s %s.", user.Username, player.FirstName, player.LastName))
 
 		c.Redirect(http.StatusFound, "/player/"+playerID)

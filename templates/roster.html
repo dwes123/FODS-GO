@@ -38,6 +38,32 @@
     </div>
 </div>
 
+{{if .ILPlayers}}
+<div class="il-summary">
+    <h3>Injured List ({{len .ILPlayers}})</h3>
+    <table class="fantasy-table-base" style="margin-top:0;">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Pos</th>
+                <th>IL Type</th>
+                <th>MLB Team</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .ILPlayers}}
+            <tr>
+                <td><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></td>
+                <td>{{.Position}}</td>
+                <td>{{.StatusIL}}</td>
+                <td>{{.MLBTeam}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+
 <h3>Team Financials</h3>
 <div class="table-container">
     <table class="fantasy-table-base sticky-col">
@@ -79,20 +105,21 @@
 {{$isOwner := .IsOwner}}
 {{$years := .Team.Years}}
 {{$posOrder := .PosOrder}}
+{{$pointsMap := .PointsMap}}
 
 <div class="roster-section">
     <h2 class="section-title">26-Man Roster</h2>
-    {{template "roster_table" dict "Grouped" .Roster26 "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID}}
+    {{template "roster_table" dict "Grouped" .Roster26 "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID "PointsMap" $pointsMap}}
 </div>
 
 <div class="roster-section">
     <h2 class="section-title">40-Man Roster (Minors)</h2>
-    {{template "roster_table" dict "Grouped" .Roster40 "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID}}
+    {{template "roster_table" dict "Grouped" .Roster40 "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID "PointsMap" $pointsMap}}
 </div>
 
 <div class="roster-section">
     <h2 class="section-title">Minor Leagues (Non-40)</h2>
-    {{template "roster_table" dict "Grouped" .Minors "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID}}
+    {{template "roster_table" dict "Grouped" .Minors "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID "PointsMap" $pointsMap}}
 </div>
 
 {{if .DeadCap}}
@@ -279,6 +306,7 @@ async function saveDepthOrder() {
     .roster-count-value { font-size: 1.3rem; font-weight: 700; }
     .info-hint { font-size: 0.85rem; color: #999; cursor: help; vertical-align: middle; }
     .info-hint:hover { color: var(--fod-blue-primary); }
+    .fpts-cell { font-weight: 600; color: var(--fod-orange-accent, #E87426); }
 </style>
 {{end}}
 
@@ -288,7 +316,8 @@ async function saveDepthOrder() {
     {{$years := .Years}}
     {{$isOwner := .IsOwner}}
     {{$teamID := .TeamID}}
-    
+    {{$pointsMap := .PointsMap}}
+
     <div class="table-container">
         <table class="fantasy-table-base roster-sortable">
             <thead>
@@ -298,6 +327,7 @@ async function saveDepthOrder() {
                     <th>Name</th>
                     <th>Pos</th>
                     <th>MLB</th>
+                    <th>FPTS</th>
                     <th>Status</th>
                     {{range $years}}<th>{{.}}</th>{{end}}
                 </tr>
@@ -334,6 +364,7 @@ async function saveDepthOrder() {
                         <td><strong><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></strong></td>
                         <td>{{.Position}}</td>
                         <td>{{.MLBTeam}}</td>
+                        <td class="fpts-cell">{{$pts := index $pointsMap .ID}}{{if $pts}}{{printf "%.1f" $pts}}{{else}}--{{end}}</td>
                         <td>{{.Status}}</td>
                         {{$p := .}}
                         {{range $years}}

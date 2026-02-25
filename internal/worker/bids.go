@@ -97,7 +97,7 @@ func finalizeBids(db *pgxpool.Pool) {
 
 		_, err = tx.Exec(ctx, `
 			INSERT INTO transactions (team_id, player_id, transaction_type, status)
-			VALUES ($1, $2, 'ADD', 'COMPLETED')
+			VALUES ($1, $2, 'Added Player', 'COMPLETED')
 		`, teamID, pID)
 
 		if err != nil {

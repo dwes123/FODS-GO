@@ -111,7 +111,7 @@ func PromoteTo40ManHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
                 store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Promoted to 40-Man")
                 pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
-                store.LogActivity(db, lID, req.TeamID, "ROSTER", fmt.Sprintf("%s promoted %s to 40-Man roster", tName, pName))
+                store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s promoted %s to 40-Man roster", tName, pName))
                 c.JSON(http.StatusOK, gin.H{"message": "Promoted to 40-man"})
         }
 }
@@ -176,7 +176,7 @@ func PromoteTo26ManHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
                 store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Promoted to 26-Man")
                 pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
-                store.LogActivity(db, lID, req.TeamID, "ROSTER", fmt.Sprintf("%s promoted %s to 26-Man roster", tName, pName))
+                store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s promoted %s to 26-Man roster", tName, pName))
                 c.JSON(http.StatusOK, gin.H{"message": "Promoted to 26-man"})
         }
 }
@@ -206,7 +206,7 @@ func OptionToMinorsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Optioned to Minors")
 		pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
-		store.LogActivity(db, lID, req.TeamID, "ROSTER", fmt.Sprintf("%s optioned %s to minors", tName, pName))
+		store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s optioned %s to minors", tName, pName))
 		c.JSON(http.StatusOK, gin.H{"message": "Optioned to minors"})
 	}
 }
@@ -248,7 +248,7 @@ func MoveToILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Placed on "+statusIL)
 		pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
-		store.LogActivity(db, lID, req.TeamID, "ROSTER", fmt.Sprintf("%s placed %s on %s", tName, pName, statusIL))
+		store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s placed %s on %s", tName, pName, statusIL))
 		c.JSON(http.StatusOK, gin.H{"message": "Player moved to IL"})
 	}
 }
@@ -279,7 +279,7 @@ func ActivateFromILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Activated from IL")
 		pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
-		store.LogActivity(db, lID, req.TeamID, "ROSTER", fmt.Sprintf("%s activated %s from IL", tName, pName))
+		store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s activated %s from IL", tName, pName))
 		c.JSON(http.StatusOK, gin.H{"message": "Player activated from IL"})
 	}
 }
@@ -328,7 +328,7 @@ func DFAPlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Designated for Assignment")
 		pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
-		store.LogActivity(db, lID, req.TeamID, "ROSTER", fmt.Sprintf("%s designated %s for assignment", tName, pName))
+		store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s designated %s for assignment", tName, pName))
 		c.JSON(http.StatusOK, gin.H{"message": "Player designated for assignment (DFA)"})
 	}
 }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -93,7 +94,28 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		restructureNames := queryActionPlayerNames(ctx, db, actionNameQuery, teamID, "RESTRUCTURE", currentYear)
 		extensionNames := queryActionPlayerNames(ctx, db, actionNameQuery, teamID, "EXTENSION", currentYear)
 
+		// Collect IL players
+		var ilPlayers []store.RosterPlayer
+		for _, p := range team.Players {
+			if p.StatusIL != "" {
+				ilPlayers = append(ilPlayers, p)
+			}
+		}
+
 		deadCapEntries, _ := store.GetTeamDeadCap(db, teamID)
+
+		// Collect player IDs for fantasy points lookup
+		var playerIDs []string
+		for _, p := range team.Players {
+			playerIDs = append(playerIDs, p.ID)
+		}
+		now := time.Now()
+		seasonStart := fmt.Sprintf("%d-04-01", now.Year())
+		today := now.Format("2006-01-02")
+		pointsMap, _ := store.GetPlayerPointsSummary(db, playerIDs, seasonStart, today)
+		if pointsMap == nil {
+			pointsMap = make(map[string]float64)
+		}
 
 		user := c.MustGet("user").(*store.User)
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
@@ -121,7 +143,9 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"ExtensionsUsed":      len(extensionNames),
 			"ExtensionLimit":      2,
 			"ExtensionTooltip":    strings.Join(extensionNames, ", "),
+			"ILPlayers":           ilPlayers,
 			"DeadCap":             deadCapEntries,
+			"PointsMap":           pointsMap,
 		}
 
 		RenderTemplate(c, "roster.html", data)

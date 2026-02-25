@@ -34,6 +34,7 @@ func main() {
 	worker.StartWaiverWorker(ctx, database)
 	worker.StartSeasonalWorker(ctx, database)
 	worker.StartHRMonitor(ctx, database)
+	worker.StartStatsWorker(ctx, database)
 
 	// 3. Initialize Router
 	r := gin.Default()
@@ -150,6 +151,12 @@ func main() {
 		authorized.GET("/rotations/submit", handlers.RotationsSubmitPageHandler(database))
 		authorized.POST("/rotations/save", handlers.SubmitRotationHandler(database))
 		authorized.GET("/api/team/pitchers", handlers.GetTeamPitchersHandler(database))
+
+		// Fantasy Stats
+		authorized.GET("/stats/pitching", handlers.StatsLeaderboardHandler(database))
+		authorized.GET("/stats/hitting", handlers.HittingLeaderboardHandler(database))
+		authorized.GET("/api/player/:id/gamelog", handlers.PlayerGameLogHandler(database))
+		authorized.POST("/admin/stats/backfill", handlers.AdminBackfillStatsHandler(database))
 
 		// Commissioner Tools
 		authorized.GET("/admin", handlers.AdminDashboardHandler(database))

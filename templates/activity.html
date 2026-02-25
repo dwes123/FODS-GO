@@ -1,17 +1,26 @@
-{{define "title"}}League Activity{{end}}
+{{define "title"}}Transaction Log{{end}}
 
 {{define "content"}}
 <div class="header-with-filter">
-    <h2>Recent Activity</h2>
-    
+    <h2>Transaction Log</h2>
+
     <div class="filters">
-        <form method="GET" action="/activity" id="leagueFilterForm">
-            <label for="league_id">View League:</label>
-            <select name="league_id" id="league_id" onchange="document.getElementById('leagueFilterForm').submit()">
+        <form method="GET" action="/activity" id="activityFilterForm">
+            <label for="league_id">League:</label>
+            <select name="league_id" id="league_id" onchange="document.getElementById('activityFilterForm').submit()">
                 <option value="">-- All Leagues --</option>
                 {{$selected := .SelectedLID}}
                 {{range .Leagues}}
                 <option value="{{.ID}}" {{if eq .ID $selected}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+
+            <label for="transaction_type" style="margin-left: 12px;">Type:</label>
+            <select name="transaction_type" id="transaction_type" onchange="document.getElementById('activityFilterForm').submit()">
+                <option value="">-- All Types --</option>
+                {{$selType := .SelectedType}}
+                {{range .TransactionTypes}}
+                <option value="{{.}}" {{if eq . $selType}}selected{{end}}>{{.}}</option>
                 {{end}}
             </select>
         </form>
@@ -22,6 +31,7 @@
     <thead>
         <tr>
             <th>Date</th>
+            <th>Type</th>
             <th>League</th>
             <th>Team</th>
             <th>Details</th>
@@ -31,27 +41,58 @@
         {{range .Activities}}
         <tr>
             <td>{{.CreatedAt.Format "Jan 02, 2006 3:04 PM"}}</td>
+            <td>
+                {{if eq .TransactionType "ADDED PLAYER"}}<span class="txn-badge txn-added">Added Player</span>
+                {{else if eq .TransactionType "DROPPED PLAYER"}}<span class="txn-badge txn-dropped">Dropped Player</span>
+                {{else if eq .TransactionType "TRADE"}}<span class="txn-badge txn-trade">Trade</span>
+                {{else if eq .TransactionType "ROSTER MOVE"}}<span class="txn-badge txn-roster">Roster Move</span>
+                {{else}}<span class="txn-badge">{{.TransactionType}}</span>
+                {{end}}
+            </td>
             <td>{{.LeagueName}}</td>
             <td><strong>{{.TeamName}}</strong></td>
             <td>
                 {{if .Summary}}
                     {{.Summary}}
+                {{else if .PlayerName}}
+                    {{.PlayerName}}
                 {{else}}
-                    {{.PlayerName}} {{.Status}}
+                    —
                 {{end}}
             </td>
         </tr>
         {{else}}
         <tr>
-            <td colspan="4">No recent activity found.</td>
+            <td colspan="5">No transactions found.</td>
         </tr>
         {{end}}
     </tbody>
 </table>
 
 <style>
-    .header-with-filter { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .filters { background: var(--fod-gray-light); padding: 10px 15px; border-radius: 6px; border: 1px solid #ddd; }
+    .header-with-filter { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    .filters { background: var(--fod-gray-light); padding: 10px 15px; border-radius: 6px; border: 1px solid #ddd; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
     .filters select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+    .filters label { font-weight: 600; font-size: 0.9em; }
+
+    .txn-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75em;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #fff;
+        background: #6c757d;
+    }
+    .txn-added { background: #28a745; }
+    .txn-dropped { background: #dc3545; }
+    .txn-trade { background: var(--fod-orange-accent, #E87426); }
+    .txn-roster { background: var(--fod-blue-primary, #2E6DA4); }
+
+    body.dark-mode .filters { background: #1B2838; border-color: #2A3F55; }
+    body.dark-mode .filters select { background: #0D1B2A; color: #E0E0E0; border-color: #2A3F55; }
+    body.dark-mode .filters label { color: #B0BEC5; }
 </style>
 {{end}}

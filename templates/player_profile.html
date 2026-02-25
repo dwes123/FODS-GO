@@ -241,9 +241,78 @@
         </table>
     </div>
     {{end}}
+
+    <!-- GAME LOG (AJAX-loaded, position-aware) -->
+    <div id="game-log-section" class="moves-log-section" style="display:none;">
+        <h3>Game Log</h3>
+        <div class="table-container">
+            <table class="fantasy-table-base" style="min-width: auto;">
+                <thead id="game-log-head"></thead>
+                <tbody id="game-log-body"></tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <script>
+// --- GAME LOG LOADER (position-aware) ---
+(function() {
+    var pos = '{{.Player.Position}}';
+    var isPitcher = (pos === 'SP' || pos === 'RP');
+    var statType = isPitcher ? 'pitching' : 'hitting';
+
+    fetch('/api/player/{{.Player.ID}}/gamelog?type=' + statType)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.games || data.games.length === 0) return;
+            var section = document.getElementById('game-log-section');
+            var thead = document.getElementById('game-log-head');
+            var tbody = document.getElementById('game-log-body');
+            section.style.display = '';
+
+            var ptsStyle = 'font-weight:bold; color: var(--fod-orange-accent, #E87426);';
+
+            if (isPitcher) {
+                thead.innerHTML = '<tr><th>Date</th><th>Opp</th><th>IP</th><th>K</th><th>ER</th><th>BB</th><th>HR</th><th>QS</th><th>SV</th><th>HLD</th><th style="' + ptsStyle + '">Pts</th></tr>';
+                data.games.forEach(function(g) {
+                    var s = g.raw_stats || {};
+                    tbody.innerHTML += '<tr>' +
+                        '<td>' + g.game_date + '</td>' +
+                        '<td>' + (g.opponent || '') + '</td>' +
+                        '<td>' + (s.ip != null ? s.ip.toFixed(1) : '0.0') + '</td>' +
+                        '<td>' + (s.k || 0) + '</td>' +
+                        '<td>' + (s.er || 0) + '</td>' +
+                        '<td>' + (s.bb || 0) + '</td>' +
+                        '<td>' + (s.hra || 0) + '</td>' +
+                        '<td>' + (s.qs || 0) + '</td>' +
+                        '<td>' + (s.sv || 0) + '</td>' +
+                        '<td>' + (s.hld || 0) + '</td>' +
+                        '<td style="font-weight:bold;">' + g.fantasy_points.toFixed(1) + '</td>' +
+                        '</tr>';
+                });
+            } else {
+                thead.innerHTML = '<tr><th>Date</th><th>Opp</th><th>H</th><th>HR</th><th>RBI</th><th>R</th><th>BB</th><th>SB</th><th>K</th><th>CS</th><th style="' + ptsStyle + '">Pts</th></tr>';
+                data.games.forEach(function(g) {
+                    var s = g.raw_stats || {};
+                    tbody.innerHTML += '<tr>' +
+                        '<td>' + g.game_date + '</td>' +
+                        '<td>' + (g.opponent || '') + '</td>' +
+                        '<td>' + (s.h || 0) + '</td>' +
+                        '<td>' + (s.hr || 0) + '</td>' +
+                        '<td>' + (s.rbi || 0) + '</td>' +
+                        '<td>' + (s.r || 0) + '</td>' +
+                        '<td>' + (s.bb || 0) + '</td>' +
+                        '<td>' + (s.sb || 0) + '</td>' +
+                        '<td>' + (s.k || 0) + '</td>' +
+                        '<td>' + (s.cs || 0) + '</td>' +
+                        '<td style="font-weight:bold;">' + g.fantasy_points.toFixed(1) + '</td>' +
+                        '</tr>';
+                });
+            }
+        })
+        .catch(function() {});
+})();
+
 // --- EXTENSION CALCULATOR (WAR-based pricing from PHP) ---
 let posOverride = null;
 

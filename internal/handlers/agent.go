@@ -2198,7 +2198,7 @@ func toolDFAPlayer(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) 
 	var teamName string
 	db.QueryRow(ctx, "SELECT name FROM teams WHERE id = $1", teamID).Scan(&teamName)
 	playerName := firstName + " " + lastName
-	store.LogActivity(db, playerLeague, teamID, "ROSTER",
+	store.LogActivity(db, playerLeague, teamID, "Roster Move",
 		fmt.Sprintf("%s designated %s for assignment", teamName, playerName))
 
 	fmt.Printf("AGENT ACTION: DFA player %s (%s) from team %s, clear_action=%s\n",

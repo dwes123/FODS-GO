@@ -62,7 +62,7 @@ func checkSeasonalTasks(db *pgxpool.Pool) {
 			// Log batch transaction
 			db.Exec(ctx, `
 				INSERT INTO transactions (transaction_type, status, summary)
-				VALUES ('SEASONAL', 'COMPLETED', $1)
+				VALUES ('Roster Move', 'COMPLETED', $1)
 			`, fmt.Sprintf("End of season IL clear — %d players activated", result.RowsAffected()))
 
 			fmt.Printf("Seasonal Worker: Cleared IL for %d players\n", result.RowsAffected())

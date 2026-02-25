@@ -73,16 +73,20 @@ internal/
     contracts.go         — Team options (deadline enforced), extensions (deadline enforced), restructures
     moves.go             — Roster moves (dynamic limits, SP limit, 40-man, 26-man, option, IL, DFA, trade block, rookie contract auto-assign)
     players.go           — Player profile, free agents, trade block page
-    roster.go            — Roster page, depth chart save
+    roster.go            — Roster page, depth chart save, IL summary table
+    stats.go             — Pitching + hitting leaderboard handlers, game log AJAX, admin backfill
     trades.go            — Trade center, new trade (contract preview + salary impact), submit, accept, counter proposals
     waivers.go           — Waiver wire (league-filtered), waiver claims
     league_rosters.go    — League roster browser, bid calculator, commissioner waiver audit
+    activity.go          — Transaction log with league + transaction type filters
     home.go              — Home page with waiver wire spotlight widget
   store/                 — Data access layer (raw SQL via pgx)
     bids.go              — GetBidHistory (shared by bid history page + CSV export)
     leagues.go           — League/team queries, league dates, league settings, date window helpers
     players.go           — Player queries, AppendRosterMove, GetTradeBlockPlayers
     teams.go             — Team roster queries, roster counts, SP count, salary summaries
+    activity.go          — Transaction log: GetTransactionLog (league + type filters, COMPLETED only), GetDistinctTransactionTypes, LogActivity
+    stats.go             — Fantasy points: scoring categories, daily player stats, leaderboards (pitching + hitting), game log, player points summary
     trades.go            — CreateTradeProposal (ISBP validation, counter support), AcceptTrade (ISBP validation, chain cleanup), GetTradeByID, ReverseTrade, IsTradeWindowOpen
     users.go             — User CRUD, sessions, registration requests, GetTeamOwnerEmails
   middleware/auth.go     — Session-based auth middleware
@@ -92,6 +96,7 @@ internal/
     waivers.go           — Waiver expiry processing with DFA clear actions + dead cap
     seasonal.go          — Hourly checks: option reset (Nov 1), IL clear (Oct 15)
     hr_monitor.go        — MLB Stats API poller for home run Slack alerts
+    stats.go             — MLB Stats API box score poller for pitching + hitting fantasy points
   notification/
     slack.go             — Slack message posting
     email.go             — SMTP email (env-var configured, gracefully skips if unconfigured)
@@ -158,9 +163,14 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **Teams financial columns:** `isbp_balance` (NUMERIC 12,2), `milb_balance` (NUMERIC 12,2)
 - **league_settings columns:** `luxury_tax_limit`, `roster_26_man_limit` (default 26), `roster_40_man_limit` (default 40), `sp_26_man_limit` (default 6)
 - **league_integrations columns:** `slack_bot_token`, `slack_channel_transactions`, `slack_channel_completed_trades`, `slack_channel_stat_alerts`, `slack_channel_trade_block`
+- **transactions.transaction_type values:** `Added Player`, `Dropped Player`, `Roster Move`, `Trade` (standardized in migration 020; all Go code uses these exact strings)
 - **trades columns:** `parent_trade_id` (UUID, nullable FK to trades) — links counter proposals to their parent; `status` TEXT supports `PROPOSED`, `ACCEPTED`, `REJECTED`, `REVERSED`, `COUNTERED`
 - **users columns:** `theme_preference` (VARCHAR(10), NOT NULL, DEFAULT 'light') — stores 'light' or 'dark'; scanned with `COALESCE` in all user queries
 - **league_dates date_type values:** `trade_deadline`, `opening_day`, `extension_deadline`, `option_deadline`, `ifa_window_open`, `ifa_window_close`, `milb_fa_window_open`, `milb_fa_window_close`, `roster_expansion_start`, `roster_expansion_end`
+- **players.mlb_id** (INTEGER, non-unique, indexed) — real MLB player ID for cross-referencing with MLB Stats API; same `mlb_id` shared across multiple player records (same person in different fantasy leagues); ~770 unique MLB IDs covering ~3,036 player records; used by stats worker and HR monitor
+- **scoring_categories** — configurable scoring weights per stat; `stat_type` ('pitching'/'hitting'), `stat_key`, `display_name`, `points`, `is_active`; unique on `(stat_type, stat_key)`
+- **daily_player_stats** — one row per player per game per stat type; `raw_stats` JSONB stores individual stat values; `fantasy_points` pre-calculated; unique on `(player_id, game_pk, stat_type)`; indexed on `game_date`, `player_id`, `team_id`, `league_id`, `mlb_id`
+- **stats_processing_log** — tracks which dates have been processed per stat type; unique on `(game_date, stat_type)`; status 'completed' or 'error'
 
 ## Key Business Logic
 
@@ -237,6 +247,17 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Trade Counter Proposals** — Receivers can counter a trade instead of only accepting/rejecting; `GET /trades/counter?trade_id=X` loads `trade_counter.html` with pre-populated players and ISBP (roles flipped from original); `POST /trades/counter` creates new trade with `parent_trade_id` FK and marks parent as `COUNTERED`; chainable (either side can keep countering); trade center shows purple "Counter Proposal" badge and orange "Counter" button for receivers; `GetTradeByID` store function fetches single trade with items; `AcceptTrade` uses recursive CTE to clean up stale PROPOSED trades in the chain; email notification sent on counter; `migrations/016_counter_proposals.sql`
 - **Dark Mode Toggle** — Per-user "Broadcast War Room" dark theme (deep navy `#0D1B2A`, electric cyan `#00E5FF`, warm orange `#FF8C42`); `theme_preference` column on users (default 'light'); server-rendered `<body class="dark-mode">` conditional (no FOUC); moon/sun toggle button in nav bar next to username; `POST /profile/update-theme` persists preference; profile page has explicit Display Preferences section; ~400 lines of dark mode CSS in `layout.html` using `body.dark-mode` selectors with `!important` to override inline styles across 30+ templates; dark mode `.section-title` uses `background: #0A1628` to avoid cyan-on-cyan unreadable text; `migrations/017_user_theme_preference.sql`
 - **Dead Cap Detail Tables** — Roster page shows per-player dead cap breakdown (Player, Year, Amount, Note) below the Minors section, only when entries exist; `GetTeamDeadCap()` in `store/teams.go` queries `dead_cap_penalties` joined with `players`; player profile page also shows dead cap penalties table (Team, Year, Amount, Note) below Roster History; `GetPlayerDeadCap()` queries by `player_id`
+- **Fantasy Points System (Pitching + Hitting)** — `internal/worker/stats.go` polls MLB Stats API box scores; runs daily 5-6 AM ET, Mar 25–Oct; 7-day catchup on each tick; fetches each box score once per game, processes both pitching and hitting; `ProcessDateStats()` exported for admin backfill; `POST /admin/stats/backfill` triggers background processing for a specific date
+- **Pitching Scoring** — 19 categories: IP (+1), K (+1), GS (+1), SV (+2), HLD (+1), CG (+6), SHO (+6), QS (+7), NH (+8), PG (+10), IRS (+1), PKO (+1), ER (-1), HRA (-1), BB (-0.5), HBP (-0.5), WP (-0.5), BK (-1), BS (-2); derived stats: QS (6+ IP, ≤3 ER), NH (CG + 0 hits), PG (NH + 0 BB + 0 HBP)
+- **Hitting Scoring** — 8 categories: H (+1), HR (+4), RBI (+1), R (+1), BB (+1), SB (+2), K (-0.5), CS (-1); player qualifies if `atBats > 0` or `plateAppearances > 0`
+- **Pitching Leaderboard** — `GET /stats/pitching` with league/date filters; columns: GP, Total Pts, Avg Pts, IP, K, ER, QS, SV, HLD; template `stats_leaderboard.html`
+- **Hitting Leaderboard** — `GET /stats/hitting` with league/date filters; columns: GP, Total Pts, Avg Pts, H, HR, RBI, R, BB, SB, K, CS; template `stats_hitting_leaderboard.html`; pitching/hitting toggle nav links on both leaderboard pages
+- **Player Game Log** — `GET /api/player/:id/gamelog?type=pitching|hitting` returns JSON; player profile auto-detects position (SP/RP → pitching, all others → hitting) and renders appropriate columns
+- **Roster FPTS Column** — Roster page shows season-total fantasy points per player via `GetPlayerPointsSummary()`; sums both pitching and hitting points
+- **IL Summary Table** — Roster page shows compact table of all IL players (Player, Pos, IL Type, MLB Team) between the roster counts bar and financials; only renders when team has IL players
+- **Transaction Log** — `/activity` page shows completed transactions with dual filters (league dropdown + transaction type dropdown); `GetTransactionLog()` queries with `WHERE status = 'COMPLETED'` and optional league/type filters; `GetDistinctTransactionTypes()` populates the type dropdown dynamically; 500 result limit; color-coded type badges (green=Added Player, red=Dropped Player, blue=Roster Move, orange=Trade); dark mode support
+- **Transaction Type Reclassification** — All transaction types standardized to 4 clean categories: `Added Player` (FA signings, IFA, waiver claims), `Dropped Player` (DFA, releases), `Roster Move` (promotions, options, IL, arbitration, extensions, restructures, seasonal), `Trade` (trades, trade reversals); all `LogActivity` calls and direct `INSERT INTO transactions` statements updated to use new type names; `migrations/020_reclassify_transaction_types.sql` reclassified historical data using keyword matching on summaries
+- **Migrations:** `018_fantasy_points.sql` creates `scoring_categories`, `daily_player_stats`, `stats_processing_log` tables and seeds 19 pitching + 8 hitting categories; `019_activate_hitting.sql` sets `is_active = TRUE` for hitting categories; `020_reclassify_transaction_types.sql` standardizes transaction types to 4 categories
 
 ### Commissioner Tools Enhancements
 - **Bid/FA Management in Player Editor** — Commissioners can manually set `fa_status`, pending bid fields, and `bid_type` on any player
@@ -245,7 +266,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Slack Integration UI** — `/admin/settings` now has per-league Slack config: bot token, transactions channel, completed trades channel, stat alerts channel, trade block channel
 - **Commissioner Role Management** — `/admin/roles` UI to add/remove league commissioners (`league_roles` table) and update global user roles (admin/user); admin-only, linked from dashboard
 - **ISBP/MiLB Balance Editor** — `/admin/balance-editor` lets commissioners view and edit team ISBP and MiLB balances; league filter dropdown, modal edit form, linked from dashboard Financials card
-- **Fantrax Processing Queue** — `/admin/fantrax-queue` shows roster-affecting transactions (ROSTER/ADD/TRADE) pending Fantrax sync; league filter dropdown, "Show Completed" toggle, "Mark Completed"/"Undo" buttons via existing `/admin/fantrax-toggle` endpoint; linked from dashboard with pink accent card
+- **Fantrax Processing Queue** — `/admin/fantrax-queue` shows roster-affecting transactions (Roster Move/Added Player/Trade) pending Fantrax sync; league filter dropdown, "Show Completed" toggle, "Mark Completed"/"Undo" buttons via existing `/admin/fantrax-toggle` endpoint; linked from dashboard with pink accent card
 - **Player Editor Team Dropdowns** — Team assignment and bidding team fields use league-filtered dropdowns instead of raw UUID inputs; assignment dropdown filters by selected league via JS; bidding team dropdown grouped by league with `<optgroup>`
 - **Player Editor Team Option Years** — Per-contract-year TO (Team Option) checkboxes (2026–2040) in contracts section; reads/writes `contract_option_years` JSONB column; pre-checked on edit
 - **Player Editor DFA Only** — `dfa_only` checkbox in Status section; reads/writes `dfa_only` BOOLEAN column
@@ -272,7 +293,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Error sanitization** — All 500-level errors across 13 handler files now log real errors server-side (`fmt.Printf("ERROR [handler]: %v\n", err)`) and return generic "Internal server error" to clients; no DB errors leak to users
 - **CSV upload hardening** — Admin role check on POST handler, 5 MB body size limit (`http.MaxBytesReader`), header read error handling, required column validation, `ReadAll()` error handling, row length bounds check
 - **Graceful shutdown** — `signal.NotifyContext` for SIGINT/SIGTERM; cancels worker context, then gracefully shuts down HTTP server with 10-second timeout
-- **Worker context** — All 4 workers (`bids`, `waivers`, `seasonal`, `hr_monitor`) accept `context.Context` and use `select` on `ctx.Done()` to stop cleanly on shutdown
+- **Worker context** — All 5 workers (`bids`, `waivers`, `seasonal`, `hr_monitor`, `stats`) accept `context.Context` and use `select` on `ctx.Done()` to stop cleanly on shutdown
 
 ### Data Sync (PHP → Go)
 
@@ -284,7 +305,7 @@ Six `cmd/` tools sync data from the live WordPress/PHP site into the Go PostgreS
 | 2 | `cmd/sync_users_bulk` | Creates Go users from WP users, links via `wp_id` |
 | 3 | `cmd/sync_team_ownership` | Populates `team_owners` junction table (abbreviation → team UUID lookup) |
 | 4 | `cmd/sync_players` | Syncs all 39K+ players with team_id resolution, contracts, dead cap |
-| 5 | `cmd/sync_transactions` | Imports activity feed history (ADD/DROP/TRADE/COMMISSIONER types) |
+| 5 | `cmd/sync_transactions` | Imports activity feed history (uses legacy types — run migration 020 after to reclassify) |
 | 6 | `cmd/sync_bid_history` | Reconstructs `bid_history` JSONB on players from transaction text |
 | 7 | `cmd/sync_waivers` | Syncs waiver status, end times, claims; clears stale waivers not on WP |
 | 8 | `cmd/sync_site_settings` | Syncs ISBP/MILB balances, luxury tax thresholds from WP Site Settings |
@@ -309,6 +330,9 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 - `migrations/014_business_rules.sql` — Adds: `roster_26_man_limit`, `roster_40_man_limit`, `sp_26_man_limit` columns to `league_settings`
 - `migrations/016_counter_proposals.sql` — Adds: `parent_trade_id` UUID column (FK to trades) + index for counter proposal chains
 - `migrations/017_user_theme_preference.sql` — Adds: `theme_preference` VARCHAR(10) column to users (default 'light')
+- `migrations/018_fantasy_points.sql` — Adds: `scoring_categories`, `daily_player_stats`, `stats_processing_log` tables; seeds 19 pitching + 8 hitting scoring categories (hitting initially inactive)
+- `migrations/019_activate_hitting.sql` — Activates 8 hitting scoring categories
+- `migrations/020_reclassify_transaction_types.sql` — Standardizes `transaction_type` values from legacy types (ADD, DROP, ROSTER, TRADE, COMMISSIONER, WAIVER, SEASONAL) to 4 clean categories (Added Player, Dropped Player, Roster Move, Trade); uses keyword matching on summaries to reclassify COMMISSIONER entries
 
 ### Not Implemented (deferred)
 - Draft Room (Feature 2) — complex real-time feature, deferred
@@ -327,7 +351,7 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 - 60+ one-off SQL scripts in project root are migration artifacts — not part of the app
 - Workers run in-process with graceful shutdown — if the server restarts, bid/waiver timers reset (no persistent job queue)
 - Seasonal worker uses `system_counters` to prevent duplicate runs across restarts
-- HR monitor requires `players.mlb_id` to be populated for cross-referencing with MLB Stats API
+- HR monitor and stats worker both require `players.mlb_id` to be populated for cross-referencing with MLB Stats API; `mlb_id` is non-unique (same real player appears in multiple fantasy leagues); ~770 unique MLB IDs cover ~3,036 player records; stats worker uses `LIMIT 1` when looking up by `mlb_id`
 - Email notifications require SMTP env vars; silently disabled if not configured
 - Registration now goes through approval queue — existing users are unaffected
 - **Team ownership is via `team_owners` junction table** — never query `teams.user_id` directly (column exists but is legacy); always JOIN `team_owners` to find a user's teams; roster page uses `IsOwner` from handler (via `store.IsTeamOwner()`) for action buttons and "Propose Trade" visibility

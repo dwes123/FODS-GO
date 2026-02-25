@@ -455,7 +455,7 @@ func AcceptTrade(db *pgxpool.Pool, tradeID, acceptorUserID string) error {
 	// Create transaction log
 	_, err = tx.Exec(ctx, `
 		INSERT INTO transactions (team_id, transaction_type, status, related_transaction_id, summary)
-		VALUES ($1, 'TRADE', 'COMPLETED', $2, $3)
+		VALUES ($1, 'Trade', 'COMPLETED', $2, $3)
 	`, proposerID, tradeID, summary)
 
 	return tx.Commit(ctx)
@@ -538,7 +538,7 @@ func ReverseTrade(db *pgxpool.Pool, tradeID string) error {
 	// 6. Log as Admin Correction
 	tx.Exec(ctx, `
 		INSERT INTO transactions (team_id, transaction_type, status, summary)
-		VALUES ($1, 'COMMISSIONER', 'COMPLETED', 'Trade reversed by Commissioner')
+		VALUES ($1, 'Trade', 'COMPLETED', 'Trade reversed by Commissioner')
 	`, proposerID)
 
 	return tx.Commit(ctx)

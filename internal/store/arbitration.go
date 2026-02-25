@@ -79,7 +79,7 @@ func SubmitArbitrationDecision(db *pgxpool.Pool, playerID, teamID, leagueID stri
 
 		_, err = tx.Exec(ctx, `
 			INSERT INTO transactions (team_id, player_id, transaction_type, status)
-			VALUES ($1, $2, 'DROP', 'COMPLETED')
+			VALUES ($1, $2, 'Dropped Player', 'COMPLETED')
 		`, teamID, playerID)
 		if err != nil { return err }
 
