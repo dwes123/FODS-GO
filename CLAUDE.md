@@ -144,7 +144,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - CSS variables: `--fod-blue-primary: #2E6DA4`, `--fod-orange-accent: #E87426`
 - Tables use class `fantasy-table-base`
 - AJAX: vanilla `fetch()` with JSON body, no frameworks
-- **Nav dropdowns:** Logged-in users see CSS-only hover dropdowns (League, Roster, Free Agency, Trades) instead of flat links; non-logged-in users see flat links (Rosters, Free Agents, Standings, Login); classes: `.nav-dropdown`, `.nav-dropdown-label`, `.nav-dropdown-menu`
+- **Nav dropdowns:** Logged-in users see hover+click dropdowns (League, Roster, Free Agency, Trades) instead of flat links; non-logged-in users see flat links (Rosters, Free Agents, Standings, Login); classes: `.nav-dropdown`, `.nav-dropdown-label`, `.nav-dropdown-menu`; CSS `:hover` for desktop + JS click toggle (`.open` class) for Safari/touch compatibility; clicking outside closes open dropdowns
 
 ### Routes
 - Registered in `cmd/api/main.go` under `authorized := r.Group("/")` with `AuthMiddleware`
