@@ -262,3 +262,126 @@ func GetTradeBlockPlayers(db *pgxpool.Pool, leagueID string) ([]TradeBlockPlayer
 	}
 	return players, nil
 }
+
+// --- Player Add Requests ---
+
+type PlayerAddRequest struct {
+	ID          string
+	FirstName   string
+	LastName    string
+	Position    string
+	MLBTeam     string
+	LeagueID    string
+	LeagueName  string
+	IsIFA       bool
+	Notes       string
+	SubmittedBy string
+	Username    string
+	Status      string
+	CreatedAt   time.Time
+}
+
+func CreatePlayerAddRequest(db *pgxpool.Pool, req PlayerAddRequest) error {
+	_, err := db.Exec(context.Background(), `
+		INSERT INTO player_add_requests (first_name, last_name, position, mlb_team, league_id, is_ifa, notes, submitted_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, req.FirstName, req.LastName, req.Position, req.MLBTeam, req.LeagueID, req.IsIFA, req.Notes, req.SubmittedBy)
+	return err
+}
+
+func GetPendingPlayerRequests(db *pgxpool.Pool, leagueIDs []string) ([]PlayerAddRequest, error) {
+	query := `
+		SELECT r.id, r.first_name, r.last_name, r.position, r.mlb_team,
+		       r.league_id, l.name, r.is_ifa, COALESCE(r.notes, ''),
+		       r.submitted_by, u.username, r.status, r.created_at
+		FROM player_add_requests r
+		JOIN leagues l ON r.league_id = l.id
+		JOIN users u ON r.submitted_by = u.id
+		WHERE r.status = 'PENDING'
+	`
+	args := []interface{}{}
+
+	if len(leagueIDs) > 0 {
+		placeholders := make([]string, len(leagueIDs))
+		for i, id := range leagueIDs {
+			placeholders[i] = fmt.Sprintf("$%d", i+1)
+			args = append(args, id)
+		}
+		query += " AND r.league_id IN (" + strings.Join(placeholders, ",") + ")"
+	}
+
+	query += " ORDER BY r.created_at ASC"
+
+	rows, err := db.Query(context.Background(), query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var requests []PlayerAddRequest
+	for rows.Next() {
+		var r PlayerAddRequest
+		if err := rows.Scan(&r.ID, &r.FirstName, &r.LastName, &r.Position, &r.MLBTeam,
+			&r.LeagueID, &r.LeagueName, &r.IsIFA, &r.Notes,
+			&r.SubmittedBy, &r.Username, &r.Status, &r.CreatedAt); err != nil {
+			continue
+		}
+		requests = append(requests, r)
+	}
+	return requests, nil
+}
+
+func ApprovePlayerRequest(db *pgxpool.Pool, requestID, reviewerID string) error {
+	ctx := context.Background()
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Fetch the request
+	var req PlayerAddRequest
+	err = tx.QueryRow(ctx, `
+		SELECT id, first_name, last_name, position, mlb_team, league_id, is_ifa
+		FROM player_add_requests WHERE id = $1 AND status = 'PENDING'
+	`, requestID).Scan(&req.ID, &req.FirstName, &req.LastName, &req.Position, &req.MLBTeam, &req.LeagueID, &req.IsIFA)
+	if err != nil {
+		return fmt.Errorf("request not found or already processed: %w", err)
+	}
+
+	// Create the player as a free agent
+	_, err = tx.Exec(ctx, `
+		INSERT INTO players (first_name, last_name, position, mlb_team, league_id, fa_status, is_international_free_agent)
+		VALUES ($1, $2, $3, $4, $5, 'available', $6)
+	`, req.FirstName, req.LastName, req.Position, req.MLBTeam, req.LeagueID, req.IsIFA)
+	if err != nil {
+		return fmt.Errorf("failed to create player: %w", err)
+	}
+
+	// Mark request as approved
+	_, err = tx.Exec(ctx, `
+		UPDATE player_add_requests SET status = 'APPROVED', reviewed_by = $1, reviewed_at = NOW()
+		WHERE id = $2
+	`, reviewerID, requestID)
+	if err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	// Log activity (outside transaction)
+	summary := fmt.Sprintf("Player added via request: %s %s (%s)", req.FirstName, req.LastName, req.Position)
+	LogActivity(db, req.LeagueID, "", "Added Player", summary)
+
+	return nil
+}
+
+func RejectPlayerRequest(db *pgxpool.Pool, requestID, reviewerID string) error {
+	_, err := db.Exec(context.Background(), `
+		UPDATE player_add_requests SET status = 'REJECTED', reviewed_by = $1, reviewed_at = NOW()
+		WHERE id = $2 AND status = 'PENDING'
+	`, reviewerID, requestID)
+	return err
+}

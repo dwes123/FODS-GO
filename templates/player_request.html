@@ -1,0 +1,91 @@
+{{define "title"}}Request Player{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <h2>Request a Player</h2>
+
+    {{if .Success}}
+    <div class="notice notice-success">
+        Your player request has been submitted and is pending commissioner approval.
+    </div>
+    {{end}}
+
+    {{if not .HasTeams}}
+    <div class="notice notice-warning">
+        You must own a team to request a player. Contact a commissioner if you need team access.
+    </div>
+    {{else}}
+    <p>Can't find a player in the database? Submit a request and a commissioner will review it.</p>
+
+    <form action="/player/request" method="POST" class="standard-form">
+        <div class="form-group">
+            <label>First Name</label>
+            <input type="text" name="first_name" required placeholder="e.g. John">
+        </div>
+
+        <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" name="last_name" required placeholder="e.g. Smith">
+        </div>
+
+        <div class="form-group">
+            <label>Position</label>
+            <select name="position" required>
+                <option value="">-- Select --</option>
+                <option value="C">C</option>
+                <option value="1B">1B</option>
+                <option value="2B">2B</option>
+                <option value="SS">SS</option>
+                <option value="3B">3B</option>
+                <option value="OF">OF</option>
+                <option value="DH">DH</option>
+                <option value="SP">SP</option>
+                <option value="RP">RP</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>MLB Team</label>
+            <input type="text" name="mlb_team" required placeholder="e.g. NYY">
+        </div>
+
+        <div class="form-group">
+            <label>League</label>
+            <select name="league_id" required>
+                <option value="">-- Select --</option>
+                {{range .Leagues}}
+                <option value="{{.ID}}">{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="is_ifa" id="is_ifa">
+            <label for="is_ifa" style="margin-bottom: 0;">International Free Agent (IFA)</label>
+        </div>
+
+        <div class="form-group">
+            <label>Notes (optional)</label>
+            <textarea name="notes" rows="3" placeholder="e.g. Just drafted by Yankees in 2025 draft"></textarea>
+        </div>
+
+        <button type="submit" class="button button-primary">Submit Request</button>
+    </form>
+    {{end}}
+</div>
+
+<style>
+    .content-container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .standard-form .form-group { margin-bottom: 20px; }
+    .standard-form label { display: block; font-weight: bold; margin-bottom: 8px; }
+    .standard-form input[type="text"], .standard-form textarea, .standard-form select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .notice-success { background: #d4edda; color: #155724; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #c3e6cb; }
+    .notice-warning { background: #fff3cd; color: #856404; padding: 15px; border-radius: 4px; margin-bottom: 20px; border: 1px solid #ffeeba; }
+    body.dark-mode .content-container { background: #152238 !important; }
+    body.dark-mode .standard-form input[type="text"],
+    body.dark-mode .standard-form textarea,
+    body.dark-mode .standard-form select { background: #0D1B2A !important; color: #E8EDF2 !important; border-color: #2A3F5F !important; }
+    body.dark-mode .notice-success { background: #1a3a2a !important; color: #7dcea0 !important; border-color: #2d6a4f !important; }
+    body.dark-mode .notice-warning { background: #3a3520 !important; color: #f0c040 !important; border-color: #6a5a2f !important; }
+</style>
+{{end}}

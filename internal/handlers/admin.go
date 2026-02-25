@@ -784,3 +784,68 @@ func AdminDeleteUserHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		c.Redirect(http.StatusFound, "/admin/team-owners?saved=1")
 	}
 }
+
+// --- Player Add Request Approval ---
+
+func AdminPlayerRequestsHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		var leagueIDs []string
+		if user.Role == "admin" {
+			leagueIDs = nil // global admin sees all
+		} else {
+			leagueIDs = adminLeagues
+		}
+
+		requests, err := store.GetPendingPlayerRequests(db, leagueIDs)
+		if err != nil {
+			fmt.Printf("ERROR [AdminPlayerRequests]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		RenderTemplate(c, "admin_player_requests.html", gin.H{
+			"User":      user,
+			"Requests":  requests,
+			"IsCommish": true,
+		})
+	}
+}
+
+func AdminProcessPlayerRequestHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.String(http.StatusForbidden, "Commissioner Only")
+			return
+		}
+
+		requestID := c.PostForm("request_id")
+		action := c.PostForm("action")
+
+		var err error
+		if action == "approve" {
+			err = store.ApprovePlayerRequest(db, requestID, user.ID)
+		} else if action == "reject" {
+			err = store.RejectPlayerRequest(db, requestID, user.ID)
+		} else {
+			c.String(http.StatusBadRequest, "Invalid action")
+			return
+		}
+
+		if err != nil {
+			fmt.Printf("ERROR [AdminProcessPlayerRequest]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/admin/player-requests")
+	}
+}

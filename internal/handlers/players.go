@@ -156,3 +156,78 @@ func TradeBlockHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		})
 	}
 }
+
+func PlayerRequestFormHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+
+		teams, err := store.GetManagedTeams(db, user.ID)
+		if err != nil {
+			fmt.Printf("ERROR [PlayerRequestForm]: %v\n", err)
+		}
+
+		// Extract unique leagues from user's teams
+		type SimpleLeague struct {
+			ID   string
+			Name string
+		}
+		seen := map[string]bool{}
+		var leagues []SimpleLeague
+		for _, t := range teams {
+			if !seen[t.LeagueID] {
+				seen[t.LeagueID] = true
+				leagues = append(leagues, SimpleLeague{ID: t.LeagueID, Name: t.LeagueName})
+			}
+		}
+
+		RenderTemplate(c, "player_request.html", gin.H{
+			"User":      user,
+			"Leagues":   leagues,
+			"HasTeams":  len(teams) > 0,
+			"Success":   c.Query("success") == "1",
+			"IsCommish": len(adminLeagues) > 0 || user.Role == "admin",
+		})
+	}
+}
+
+func SubmitPlayerRequestHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+
+		leagueID := c.PostForm("league_id")
+
+		// Validate user owns a team in this league
+		teams, _ := store.GetManagedTeams(db, user.ID)
+		hasTeamInLeague := false
+		for _, t := range teams {
+			if t.LeagueID == leagueID {
+				hasTeamInLeague = true
+				break
+			}
+		}
+		if !hasTeamInLeague {
+			c.String(http.StatusForbidden, "You don't own a team in this league")
+			return
+		}
+
+		req := store.PlayerAddRequest{
+			FirstName:   c.PostForm("first_name"),
+			LastName:    c.PostForm("last_name"),
+			Position:    c.PostForm("position"),
+			MLBTeam:     c.PostForm("mlb_team"),
+			LeagueID:    leagueID,
+			IsIFA:       c.PostForm("is_ifa") == "on",
+			Notes:       c.PostForm("notes"),
+			SubmittedBy: user.ID,
+		}
+
+		if err := store.CreatePlayerAddRequest(db, req); err != nil {
+			fmt.Printf("ERROR [SubmitPlayerRequest]: %v\n", err)
+			c.String(http.StatusInternalServerError, "Internal server error")
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/player/request?success=1")
+	}
+}

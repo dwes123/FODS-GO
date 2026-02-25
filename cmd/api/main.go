@@ -101,6 +101,10 @@ func main() {
 		authorized.POST("/profile/update-password", handlers.UpdatePasswordHandler(database))
 		authorized.POST("/profile/update-theme", handlers.UpdateThemeHandler(database))
 
+		// Player Add Requests
+		authorized.GET("/player/request", handlers.PlayerRequestFormHandler(database))
+		authorized.POST("/player/request", handlers.SubmitPlayerRequestHandler(database))
+
 		// Bug Reporting
 		authorized.GET("/bug-report", handlers.BugReportFormHandler(database))
 		authorized.POST("/bug-report", handlers.SubmitBugReportHandler(database))
@@ -192,6 +196,10 @@ func main() {
 		authorized.POST("/admin/team-owners/remove", handlers.AdminRemoveTeamOwnerHandler(database))
 		authorized.POST("/admin/team-owners/create-user", handlers.AdminCreateUserHandler(database))
 		authorized.POST("/admin/team-owners/delete-user", handlers.AdminDeleteUserHandler(database))
+
+		// Player Add Request Approval
+		authorized.GET("/admin/player-requests", handlers.AdminPlayerRequestsHandler(database))
+		authorized.POST("/admin/player-requests/process", handlers.AdminProcessPlayerRequestHandler(database))
 
 		// AI Agent
 		authorized.GET("/admin/agent", handlers.AdminAgentPageHandler(database))

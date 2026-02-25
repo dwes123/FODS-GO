@@ -1,0 +1,47 @@
+{{define "title"}}Player Add Requests{{end}}
+
+{{define "content"}}
+<div>
+    <h2>Player Add Requests</h2>
+    <p>Review and approve player requests from team owners.</p>
+
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Submitted</th>
+                <th>League</th>
+                <th>Player Name</th>
+                <th>Position</th>
+                <th>MLB Team</th>
+                <th>IFA</th>
+                <th>Notes</th>
+                <th>Submitted By</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Requests}}
+            <tr>
+                <td>{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}</td>
+                <td>{{.LeagueName}}</td>
+                <td><strong>{{.FirstName}} {{.LastName}}</strong></td>
+                <td>{{.Position}}</td>
+                <td>{{.MLBTeam}}</td>
+                <td>{{if .IsIFA}}<span style="color: var(--fod-orange-accent); font-weight: bold;">Yes</span>{{else}}No{{end}}</td>
+                <td>{{.Notes}}</td>
+                <td>{{.Username}}</td>
+                <td>
+                    <form action="/admin/player-requests/process" method="POST" style="display: inline;">
+                        <input type="hidden" name="request_id" value="{{.ID}}">
+                        <button type="submit" name="action" value="approve" class="button button-small" style="background: #5cb85c;">Approve</button>
+                        <button type="submit" name="action" value="reject" class="button button-small" style="background: #d9534f;">Reject</button>
+                    </form>
+                </td>
+            </tr>
+            {{else}}
+            <tr><td colspan="9">No pending player requests.</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
