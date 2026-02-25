@@ -50,6 +50,52 @@
             color: var(--fod-orange-accent);
         }
 
+        /* --- Nav Dropdown Menus --- */
+        .nav-dropdown {
+            position: relative;
+            display: inline-block;
+            margin-left: 1.5rem;
+        }
+        .nav-dropdown-label {
+            color: var(--fod-blue-primary);
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            font-size: inherit;
+        }
+        .nav-dropdown-label:hover {
+            color: var(--fod-orange-accent);
+        }
+        .nav-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 160px;
+            z-index: 1000;
+            padding: 4px 0;
+        }
+        .nav-dropdown:hover .nav-dropdown-menu {
+            display: block;
+        }
+        .nav-dropdown-menu a {
+            display: block;
+            padding: 8px 16px;
+            color: var(--fod-blue-primary);
+            text-decoration: none;
+            font-weight: 600;
+            margin-left: 0;
+            white-space: nowrap;
+        }
+        .nav-dropdown-menu a:hover {
+            background-color: #f0f7ff;
+            color: var(--fod-orange-accent);
+        }
+
         main {
             max-width: 1800px;
             margin: 2rem auto;
@@ -143,6 +189,25 @@
         }
         body.dark-mode nav span[style*="color: #888"] {
             color: #8899AA !important;
+        }
+        body.dark-mode .nav-dropdown-label {
+            color: #8899AA !important;
+        }
+        body.dark-mode .nav-dropdown-label:hover,
+        body.dark-mode .nav-dropdown:hover > .nav-dropdown-label {
+            color: #00E5FF !important;
+        }
+        body.dark-mode .nav-dropdown-menu {
+            background: #0A1628 !important;
+            border-color: #2E4057 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+        }
+        body.dark-mode .nav-dropdown-menu a {
+            color: #8899AA !important;
+        }
+        body.dark-mode .nav-dropdown-menu a:hover {
+            background-color: #152238 !important;
+            color: #00E5FF !important;
         }
 
         /* --- Typography --- */
@@ -835,24 +900,44 @@
         <a href="/" class="logo">Front Office Dynasty</a>
         <nav>
             <a href="/home">Home</a>
-            <a href="/league/rosters">Rosters</a>
-            <a href="/free-agents">Free Agents</a>
-            <a href="/standings">Standings</a>
             {{if .User}}
-                <a href="/league/financials">Financials</a>
-                <a href="/activity">Activity</a>
-                <a href="/waivers">Waiver Wire</a>
-                <a href="/rotations">Rotations</a>
-                <a href="/stats/pitching">Stats</a>
-                <a href="/trade-block">Trade Block</a>
-                <a href="/trades">Trade Center</a>
-                <a href="/team-options">Team Options</a>
-                <a href="/arbitration">Arbitration</a>
-                <a href="/bids/my-bids">My Bids</a>
-                <a href="/bids/pending">Pending Bids</a>
-                <a href="/bids/history">Bid History</a>
-                <a href="/bid-calculator">Bid Calc</a>
-                <a href="/player/request">Request Player</a>
+                <div class="nav-dropdown">
+                    <span class="nav-dropdown-label">League &#9662;</span>
+                    <div class="nav-dropdown-menu">
+                        <a href="/league/rosters">Rosters</a>
+                        <a href="/standings">Standings</a>
+                        <a href="/league/financials">Financials</a>
+                        <a href="/activity">Activity</a>
+                        <a href="/stats/pitching">Stats</a>
+                    </div>
+                </div>
+                <div class="nav-dropdown">
+                    <span class="nav-dropdown-label">Roster &#9662;</span>
+                    <div class="nav-dropdown-menu">
+                        <a href="/rotations">Rotations</a>
+                        <a href="/team-options">Team Options</a>
+                        <a href="/arbitration">Arbitration</a>
+                        <a href="/waivers">Waiver Wire</a>
+                    </div>
+                </div>
+                <div class="nav-dropdown">
+                    <span class="nav-dropdown-label">Free Agency &#9662;</span>
+                    <div class="nav-dropdown-menu">
+                        <a href="/free-agents">Free Agents</a>
+                        <a href="/bids/my-bids">My Bids</a>
+                        <a href="/bids/pending">Pending Bids</a>
+                        <a href="/bids/history">Bid History</a>
+                        <a href="/bid-calculator">Bid Calc</a>
+                        <a href="/player/request">Request Player</a>
+                    </div>
+                </div>
+                <div class="nav-dropdown">
+                    <span class="nav-dropdown-label">Trades &#9662;</span>
+                    <div class="nav-dropdown-menu">
+                        <a href="/trades">Trade Center</a>
+                        <a href="/trade-block">Trade Block</a>
+                    </div>
+                </div>
                 <a href="/bug-report">Report Bug</a>
                 {{if or (eq .User.Role "admin") .IsCommish}}
                     <a href="/admin/" style="color: #d9534f;">Commissioner</a>
@@ -862,6 +947,9 @@
                 <a href="/profile">My Profile</a>
                 <a href="/logout">Logout</a>
             {{else}}
+                <a href="/league/rosters">Rosters</a>
+                <a href="/free-agents">Free Agents</a>
+                <a href="/standings">Standings</a>
                 <a href="/login">Login</a>
             {{end}}
         </nav>
