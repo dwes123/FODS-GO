@@ -178,7 +178,10 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **Bid multipliers:** 1yr=2.0, 2yr=1.8, 3yr=1.6, 4yr=1.4, 5yr=1.2
 - **Bid points:** `(years × AAV × multiplier) / 1,000,000`
 - **Bid validation:** Contract length 1-5 years only, minimum $1M AAV, minimum 1.0 bid point
-- **Extension pricing (WAR-based):** Base rates SP=3.3755, RP=5.0131, Hitter=2.8354; decay factors per year
+- **Extension pricing (WAR-based):** Base rates SP=3.3755, RP=5.0131, Hitter=2.8354; decay factors per year; players with >1 ARB year remaining cannot be extended; extension starts at first non-dollar contract year (UFA/TC/ARB don't count)
+- **Extension/Restructure approval flow:** Both submit to `pending_actions` with `player_id`, `summary`, and `multi_year_contract` JSONB; commissioner approves/rejects at `/admin/`; on approval, contracts auto-update — extensions write AAV to each year's column, restructures move amount between from/to year columns; ownership verified on submission; JSON responses for JS fetch
+- **Restructure mechanics:** Form captures from_year, to_year, amount; stored as `{"from_year":"2026","to_year":"2028","amount":"500000"}` in `multi_year_contract` JSONB; on approval reads current contract values, subtracts from source year, adds to target year
+- **`pending_actions.summary`** — TEXT column (added via ALTER TABLE); stores human-readable description; displayed in commissioner dashboard Details column and AI agent tool
 - **Trade retention:** Two layers — (1) mandatory date-based retention (10%/25%/50% based on season timing) applied automatically, then (2) optional per-player 50% retention checkbox on trade form (applied on remainder after date-based); tracked via `trade_items.retain_salary` boolean; dead cap created for sending team; both sides of trade can retain
 - **ISBP validation:** Balance checked at both proposal and acceptance time; cannot go negative
 - **DFA dead cap:** 75% current year, 50% future years
@@ -198,7 +201,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 Rosters, free agency/bidding, trades, waivers, arbitration, team options, financials, rotations, activity feed, commissioner dashboard, player editor, dead cap management, CSV importer, bug reports, Slack notifications, session auth
 
 ### Completed Feature Batch (18 features — all implemented)
-1. **Extension Calculator** — WAR-based pricing on player profile (SP=3.3755, RP=5.0131, Hitter=2.8354, decay factors, $700K floor)
+1. **Extension Calculator** — WAR-based pricing on player profile (SP=3.3755, RP=5.0131, Hitter=2.8354, decay factors, $700K floor); submits years+AAV to pending_actions with year-by-year JSONB; auto-applies contract on approval; blocks players with >1 ARB year; finds first non-dollar contract year as start
 2. **Rule 5 Eligibility Display** — Shows `rule_5_eligibility_year` on player profile
 3. **Roster Moves Log** — JSONB-backed per-player history, appended on every move, displayed on profile; all roster moves (promote 40/26-man, option, IL, activate, DFA) also log to the activity feed via `LogActivity`
 4. **Bid History Page** — `/bids/history` with league/team filters, parses `bid_history` JSONB
