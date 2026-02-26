@@ -177,6 +177,10 @@ func GetPlayerByID(db *pgxpool.Pool, id string) (*RosterPlayer, error) {
 		p.Contracts[year] = contracts[i]
 	}
 
+	if teamID != nil {
+		p.TeamID = *teamID
+	}
+
 	isOnTeam := teamID != nil && *teamID != "00000000-0000-0000-0000-000000000000"
 
 	if p.StatusIL != "" {

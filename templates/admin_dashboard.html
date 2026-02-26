@@ -80,7 +80,7 @@
     </div>
 </div>
 
-<h3>Pending Arbitration & Extensions</h3>
+<h3>Pending Actions</h3>
 {{if .Actions}}
 <table class="fantasy-table-base">
     <thead>
@@ -88,8 +88,7 @@
             <th>Type</th>
             <th>Player</th>
             <th>Team</th>
-            <th>Year</th>
-            <th>Proposed Amount</th>
+            <th>Details</th>
             <th>Actions</th>
         </tr>
     </thead>
@@ -99,8 +98,7 @@
             <td>{{.ActionType}}</td>
             <td><strong>{{.PlayerName}}</strong></td>
             <td>{{.TeamName}}</td>
-            <td>{{.TargetYear}}</td>
-            <td>${{formatMoney .SalaryAmount}}</td>
+            <td>{{if .Summary}}{{.Summary}}{{else if .TargetYear}}Year: {{.TargetYear}} — ${{formatMoney .SalaryAmount}}{{end}}</td>
             <td>
                 <form action="/admin/process" method="POST" style="display: inline;">
                     <input type="hidden" name="action_id" value="{{.ID}}">

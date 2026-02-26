@@ -4,9 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// parseContractAmount parses contract TEXT values like "$1,000,000", "1000000", "1000000(TO)" into float64.
+func parseContractAmount(val string) float64 {
+	val = strings.ReplaceAll(val, "$", "")
+	val = strings.ReplaceAll(val, ",", "")
+	val = strings.Split(val, "(")[0] // strip (TO) suffix
+	val = strings.TrimSpace(val)
+	f, _ := strconv.ParseFloat(val, 64)
+	return f
+}
 
 type ArbitrationPlayer struct {
 	ID            string `json:"id"`
@@ -26,6 +38,7 @@ type PendingAction struct {
 	ActionType   string  `json:"action_type"`
 	TargetYear   int     `json:"target_year"`
 	SalaryAmount float64 `json:"salary_amount"`
+	Summary      string  `json:"summary"`
 	Status       string  `json:"status"`
 }
 
@@ -114,10 +127,10 @@ func GetAllPendingActions(db *pgxpool.Pool) ([]PendingAction, error) {
 
 func GetPendingActionsForLeagues(db *pgxpool.Pool, leagueIDs []string) ([]PendingAction, error) {
 	query := `
-		SELECT pa.id, pa.player_id, p.first_name || ' ' || p.last_name, t.name, 
-		       pa.action_type, pa.target_year, pa.salary_amount, pa.status
+		SELECT pa.id, COALESCE(pa.player_id::TEXT, ''), COALESCE(p.first_name || ' ' || p.last_name, ''), t.name,
+		       pa.action_type, COALESCE(pa.target_year, 0), COALESCE(pa.salary_amount, 0), COALESCE(pa.summary, ''), pa.status
 		FROM pending_actions pa
-		JOIN players p ON pa.player_id = p.id
+		LEFT JOIN players p ON pa.player_id = p.id
 		JOIN teams t ON pa.team_id = t.id
 		WHERE pa.status = 'PENDING'
 	`
@@ -137,7 +150,7 @@ func GetPendingActionsForLeagues(db *pgxpool.Pool, leagueIDs []string) ([]Pendin
 	var actions []PendingAction
 	for rows.Next() {
 		var a PendingAction
-		if err := rows.Scan(&a.ID, &a.PlayerID, &a.PlayerName, &a.TeamName, &a.ActionType, &a.TargetYear, &a.SalaryAmount, &a.Status); err != nil {
+		if err := rows.Scan(&a.ID, &a.PlayerID, &a.PlayerName, &a.TeamName, &a.ActionType, &a.TargetYear, &a.SalaryAmount, &a.Summary, &a.Status); err != nil {
 			continue
 		}
 		actions = append(actions, a)
@@ -152,25 +165,52 @@ func ProcessAction(db *pgxpool.Pool, actionID, status string) error {
 	defer tx.Rollback(ctx)
 
 	// 1. Get action details
-	var pID, aType string
-	var year int
-	var amount float64
+	var pID *string
+	var aType string
+	var year *int
+	var amount *float64
 	var multiYear []byte
 	err = tx.QueryRow(ctx, `SELECT player_id, action_type, target_year, salary_amount, multi_year_contract FROM pending_actions WHERE id = $1`, actionID).Scan(&pID, &aType, &year, &amount, &multiYear)
 	if err != nil { return err }
 
 	if status == "APPROVED" {
-		if aType == "ARBITRATION" {
+		if aType == "ARBITRATION" && pID != nil && year != nil && amount != nil {
 			// Update Player Record
-			contractCol := fmt.Sprintf("contract_%d", year)
-			_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET %s = $1 WHERE id = $2", contractCol), fmt.Sprintf("%.2f", amount), pID)
+			contractCol := fmt.Sprintf("contract_%d", *year)
+			_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET %s = $1 WHERE id = $2", contractCol), fmt.Sprintf("%.2f", *amount), *pID)
 			if err != nil { return err }
-		} else if aType == "EXTENSION" {
+		} else if aType == "EXTENSION" && pID != nil {
 			var salaries map[string]float64
 			json.Unmarshal(multiYear, &salaries)
 			for yr, amt := range salaries {
 				contractCol := fmt.Sprintf("contract_%s", yr)
-				_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET %s = $1 WHERE id = $2", contractCol), fmt.Sprintf("%.2f", amt), pID)
+				_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET %s = $1 WHERE id = $2", contractCol), fmt.Sprintf("%.2f", amt), *pID)
+				if err != nil { return err }
+			}
+		} else if aType == "RESTRUCTURE" && pID != nil && len(multiYear) > 0 {
+			var data map[string]string
+			json.Unmarshal(multiYear, &data)
+			fromYear := data["from_year"]
+			toYear := data["to_year"]
+			moveAmount, _ := strconv.ParseFloat(data["amount"], 64)
+
+			if fromYear != "" && toYear != "" && moveAmount > 0 {
+				fromCol := fmt.Sprintf("contract_%s", fromYear)
+				toCol := fmt.Sprintf("contract_%s", toYear)
+
+				// Read current values
+				var fromVal, toVal string
+				err = tx.QueryRow(ctx, fmt.Sprintf("SELECT COALESCE(%s, '0'), COALESCE(%s, '0') FROM players WHERE id = $1", fromCol, toCol), *pID).Scan(&fromVal, &toVal)
+				if err != nil { return err }
+
+				fromAmount := parseContractAmount(fromVal)
+				toAmount := parseContractAmount(toVal)
+
+				newFrom := fromAmount - moveAmount
+				newTo := toAmount + moveAmount
+
+				_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET %s = $1, %s = $2 WHERE id = $3", fromCol, toCol),
+					fmt.Sprintf("%.2f", newFrom), fmt.Sprintf("%.2f", newTo), *pID)
 				if err != nil { return err }
 			}
 		}

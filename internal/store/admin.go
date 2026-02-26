@@ -181,11 +181,11 @@ func DeleteDeadCapPenalty(db *pgxpool.Pool, id string) error {
 	return err
 }
 
-func CreatePendingAction(db *pgxpool.Pool, leagueID, teamID, actionType, summary string) error {
+func CreatePendingAction(db *pgxpool.Pool, playerID, leagueID, teamID, actionType, summary string, contractData []byte) error {
 	_, err := db.Exec(context.Background(), `
-		INSERT INTO pending_actions (league_id, team_id, action_type, summary, status)
-		VALUES ($1, $2, $3, $4, 'PENDING')
-	`, leagueID, teamID, actionType, summary)
+		INSERT INTO pending_actions (player_id, league_id, team_id, action_type, summary, multi_year_contract, status)
+		VALUES ($1, $2, $3, $4, $5, $6, 'PENDING')
+	`, playerID, leagueID, teamID, actionType, summary, contractData)
 	return err
 }
 

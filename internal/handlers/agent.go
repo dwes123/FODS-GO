@@ -1290,10 +1290,10 @@ func toolGetPendingApprovals(db *pgxpool.Pool, ac *agentCtx, args map[string]int
 	// 1. Pending actions (arbitration/extensions) — filtered by commissioner's leagues
 	ctx := context.Background()
 	actionRows, err := db.Query(ctx, `
-		SELECT pa.id, p.first_name || ' ' || p.last_name, t.name, l.name,
-		       pa.action_type, pa.target_year, pa.salary_amount
+		SELECT pa.id, COALESCE(p.first_name || ' ' || p.last_name, ''), t.name, l.name,
+		       pa.action_type, COALESCE(pa.target_year, 0), COALESCE(pa.salary_amount, 0), COALESCE(pa.summary, '')
 		FROM pending_actions pa
-		JOIN players p ON pa.player_id = p.id
+		LEFT JOIN players p ON pa.player_id = p.id
 		JOIN teams t ON pa.team_id = t.id
 		JOIN leagues l ON pa.league_id = l.id
 		WHERE pa.status = 'PENDING' AND pa.league_id = ANY($1)
@@ -1304,10 +1304,10 @@ func toolGetPendingApprovals(db *pgxpool.Pool, ac *agentCtx, args map[string]int
 	var actionList []map[string]interface{}
 	if actionRows != nil {
 		for actionRows.Next() {
-			var id, playerName, teamName, leagueName, actionType string
+			var id, playerName, teamName, leagueName, actionType, summary string
 			var targetYear int
 			var salary float64
-			actionRows.Scan(&id, &playerName, &teamName, &leagueName, &actionType, &targetYear, &salary)
+			actionRows.Scan(&id, &playerName, &teamName, &leagueName, &actionType, &targetYear, &salary, &summary)
 			actionList = append(actionList, map[string]interface{}{
 				"id":            id,
 				"type":          actionType,
@@ -1316,6 +1316,7 @@ func toolGetPendingApprovals(db *pgxpool.Pool, ac *agentCtx, args map[string]int
 				"league_name":   leagueName,
 				"target_year":   targetYear,
 				"salary_amount": salary,
+				"summary":       summary,
 			})
 		}
 		actionRows.Close()

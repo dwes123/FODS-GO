@@ -373,9 +373,18 @@ async function submitExtension(years, aav) {
     formData.append('years', years);
     formData.append('aav', aav);
 
-    const res = await fetch('/extension', { method: 'POST', body: formData });
-    const json = await res.json();
-    alert(json.message);
+    try {
+        const res = await fetch('/extension', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (res.ok) {
+            alert(json.message);
+            location.reload();
+        } else {
+            alert("Error: " + json.error);
+        }
+    } catch (e) {
+        alert("Request failed");
+    }
 }
 
 // --- RESTRUCTURE LOGIC ---
