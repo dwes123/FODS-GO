@@ -4,6 +4,12 @@
 <div class="auth-container">
     <h2>Login</h2>
 
+    {{if .ResetSuccess}}
+    <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+        Password reset successful. Please log in with your new password.
+    </div>
+    {{end}}
+
 <form action="/login" method="POST">
         <div class="form-group">
             <label for="email">Username or Email:</label>
@@ -15,6 +21,7 @@
         </div>
         <button type="submit" class="button">Login</button>
     </form>
+    <p><a href="/forgot-password">Forgot Password?</a></p>
     <p>Don't have an account? <a href="/register">Register here</a></p>
 </div>
 

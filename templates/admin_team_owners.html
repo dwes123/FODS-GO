@@ -114,6 +114,7 @@
                     {{if eq .ID $.User.ID}}
                     <span style="color: #999;">You</span>
                     {{else}}
+                    <button type="button" class="button button-small" style="background: #f0ad4e;" onclick="openResetModal('{{.ID}}', '{{.Username}}')">Reset Password</button>
                     <form action="/admin/team-owners/delete-user" method="POST" style="display: inline;" onsubmit="return confirm('Delete user {{.Username}}? This will remove all team ownership and sessions.');">
                         <input type="hidden" name="user_id" value="{{.ID}}">
                         <button type="submit" class="button button-small" style="background: #d9534f;">Delete</button>
@@ -126,5 +127,82 @@
             {{end}}
         </tbody>
     </table>
+    <!-- Reset Password Modal -->
+    <div id="resetModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:white; padding:24px; border-radius:8px; max-width:400px; width:90%; margin:auto; position:relative; top:50%; transform:translateY(-50%);">
+            <h3 style="margin-top:0;">Reset Password</h3>
+            <p>Set a new password for <strong id="resetUsername"></strong></p>
+            <input type="hidden" id="resetUserId">
+            <div style="margin-bottom:12px;">
+                <label><strong>New Password</strong></label><br>
+                <input type="password" id="resetNewPassword" minlength="6" style="width:100%; padding:8px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div id="resetMessage" style="display:none; padding:10px; border-radius:6px; margin-bottom:12px;"></div>
+            <div style="display:flex; gap:10px;">
+                <button class="button" onclick="submitResetPassword()">Reset Password</button>
+                <button class="button" style="background:#999;" onclick="closeResetModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+function openResetModal(userId, username) {
+    document.getElementById('resetUserId').value = userId;
+    document.getElementById('resetUsername').textContent = username;
+    document.getElementById('resetNewPassword').value = '';
+    document.getElementById('resetMessage').style.display = 'none';
+    document.getElementById('resetModal').style.display = 'block';
+}
+
+function closeResetModal() {
+    document.getElementById('resetModal').style.display = 'none';
+}
+
+function submitResetPassword() {
+    var userId = document.getElementById('resetUserId').value;
+    var newPassword = document.getElementById('resetNewPassword').value;
+    var msgEl = document.getElementById('resetMessage');
+
+    if (!newPassword || newPassword.length < 6) {
+        msgEl.style.display = 'block';
+        msgEl.style.background = '#f8d7da';
+        msgEl.style.color = '#721c24';
+        msgEl.textContent = 'Password must be at least 6 characters.';
+        return;
+    }
+
+    var formData = new FormData();
+    formData.append('user_id', userId);
+    formData.append('new_password', newPassword);
+
+    fetch('/admin/reset-user-password', { method: 'POST', body: formData })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                msgEl.style.display = 'block';
+                msgEl.style.background = '#f8d7da';
+                msgEl.style.color = '#721c24';
+                msgEl.textContent = data.error;
+            } else {
+                msgEl.style.display = 'block';
+                msgEl.style.background = '#d4edda';
+                msgEl.style.color = '#155724';
+                msgEl.textContent = data.message;
+                document.getElementById('resetNewPassword').value = '';
+                setTimeout(closeResetModal, 1500);
+            }
+        })
+        .catch(function() {
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#f8d7da';
+            msgEl.style.color = '#721c24';
+            msgEl.textContent = 'Failed to reset password.';
+        });
+}
+
+document.getElementById('resetModal').addEventListener('click', function(e) {
+    if (e.target === this) closeResetModal();
+});
+</script>
 {{end}}

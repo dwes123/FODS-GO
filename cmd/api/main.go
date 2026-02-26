@@ -69,6 +69,10 @@ func main() {
 		public.POST("/login", middleware.RateLimit(10, time.Minute), handlers.LoginHandler(database))
 		public.GET("/register", handlers.RegisterPageHandler())
 		public.POST("/register", middleware.RateLimit(5, time.Minute), handlers.RegisterHandler(database))
+		public.GET("/forgot-password", handlers.ForgotPasswordPageHandler())
+		public.POST("/forgot-password", middleware.RateLimit(5, time.Minute), handlers.ForgotPasswordHandler(database))
+		public.GET("/reset-password", handlers.ResetPasswordPageHandler(database))
+		public.POST("/reset-password", middleware.RateLimit(5, time.Minute), handlers.ResetPasswordHandler(database))
 		public.GET("/logout", handlers.LogoutHandler(database))
 	}
 
@@ -197,6 +201,7 @@ func main() {
 		authorized.POST("/admin/team-owners/remove", handlers.AdminRemoveTeamOwnerHandler(database))
 		authorized.POST("/admin/team-owners/create-user", handlers.AdminCreateUserHandler(database))
 		authorized.POST("/admin/team-owners/delete-user", handlers.AdminDeleteUserHandler(database))
+		authorized.POST("/admin/reset-user-password", handlers.AdminResetPasswordHandler(database))
 
 		// Player Add Request Approval
 		authorized.GET("/admin/player-requests", handlers.AdminPlayerRequestsHandler(database))

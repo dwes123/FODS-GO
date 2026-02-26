@@ -231,6 +231,34 @@ func UpdateThemePreference(db *pgxpool.Pool, userID, theme string) error {
 	return err
 }
 
+// --- Password Reset Tokens ---
+
+func CreatePasswordResetToken(db *pgxpool.Pool, userID, token string, expiresAt time.Time) error {
+	_, err := db.Exec(context.Background(),
+		`INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+		userID, token, expiresAt)
+	return err
+}
+
+func GetPasswordResetToken(db *pgxpool.Pool, token string) (string, error) {
+	var userID string
+	err := db.QueryRow(context.Background(),
+		`SELECT user_id FROM password_reset_tokens
+		 WHERE token = $1 AND expires_at > NOW() AND used = FALSE`,
+		token).Scan(&userID)
+	if err != nil {
+		return "", err
+	}
+	return userID, nil
+}
+
+func MarkResetTokenUsed(db *pgxpool.Pool, token string) error {
+	_, err := db.Exec(context.Background(),
+		`UPDATE password_reset_tokens SET used = TRUE WHERE token = $1`,
+		token)
+	return err
+}
+
 func GetAdminLeagues(db *pgxpool.Pool, userID string) ([]string, error) {
 	rows, err := db.Query(context.Background(), `
 		SELECT league_id FROM league_roles WHERE user_id = $1 AND role = 'commissioner'

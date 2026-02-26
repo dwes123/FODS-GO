@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dwes123/fantasy-baseball-go/internal/notification"
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -41,7 +42,11 @@ func RegisterPageHandler() gin.HandlerFunc {
 
 func LoginPageHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		RenderTemplate(c, "login.html", nil)
+		data := gin.H{}
+		if c.Query("reset") == "1" {
+			data["ResetSuccess"] = true
+		}
+		RenderTemplate(c, "login.html", data)
 	}
 }
 
@@ -134,6 +139,128 @@ func UpdateThemeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Theme updated", "theme": req.Theme})
+	}
+}
+
+func ForgotPasswordPageHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		data := gin.H{}
+		if c.Query("sent") == "1" {
+			data["Sent"] = true
+		}
+		RenderTemplate(c, "forgot_password.html", data)
+	}
+}
+
+func ForgotPasswordHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		email := strings.TrimSpace(c.PostForm("email"))
+
+		if email != "" {
+			user, err := store.GetUserByEmail(db, email)
+			if err == nil && user != nil {
+				tokenBytes := make([]byte, 32)
+				rand.Read(tokenBytes)
+				token := hex.EncodeToString(tokenBytes)
+
+				expiresAt := time.Now().Add(1 * time.Hour)
+				err = store.CreatePasswordResetToken(db, user.ID, token, expiresAt)
+				if err != nil {
+					fmt.Printf("ERROR [ForgotPassword]: %v\n", err)
+				} else {
+					resetURL := "https://frontofficedynastysports.com/reset-password?token=" + token
+					body := fmt.Sprintf(`<h2>Password Reset</h2>
+<p>Hi %s,</p>
+<p>You requested a password reset for your Front Office Dynasty Sports account.</p>
+<p><a href="%s" style="display:inline-block;padding:12px 24px;background:#2E6DA4;color:white;text-decoration:none;border-radius:6px;">Reset Password</a></p>
+<p>Or copy this link: %s</p>
+<p>This link expires in 1 hour.</p>
+<p>If you didn't request this, you can ignore this email.</p>`,
+						user.Username, resetURL, resetURL)
+					notification.SendEmail(user.Email, "Password Reset - Front Office Dynasty Sports", body)
+				}
+			}
+		}
+
+		// Always redirect to success — don't leak whether email exists
+		c.Redirect(http.StatusFound, "/forgot-password?sent=1")
+	}
+}
+
+func ResetPasswordPageHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Query("token")
+		if token == "" {
+			RenderTemplate(c, "reset_password.html", gin.H{"Error": "Invalid or missing reset link."})
+			return
+		}
+
+		_, err := store.GetPasswordResetToken(db, token)
+		if err != nil {
+			RenderTemplate(c, "reset_password.html", gin.H{"Error": "This reset link is invalid or has expired."})
+			return
+		}
+
+		RenderTemplate(c, "reset_password.html", gin.H{"Token": token})
+	}
+}
+
+func ResetPasswordHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.PostForm("token")
+		newPassword := c.PostForm("new_password")
+		confirmPassword := c.PostForm("confirm_password")
+
+		if token == "" {
+			RenderTemplate(c, "reset_password.html", gin.H{"Error": "Invalid request."})
+			return
+		}
+
+		if newPassword == "" || len(newPassword) < 6 {
+			RenderTemplate(c, "reset_password.html", gin.H{
+				"Token": token,
+				"Error": "Password must be at least 6 characters.",
+			})
+			return
+		}
+
+		if newPassword != confirmPassword {
+			RenderTemplate(c, "reset_password.html", gin.H{
+				"Token": token,
+				"Error": "Passwords do not match.",
+			})
+			return
+		}
+
+		userID, err := store.GetPasswordResetToken(db, token)
+		if err != nil {
+			RenderTemplate(c, "reset_password.html", gin.H{"Error": "This reset link is invalid or has expired."})
+			return
+		}
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			fmt.Printf("ERROR [ResetPassword]: %v\n", err)
+			RenderTemplate(c, "reset_password.html", gin.H{
+				"Token": token,
+				"Error": "Internal server error. Please try again.",
+			})
+			return
+		}
+
+		err = store.UpdateUserPassword(db, userID, string(hash))
+		if err != nil {
+			fmt.Printf("ERROR [ResetPassword]: %v\n", err)
+			RenderTemplate(c, "reset_password.html", gin.H{
+				"Token": token,
+				"Error": "Internal server error. Please try again.",
+			})
+			return
+		}
+
+		store.MarkResetTokenUsed(db, token)
+
+		c.Redirect(http.StatusFound, "/login?reset=1")
 	}
 }
 

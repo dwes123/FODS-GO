@@ -785,6 +785,46 @@ func AdminDeleteUserHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+func AdminResetPasswordHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		if len(adminLeagues) == 0 && user.Role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Commissioner Only"})
+			return
+		}
+
+		userID := c.PostForm("user_id")
+		newPassword := c.PostForm("new_password")
+
+		if userID == "" || newPassword == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User ID and password are required"})
+			return
+		}
+
+		if len(newPassword) < 6 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Password must be at least 6 characters"})
+			return
+		}
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			fmt.Printf("ERROR [AdminResetPassword]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+
+		err = store.UpdateUserPassword(db, userID, string(hash))
+		if err != nil {
+			fmt.Printf("ERROR [AdminResetPassword]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Password has been reset successfully"})
+	}
+}
+
 // --- Player Add Request Approval ---
 
 func AdminPlayerRequestsHandler(db *pgxpool.Pool) gin.HandlerFunc {

@@ -172,6 +172,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **scoring_categories** — configurable scoring weights per stat; `stat_type` ('pitching'/'hitting'), `stat_key`, `display_name`, `points`, `is_active`; unique on `(stat_type, stat_key)`
 - **daily_player_stats** — one row per player per game per stat type; `raw_stats` JSONB stores individual stat values; `fantasy_points` pre-calculated; unique on `(player_id, game_pk, stat_type)`; indexed on `game_date`, `player_id`, `team_id`, `league_id`, `mlb_id`
 - **stats_processing_log** — tracks which dates have been processed per stat type; unique on `(game_date, stat_type)`; status 'completed' or 'error'
+- **password_reset_tokens** — `user_id` (UUID FK to users, CASCADE), `token` (TEXT UNIQUE, indexed), `expires_at` (TIMESTAMP), `used` (BOOLEAN default FALSE); 1-hour expiry; tokens are 32-byte crypto-random hex strings
 
 ## Key Business Logic
 
@@ -264,6 +265,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Player Add Request Form** — `/player/request` lets team owners request new players be added to the database; bulk submission supports up to 10 players at once with dynamic add/remove rows (JS reindexing), shared league dropdown and notes field; per-row fields: first name, last name, position (dropdown), MLB team, IFA checkbox; 2-column CSS grid layout per row with card-style containers; handler loops indexed fields (`first_name_0`, `position_1`, etc.) and creates individual `player_add_requests` rows; success message shows count ("3 player requests have been submitted..."); only users with teams can submit; commissioners approve/reject individually at `/admin/player-requests`; on approval, player auto-created as free agent (`fa_status='available'`, `is_international_free_agent` per request) and activity logged; commissioner scoping (global admins see all, league commissioners see their leagues); linked from nav bar and admin dashboard; `player_add_requests` table with PENDING/APPROVED/REJECTED status; `migrations/021_player_add_requests.sql`
 - **My Open Bids Page** — `/bids/my-bids` shows only the logged-in user's active bids (where `pending_bid_team_id` matches any of their teams via `team_owners`); `GetUserOpenBids()` in `store/bids.go` reuses `PendingBidPlayer` struct; columns: Player, Position, League, Team, Bid Points, Years, AAV, Time Remaining, Action; live countdown timers with color coding; empty state when no bids; nav link before "Pending Bids"
 - **Nested Nav Dropdowns** — Nav bar groups 19+ flat links into 4 CSS-only hover dropdowns for logged-in users: **League** (Rosters, Standings, Financials, Activity, Stats), **Roster** (Rotations, Team Options, Arbitration, Waiver Wire), **Free Agency** (Free Agents, My Bids, Pending Bids, Bid History, Bid Calc, Request Player), **Trades** (Trade Center, Trade Block); Home, Report Bug, and Commissioner remain as direct links; non-logged-in users see flat links; dark mode fully supported
+- **Password Reset (Self-Service)** — "Forgot Password?" link on login page; `GET/POST /forgot-password` sends email with 1-hour reset token (32-byte crypto-random hex); `GET/POST /reset-password?token=X` validates token and sets new password; always shows generic success message (no email leak); rate limited 5/min; `password_reset_tokens` table tracks tokens with expiry and used flag; login page shows green success banner after reset via `?reset=1`; templates: `forgot_password.html`, `reset_password.html`; `migrations/022_password_reset_tokens.sql`
 - **Migrations:** `018_fantasy_points.sql` creates `scoring_categories`, `daily_player_stats`, `stats_processing_log` tables and seeds 19 pitching + 8 hitting categories; `019_activate_hitting.sql` sets `is_active = TRUE` for hitting categories; `020_reclassify_transaction_types.sql` standardizes transaction types to 4 categories
 
 ### Commissioner Tools Enhancements
@@ -279,6 +281,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Player Editor DFA Only** — `dfa_only` checkbox in Status section; reads/writes `dfa_only` BOOLEAN column
 - **Player Editor Save Confirmation** — Green success banner shown after saving via `?saved=1` query param
 - **Team & User Management** — `/admin/team-owners` page for adding/removing team owners (`team_owners` table), creating new users (bcrypt, bypasses approval queue), and deleting users (cascading FK cleanup); global admins see all leagues, commissioners see only their leagues; `AddTeamOwner`/`RemoveTeamOwner` update `teams.owner_name` automatically; linked from dashboard
+- **Password Reset (Commissioner)** — Orange "Reset Password" button per user on `/admin/team-owners` All Users table; opens modal with password input; `POST /admin/reset-user-password` returns JSON; admin/commissioner only
 
 ### Commissioner AI Agent
 - **Chat UI** — `/admin/agent` chat-based interface for commissioners; extends `layout.html`, vanilla JS with conversation history
@@ -341,6 +344,7 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 - `migrations/019_activate_hitting.sql` — Activates 8 hitting scoring categories
 - `migrations/020_reclassify_transaction_types.sql` — Standardizes `transaction_type` values from legacy types (ADD, DROP, ROSTER, TRADE, COMMISSIONER, WAIVER, SEASONAL) to 4 clean categories (Added Player, Dropped Player, Roster Move, Trade); uses keyword matching on summaries to reclassify COMMISSIONER entries
 - `migrations/021_player_add_requests.sql` — Adds: `player_add_requests` table (id, first_name, last_name, position, mlb_team, league_id, is_ifa, notes, submitted_by, status, reviewed_by, reviewed_at, created_at)
+- `migrations/022_password_reset_tokens.sql` — Adds: `password_reset_tokens` table (id, user_id FK, token UNIQUE, expires_at, used, created_at) + token index
 
 ### Not Implemented (deferred)
 - Draft Room (Feature 2) — complex real-time feature, deferred
