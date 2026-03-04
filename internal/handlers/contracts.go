@@ -82,6 +82,7 @@ func SubmitExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		playerID := c.PostForm("player_id")
 		years, _ := strconv.Atoi(c.PostForm("years"))
 		aav, _ := strconv.ParseFloat(c.PostForm("aav"), 64)
+		war := c.PostForm("war")
 
 		if years < 1 || years > 8 || aav <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid extension parameters"})
@@ -141,6 +142,9 @@ func SubmitExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		contractData, _ := json.Marshal(salaries)
 		summary := fmt.Sprintf("Extension request for %s %s: %d years at $%s AAV (years %d-%d)",
 			player.FirstName, player.LastName, years, formatDollar(aav), startYear, startYear+years-1)
+		if war != "" {
+			summary += fmt.Sprintf(" | 3-Year WAR: %s", war)
+		}
 
 		err = store.CreatePendingAction(db, playerID, player.LeagueID, player.TeamID, "EXTENSION", summary, contractData)
 

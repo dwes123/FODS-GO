@@ -372,6 +372,7 @@ async function submitExtension(years, aav) {
     formData.append('player_id', '{{.Player.ID}}');
     formData.append('years', years);
     formData.append('aav', aav);
+    formData.append('war', document.getElementById('ext_war').value);
 
     try {
         const res = await fetch('/extension', { method: 'POST', body: formData });
