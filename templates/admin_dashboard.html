@@ -88,6 +88,7 @@
             <th>Type</th>
             <th>Player</th>
             <th>Team</th>
+            <th>League</th>
             <th>Details</th>
             <th>Actions</th>
         </tr>
@@ -98,6 +99,7 @@
             <td>{{.ActionType}}</td>
             <td><strong>{{.PlayerName}}</strong></td>
             <td>{{.TeamName}}</td>
+            <td>{{.LeagueName}}</td>
             <td>{{if .Summary}}{{.Summary}}{{else if .TargetYear}}Year: {{.TargetYear}} — ${{formatMoney .SalaryAmount}}{{end}}</td>
             <td>
                 <form action="/admin/process" method="POST" style="display: inline;">

@@ -35,6 +35,7 @@ type PendingAction struct {
 	PlayerID     string  `json:"player_id"`
 	PlayerName   string  `json:"player_name"`
 	TeamName     string  `json:"team_name"`
+	LeagueName   string  `json:"league_name"`
 	ActionType   string  `json:"action_type"`
 	TargetYear   int     `json:"target_year"`
 	SalaryAmount float64 `json:"salary_amount"`
@@ -128,10 +129,11 @@ func GetAllPendingActions(db *pgxpool.Pool) ([]PendingAction, error) {
 func GetPendingActionsForLeagues(db *pgxpool.Pool, leagueIDs []string) ([]PendingAction, error) {
 	query := `
 		SELECT pa.id, COALESCE(pa.player_id::TEXT, ''), COALESCE(p.first_name || ' ' || p.last_name, ''), t.name,
-		       pa.action_type, COALESCE(pa.target_year, 0), COALESCE(pa.salary_amount, 0), COALESCE(pa.summary, ''), pa.status
+		       COALESCE(l.name, ''), pa.action_type, COALESCE(pa.target_year, 0), COALESCE(pa.salary_amount, 0), COALESCE(pa.summary, ''), pa.status
 		FROM pending_actions pa
 		LEFT JOIN players p ON pa.player_id = p.id
 		JOIN teams t ON pa.team_id = t.id
+		LEFT JOIN leagues l ON pa.league_id = l.id
 		WHERE pa.status = 'PENDING'
 	`
 	var args []interface{}
@@ -150,7 +152,7 @@ func GetPendingActionsForLeagues(db *pgxpool.Pool, leagueIDs []string) ([]Pendin
 	var actions []PendingAction
 	for rows.Next() {
 		var a PendingAction
-		if err := rows.Scan(&a.ID, &a.PlayerID, &a.PlayerName, &a.TeamName, &a.ActionType, &a.TargetYear, &a.SalaryAmount, &a.Summary, &a.Status); err != nil {
+		if err := rows.Scan(&a.ID, &a.PlayerID, &a.PlayerName, &a.TeamName, &a.LeagueName, &a.ActionType, &a.TargetYear, &a.SalaryAmount, &a.Summary, &a.Status); err != nil {
 			continue
 		}
 		actions = append(actions, a)
