@@ -53,12 +53,14 @@ func finalizeBids(db *pgxpool.Pool) {
 		}
 
 		if bidType == "ifa" {
-			// IFA signing: deduct from ISBP, no contract written
+			// IFA signing: deduct from ISBP, no contract written, non-40-man minors
 			_, err = tx.Exec(ctx, `
 				UPDATE players SET
 					team_id = $1,
 					fa_status = 'rostered',
-					status_40_man = TRUE,
+					status_40_man = FALSE,
+					status_26_man = FALSE,
+					status_il = NULL,
 					pending_bid_amount = NULL,
 					pending_bid_team_id = NULL,
 					is_international_free_agent = FALSE
@@ -83,6 +85,7 @@ func finalizeBids(db *pgxpool.Pool) {
 					team_id = $1,
 					fa_status = 'rostered',
 					status_40_man = FALSE,
+					status_il = NULL,
 					pending_bid_amount = NULL,
 					pending_bid_team_id = NULL
 				WHERE id = $2
@@ -107,6 +110,7 @@ func finalizeBids(db *pgxpool.Pool) {
 					fa_status = 'rostered',
 					contract_2026 = $2,
 					status_40_man = TRUE,
+					status_il = NULL,
 					pending_bid_amount = NULL,
 					pending_bid_team_id = NULL
 				WHERE id = $3
