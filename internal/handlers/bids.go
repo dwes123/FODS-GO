@@ -18,6 +18,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		yearsStr := c.PostForm("years")
 		aavStr := c.PostForm("aav")
 		isIFAForm := c.PostForm("ifa") == "1"
+		isMiLBForm := c.PostForm("milb") == "1"
 
 		years, _ := strconv.Atoi(yearsStr)
 		aav, _ := strconv.ParseFloat(aavStr, 64)
@@ -45,11 +46,81 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// Check if player is actually IFA
-		var isIFA bool
+		// Check if player is IFA or minor leaguer
+		var isIFA, isMinorLeaguer bool
 		db.QueryRow(context.Background(),
-			"SELECT COALESCE(is_international_free_agent, FALSE) FROM players WHERE id = $1",
-			playerID).Scan(&isIFA)
+			"SELECT COALESCE(is_international_free_agent, FALSE), COALESCE(is_minor_leaguer, FALSE) FROM players WHERE id = $1",
+			playerID).Scan(&isIFA, &isMinorLeaguer)
+
+		if isMinorLeaguer && isMiLBForm {
+			// --- MiLB SIGNING (MiLB Balance) ---
+			signingAmount := aav
+			if signingAmount <= 0 {
+				c.String(http.StatusBadRequest, "Signing amount must be greater than $0.")
+				return
+			}
+
+			// Check MiLB FA window
+			if open, msg := store.IsWithinDateWindow(db, leagueID, time.Now().Year(), "milb_fa_window_open", "milb_fa_window_close"); !open {
+				c.String(http.StatusForbidden, "MiLB FA signing window is closed. "+msg)
+				return
+			}
+
+			// Check MiLB balance
+			var milbBalance float64
+			db.QueryRow(context.Background(),
+				"SELECT COALESCE(milb_balance, 0) FROM teams WHERE id = $1", teamID).Scan(&milbBalance)
+			if signingAmount > milbBalance {
+				c.String(http.StatusBadRequest, fmt.Sprintf("Insufficient MiLB balance. Signing amount: $%.0f, Available: $%.0f", signingAmount, milbBalance))
+				return
+			}
+
+			// Check current bid — must outbid by any amount
+			var currentAmount float64
+			var currentStatus string
+			db.QueryRow(context.Background(),
+				"SELECT COALESCE(pending_bid_amount, 0), COALESCE(fa_status, '') FROM players WHERE id = $1",
+				playerID).Scan(&currentAmount, &currentStatus)
+
+			if currentStatus == "pending_bid" && signingAmount <= currentAmount {
+				c.String(http.StatusBadRequest, fmt.Sprintf("Bid too low. Current bid is $%.0f. You must offer more.", currentAmount))
+				return
+			}
+
+			// Update Rule 5 eligibility year if provided and not already set
+			rule5Year := c.PostForm("rule5_year")
+			if rule5Year != "" && rule5Year != "N/A" {
+				db.Exec(context.Background(),
+					"UPDATE players SET rule_5_eligibility_year = $1 WHERE id = $2 AND (rule_5_eligibility_year IS NULL OR rule_5_eligibility_year = '')",
+					rule5Year, playerID)
+			}
+
+			// Submit MiLB bid
+			endTime := time.Now().Add(48 * time.Hour)
+			_, err = db.Exec(context.Background(), `
+				UPDATE players SET
+					fa_status = 'pending_bid',
+					pending_bid_amount = $1,
+					pending_bid_years = 1,
+					pending_bid_aav = $1,
+					pending_bid_team_id = $2,
+					pending_bid_manager_id = $3,
+					bid_start_time = NOW(),
+					bid_end_time = $4,
+					bid_type = 'milb'
+				WHERE id = $5
+			`, signingAmount, teamID, user.ID, endTime, playerID)
+
+			if err != nil {
+				fmt.Printf("ERROR [SubmitBid-MiLB]: %v\n", err)
+				c.String(http.StatusInternalServerError, "Failed to submit MiLB bid")
+				return
+			}
+
+			store.AppendBidHistory(db, playerID, teamID, signingAmount, 1, signingAmount)
+			c.Redirect(http.StatusFound, "/player/"+playerID)
+			return
+		}
 
 		if isIFA && isIFAForm {
 			// --- IFA SIGNING (ISBP) ---

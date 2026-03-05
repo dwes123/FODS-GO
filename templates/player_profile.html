@@ -2,7 +2,7 @@
 
 {{define "content"}}
 <div class="player-profile">
-    <h2>{{.Player.FirstName}} {{.Player.LastName}}</h2>
+    <h2>{{.Player.FirstName}} {{.Player.LastName}}{{if .Player.IsMinorLeaguer}} <span class="milb-badge">MiLB</span>{{end}}</h2>
     <div class="player-meta-grid">
         <div class="meta-card">
             <p><strong>Position:</strong> {{.Player.Position}}</p>
@@ -149,8 +149,24 @@
             </form>
         </div>
         {{else}}
-        <!-- FREE AGENT BIDDING -->
-        <div class="bid-section">
+        {{if .Player.IsMinorLeaguer}}
+        <!-- MINOR LEAGUER: CONTRACT TYPE SELECTOR -->
+        <div class="contract-type-selector">
+            <button type="button" class="contract-type-btn contract-type-major active" onclick="toggleContractType('major')">
+                <span class="contract-type-icon">MLB</span>
+                <span class="contract-type-label">Major League Contract</span>
+                <span class="contract-type-desc">Standard years + AAV bid points</span>
+            </button>
+            <button type="button" class="contract-type-btn contract-type-minor" onclick="toggleContractType('minor')">
+                <span class="contract-type-icon contract-type-icon-milb">MiLB</span>
+                <span class="contract-type-label">Minor League Contract</span>
+                <span class="contract-type-desc">Flat amount from MiLB balance</span>
+            </button>
+        </div>
+        {{end}}
+
+        <!-- FREE AGENT BIDDING (Major League) -->
+        <div class="bid-section" id="major-bid-form">
             <h3>Make an Offer</h3>
             <form action="/bid" method="POST" class="bid-form">
                 <input type="hidden" name="player_id" value="{{.Player.ID}}">
@@ -172,6 +188,42 @@
                 <button type="submit" class="button">Submit Bid</button>
             </form>
         </div>
+
+        {{if .Player.IsMinorLeaguer}}
+        <!-- MINOR LEAGUE BID FORM -->
+        <div class="bid-section milb-bid-section" id="milb-bid-form" style="display:none;">
+            <h3><span class="milb-badge">MiLB</span> Minor League Contract Signing</h3>
+            <p class="milb-note">Minor league signings are paid from your team's MiLB balance. No contract years are written.</p>
+            <p><strong>Your MiLB Balance:</strong> ${{formatMoney .MilbBalance}}</p>
+            <form action="/bid" method="POST" class="bid-form">
+                <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                <input type="hidden" name="years" value="1">
+                <input type="hidden" name="milb" value="1">
+                <div class="form-group">
+                    <label>Signing Amount ($):</label>
+                    <input type="number" name="aav" id="milb_amount" value="100000" min="1" step="1">
+                </div>
+                {{if not .Player.Rule5Year}}
+                <div class="form-group">
+                    <label>Rule V Eligibility Year:</label>
+                    <select name="rule5_year" id="milb_rule5">
+                        <option value="N/A">N/A</option>
+                        <option value="2026">2026</option>
+                        <option value="2027">2027</option>
+                        <option value="2028">2028</option>
+                        <option value="2029">2029</option>
+                        <option value="2030">2030</option>
+                        <option value="2031">2031</option>
+                        <option value="2032">2032</option>
+                    </select>
+                </div>
+                {{else}}
+                <p><strong>Rule V Eligibility:</strong> {{.Player.Rule5Year}}</p>
+                {{end}}
+                <button type="submit" class="button button-milb">Sign with MiLB Balance</button>
+            </form>
+        </div>
+        {{end}}
         {{end}}
     {{end}}
 
@@ -408,6 +460,23 @@ async function submitRestructure() {
     }
 }
 
+// --- MiLB CONTRACT TYPE TOGGLE ---
+function toggleContractType(type) {
+    var majorForm = document.getElementById('major-bid-form');
+    var milbForm = document.getElementById('milb-bid-form');
+    var btns = document.querySelectorAll('.contract-type-btn');
+    btns.forEach(function(b) { b.classList.remove('active'); });
+    if (type === 'minor') {
+        majorForm.style.display = 'none';
+        if (milbForm) milbForm.style.display = '';
+        document.querySelector('.contract-type-minor').classList.add('active');
+    } else {
+        majorForm.style.display = '';
+        if (milbForm) milbForm.style.display = 'none';
+        document.querySelector('.contract-type-major').classList.add('active');
+    }
+}
+
 // --- BIDDING LOGIC ---
 if (document.getElementById('bid_years')) {
     const multipliers = { 1: 2.0, 2: 1.8, 3: 1.6, 4: 1.4, 5: 1.2 };
@@ -454,5 +523,20 @@ if (document.getElementById('bid_years')) {
     .ifa-note { font-size: 0.9em; color: #856404; margin-bottom: 10px; }
     .button-ifa { background: var(--fod-orange-accent); border-color: var(--fod-orange-accent); }
     .button-ifa:hover { background: #c65e1a; }
+
+    .contract-type-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .contract-type-btn { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 12px; border: 2px solid #d0d7de; border-radius: 10px; background: #f8f9fa; cursor: pointer; transition: all 0.2s; }
+    .contract-type-btn:hover { border-color: #adb5bd; background: #e9ecef; }
+    .contract-type-btn.active.contract-type-major { border-color: var(--fod-blue-primary); background: #e8f0fe; box-shadow: 0 0 0 3px rgba(46,109,164,0.15); }
+    .contract-type-btn.active.contract-type-minor { border-color: #28a745; background: #e6f9ed; box-shadow: 0 0 0 3px rgba(40,167,69,0.15); }
+    .contract-type-icon { display: inline-block; font-size: 0.8rem; font-weight: 800; color: white; background: var(--fod-blue-primary); padding: 4px 10px; border-radius: 4px; letter-spacing: 0.5px; }
+    .contract-type-icon-milb { background: #28a745; }
+    .contract-type-label { font-weight: 700; font-size: 1rem; color: #1a1a1a; }
+    .contract-type-desc { font-size: 0.8rem; color: #666; }
+    .milb-bid-section { border: 2px solid #28a745; background: #f0fff4; }
+    .milb-bid-section h3 { display: flex; align-items: center; gap: 8px; }
+    .milb-note { font-size: 0.9em; color: #155724; margin-bottom: 10px; }
+    .button-milb { background: #28a745; border-color: #28a745; color: white; }
+    .button-milb:hover { background: #218838; }
 </style>
 {{end}}

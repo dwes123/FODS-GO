@@ -76,6 +76,29 @@ func finalizeBids(db *pgxpool.Pool) {
 				continue
 			}
 			fmt.Printf("💰 Worker: Deducted $%.0f ISBP from Team %s for IFA signing of %s %s\n", aav, teamID, fName, lName)
+		} else if bidType == "milb" {
+			// MiLB signing: deduct from milb_balance, no contract, not on 40-man
+			_, err = tx.Exec(ctx, `
+				UPDATE players SET
+					team_id = $1,
+					fa_status = 'rostered',
+					status_40_man = FALSE,
+					pending_bid_amount = NULL,
+					pending_bid_team_id = NULL
+				WHERE id = $2
+			`, teamID, pID)
+			if err != nil {
+				tx.Rollback(ctx)
+				continue
+			}
+
+			_, err = tx.Exec(ctx, `UPDATE teams SET milb_balance = milb_balance - $1 WHERE id = $2`, aav, teamID)
+			if err != nil {
+				tx.Rollback(ctx)
+				fmt.Printf("❌ Worker: Failed to deduct MiLB balance for %s %s: %v\n", fName, lName, err)
+				continue
+			}
+			fmt.Printf("💰 Worker: Deducted $%.0f MiLB from Team %s for MiLB signing of %s %s\n", aav, teamID, fName, lName)
 		} else {
 			// Standard signing: write contract
 			_, err = tx.Exec(ctx, `

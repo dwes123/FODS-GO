@@ -18,6 +18,7 @@ func FreeAgentHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		pos := c.Query("pos")
 		leagueID := c.Query("league_id")
 		ifaOnly := c.Query("ifa") == "1"
+		milbOnly := c.Query("milb") == "1"
 
 		if leagueID == "" {
 			leagueID = "11111111-1111-1111-1111-111111111111"
@@ -28,6 +29,7 @@ func FreeAgentHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			Position: pos,
 			LeagueID: leagueID,
 			IFAOnly:  ifaOnly,
+			MiLBOnly: milbOnly,
 		}
 
 		players, err := store.GetFreeAgents(db, filter)
@@ -46,6 +48,7 @@ func FreeAgentHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"Pos":       pos,
 			"LeagueID":  leagueID,
 			"IFA":       ifaOnly,
+			"MiLB":      milbOnly,
 			"Leagues":   leagues,
 			"User":      user,
 			"IsCommish": len(adminLeagues) > 0,
@@ -91,6 +94,19 @@ func PlayerProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 		}
 
+		// Get user's team MiLB balance for minor league bidding
+		var userMilbBalance float64
+		if !isRostered && player.IsMinorLeaguer {
+			var userTeamID string
+			err := db.QueryRow(context.Background(),
+				"SELECT t.id FROM teams t JOIN team_owners town ON t.id = town.team_id WHERE town.user_id = $1 AND t.league_id = $2 LIMIT 1",
+				user.ID, player.LeagueID).Scan(&userTeamID)
+			if err == nil {
+				db.QueryRow(context.Background(),
+					"SELECT COALESCE(milb_balance, 0) FROM teams WHERE id = $1", userTeamID).Scan(&userMilbBalance)
+			}
+		}
+
 		RenderTemplate(c, "player_profile.html", gin.H{
 			"Player":          player,
 			"User":            user,
@@ -102,6 +118,7 @@ func PlayerProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"BidHistory":      bidHistory,
 			"DeadCap":         playerDeadCap,
 			"IsbpBalance":     userIsbpBalance,
+			"MilbBalance":     userMilbBalance,
 		})
 	}
 }

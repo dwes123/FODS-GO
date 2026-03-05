@@ -97,6 +97,8 @@ internal/
     seasonal.go          — Hourly checks: option reset (Nov 1), IL clear (Oct 15)
     hr_monitor.go        — MLB Stats API poller for home run Slack alerts
     stats.go             — MLB Stats API box score poller for pitching + hitting fantasy points
+    minor_leaguer.go     — Monthly career stats checker, tags players with limited MLB experience
+    mlb_id_populator.go  — One-off MLB API name search to fill mlb_id for rostered players
   notification/
     slack.go             — Slack message posting
     email.go             — Brevo HTTP API email (env-var configured, gracefully skips if unconfigured)
@@ -158,7 +160,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
   - AA:  `33333333-3333-3333-3333-333333333333`
   - High-A: `44444444-4444-4444-4444-444444444444`
 - **Contract columns:** `contract_2026` through `contract_2040` (TEXT — supports "$1000000", "TC", "ARB", "ARB 1", "ARB 2", "ARB 3", "UFA")
-- **Player status fields:** `status_40_man` (BOOL), `status_26_man` (BOOL), `status_il` (TEXT), `fa_status` (TEXT), `is_international_free_agent` (BOOL), `dfa_only` (BOOL)
+- **Player status fields:** `status_40_man` (BOOL), `status_26_man` (BOOL), `status_il` (TEXT), `fa_status` (TEXT), `is_international_free_agent` (BOOL), `dfa_only` (BOOL), `is_minor_leaguer` (BOOL)
 - **JSONB columns on players:** `bid_history`, `roster_moves_log`, `contract_option_years`
 - **Nullable columns:** `owner_name` on teams, all `contract_` columns on players — always use COALESCE when scanning into Go strings
 - **Teams financial columns:** `isbp_balance` (NUMERIC 12,2), `milb_balance` (NUMERIC 12,2)
@@ -194,6 +196,7 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **Roster expansion:** Optional date window in `league_dates` (`roster_expansion_start`/`roster_expansion_end`)
 - **Deadline enforcement:** Extension deadline, team option deadline, IFA window, MiLB FA window — all configurable per league/year via `league_dates`
 - **IFA signing:** International free agents use a separate ISBP-based signing flow — single dollar amount (no contract years/AAV/bid points); validates ISBP balance on bid, deducts on finalization; no contract written; IFA flag cleared on signing
+- **MiLB signing:** Minor leaguers (`is_minor_leaguer = TRUE`) show a contract type selector on player profile — Major League (standard years+AAV bid points) or Minor League (flat amount from `milb_balance`); MiLB bids use `bid_type = 'milb'`, validate MiLB FA window and `milb_balance`; bidder can set `rule_5_eligibility_year` at signing; on finalization, deducts from `milb_balance`, no contract written, player stays off 40-man (`status_40_man = FALSE`); no minimum amount (any amount > $0)
 - **Rookie contract auto-assign:** When a player with no current-year contract is promoted to 40-man or 26-man, `assignRookieContractIfEmpty()` automatically writes: $760,000 (current year), TC, TC, ARB 1, ARB 2, ARB 3 across 6 years; contract values "ARB 1"/"ARB 2"/"ARB 3" are displayed as text via `hasPrefix` template function
 - **Trade counter proposals:** Receiver of a PROPOSED trade can counter instead of accept/reject; counter creates a new trade with `parent_trade_id` linking to the original, marks original as `COUNTERED`; roles flip (receiver becomes proposer); players/ISBP pre-populated from original with flipped sides; chainable — either side can keep countering; on accept, recursive CTE cleans up any stale PROPOSED trades in the chain
 
@@ -267,6 +270,9 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **My Open Bids Page** — `/bids/my-bids` shows only the logged-in user's active bids (where `pending_bid_team_id` matches any of their teams via `team_owners`); `GetUserOpenBids()` in `store/bids.go` reuses `PendingBidPlayer` struct; columns: Player, Position, League, Team, Bid Points, Years, AAV, Time Remaining, Action; live countdown timers with color coding; empty state when no bids; nav link before "Pending Bids"
 - **Nested Nav Dropdowns** — Nav bar groups 19+ flat links into 4 CSS-only hover dropdowns for logged-in users: **League** (Rosters, Standings, Financials, Activity, Stats), **Roster** (Rotations, Team Options, Arbitration, Waiver Wire), **Free Agency** (Free Agents, My Bids, Pending Bids, Bid History, Bid Calc, Request Player), **Trades** (Trade Center, Trade Block); Home, Report Bug, and Commissioner remain as direct links; non-logged-in users see flat links; dark mode fully supported
 - **Password Reset (Self-Service)** — "Forgot Password?" link on login page; `GET/POST /forgot-password` sends email with 1-hour reset token (32-byte crypto-random hex); `GET/POST /reset-password?token=X` validates token and sets new password; always shows generic success message (no email leak); rate limited 5/min; `password_reset_tokens` table tracks tokens with expiry and used flag; login page shows green success banner after reset via `?reset=1`; templates: `forgot_password.html`, `reset_password.html`; `migrations/022_password_reset_tokens.sql`
+- **Minor Leaguer Badge System** — Green "MiLB" badge on roster, free agents, and player profile pages for players with limited MLB experience; `is_minor_leaguer` BOOLEAN column on players; monthly worker (`internal/worker/minor_leaguer.go`) checks career stats via MLB Stats API — minor leaguer if career IP ≤ 50 AND career AB ≤ 130; rostered players without `mlb_id` auto-marked as minor leaguers; `POST /admin/minor-leaguer-refresh` triggers immediate check; badge CSS `.milb-badge` in `layout.html` with dark mode support; "MiLB Only" filter checkbox on free agents page (server-side) and roster page (client-side JS toggle); `migrations/023_minor_leaguer.sql`
+- **MLB ID Populator** — `internal/worker/mlb_id_populator.go` searches MLB Stats API (`/people/search`) by name to fill `mlb_id` for rostered players missing it; accent-insensitive matching via Unicode normalization (`Díaz` matches `Diaz`); processes ~3,600 unique names at 1/sec; `POST /admin/populate-mlb-ids` triggers from dashboard Power Tools card; run once after initial data sync, then as needed for new players
+- **Minor League Contract Bidding** — Players with `is_minor_leaguer = TRUE` show card-style contract type selector on player profile (Major League / Minor League); Major League is the standard years+AAV bid form; Minor League form offers flat signing amount from team's `milb_balance` with Rule V eligibility year dropdown (N/A or 2026-2032); `bid_type = 'milb'` in handler and worker; validates MiLB FA window (`milb_fa_window_open`/`milb_fa_window_close`) and balance; on finalization deducts `milb_balance`, no contract written, `status_40_man = FALSE`; non-minor-leaguers see only the standard bid form; no new DB columns needed
 - **Migrations:** `018_fantasy_points.sql` creates `scoring_categories`, `daily_player_stats`, `stats_processing_log` tables and seeds 19 pitching + 8 hitting categories; `019_activate_hitting.sql` sets `is_active = TRUE` for hitting categories; `020_reclassify_transaction_types.sql` standardizes transaction types to 4 categories
 
 ### Commissioner Tools Enhancements
@@ -304,7 +310,7 @@ Rosters, free agency/bidding, trades, waivers, arbitration, team options, financ
 - **Error sanitization** — All 500-level errors across 13 handler files now log real errors server-side (`fmt.Printf("ERROR [handler]: %v\n", err)`) and return generic "Internal server error" to clients; no DB errors leak to users
 - **CSV upload hardening** — Admin role check on POST handler, 5 MB body size limit (`http.MaxBytesReader`), header read error handling, required column validation, `ReadAll()` error handling, row length bounds check
 - **Graceful shutdown** — `signal.NotifyContext` for SIGINT/SIGTERM; cancels worker context, then gracefully shuts down HTTP server with 10-second timeout
-- **Worker context** — All 5 workers (`bids`, `waivers`, `seasonal`, `hr_monitor`, `stats`) accept `context.Context` and use `select` on `ctx.Done()` to stop cleanly on shutdown
+- **Worker context** — All 6 workers (`bids`, `waivers`, `seasonal`, `hr_monitor`, `stats`, `minor_leaguer`) accept `context.Context` and use `select` on `ctx.Done()` to stop cleanly on shutdown
 
 ### Data Sync (PHP → Go)
 
@@ -346,6 +352,7 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 - `migrations/020_reclassify_transaction_types.sql` — Standardizes `transaction_type` values from legacy types (ADD, DROP, ROSTER, TRADE, COMMISSIONER, WAIVER, SEASONAL) to 4 clean categories (Added Player, Dropped Player, Roster Move, Trade); uses keyword matching on summaries to reclassify COMMISSIONER entries
 - `migrations/021_player_add_requests.sql` — Adds: `player_add_requests` table (id, first_name, last_name, position, mlb_team, league_id, is_ifa, notes, submitted_by, status, reviewed_by, reviewed_at, created_at)
 - `migrations/022_password_reset_tokens.sql` — Adds: `password_reset_tokens` table (id, user_id FK, token UNIQUE, expires_at, used, created_at) + token index
+- `migrations/023_minor_leaguer.sql` — Adds: `is_minor_leaguer` BOOLEAN NOT NULL DEFAULT FALSE column to players
 
 ### Not Implemented (deferred)
 - Draft Room (Feature 2) — complex real-time feature, deferred
@@ -364,7 +371,7 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 - 60+ one-off SQL scripts in project root are migration artifacts — not part of the app
 - Workers run in-process with graceful shutdown — if the server restarts, bid/waiver timers reset (no persistent job queue)
 - Seasonal worker uses `system_counters` to prevent duplicate runs across restarts
-- HR monitor and stats worker both require `players.mlb_id` to be populated for cross-referencing with MLB Stats API; `mlb_id` is non-unique (same real player appears in multiple fantasy leagues); ~770 unique MLB IDs cover ~3,036 player records; stats worker uses `LIMIT 1` when looking up by `mlb_id`
+- HR monitor, stats worker, and minor leaguer worker all require `players.mlb_id` to be populated for cross-referencing with MLB Stats API; `mlb_id` is non-unique (same real player appears in multiple fantasy leagues); ~2,295 unique MLB IDs after MLB ID Populator run; stats worker uses `LIMIT 1` when looking up by `mlb_id`; MLB ID Populator uses accent-insensitive name matching (`golang.org/x/text/unicode/norm`) to handle names like Díaz→Diaz
 - Email notifications require `BREVO_API_KEY` and `SMTP_FROM` env vars; uses Brevo HTTP API (not SMTP — DigitalOcean blocks SMTP ports); silently disabled if not configured
 - Registration now goes through approval queue — existing users are unaffected
 - **Team ownership is via `team_owners` junction table** — never query `teams.user_id` directly (column exists but is legacy); always JOIN `team_owners` to find a user's teams; roster page uses `IsOwner` from handler (via `store.IsTeamOwner()`) for action buttons and "Propose Trade" visibility
