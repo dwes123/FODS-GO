@@ -289,6 +289,13 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 		"hasPrefix": func(s, prefix string) bool {
 			return strings.HasPrefix(s, prefix)
 		},
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"mul": func(a, b int) int { return a * b },
+		"min": func(a, b int) int {
+			if a < b { return a }
+			return b
+		},
 		"formatMoney": func(v interface{}) string {
 			p := message.NewPrinter(language.English)
 			switch val := v.(type) {

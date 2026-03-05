@@ -26,6 +26,10 @@
         <input type="checkbox" name="ifa" value="1" {{if .IFA}}checked{{end}}>
         IFA Only
     </label>
+    <label style="display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+        <input type="checkbox" name="milb" value="1" {{if .MiLB}}checked{{end}}>
+        MiLB Only
+    </label>
     <button type="submit" class="button">Search</button>
 </form>
 
@@ -45,7 +49,7 @@
             <td><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></td>
             <td>{{.Position}}</td>
             <td>{{.MLBTeam}}</td>
-            <td>{{.Status}}{{if .IsIFA}} <span class="ifa-badge">IFA</span>{{end}}</td>
+            <td>{{.Status}}{{if .IsIFA}} <span class="ifa-badge">IFA</span>{{end}}{{if .IsMinorLeaguer}} <span class="milb-badge">MiLB</span>{{end}}</td>
             <td>
                 <a href="/player/{{.ID}}" class="button">View / Bid</a>
             </td>
@@ -58,9 +62,38 @@
     </tbody>
 </table>
 
+{{if gt .TotalPages 1}}
+<div class="pagination-bar">
+    <span class="pagination-info">
+        Showing {{if .Players}}{{add (mul (sub .CurrentPage 1) 50) 1}}–{{min (mul .CurrentPage 50) .TotalCount}}{{else}}0{{end}} of {{.TotalCount}} players
+    </span>
+    <div class="pagination-controls">
+        {{if gt .CurrentPage 1}}
+        <a href="/free-agents?league_id={{.LeagueID}}{{if .Search}}&q={{.Search}}{{end}}{{if .Pos}}&pos={{.Pos}}{{end}}{{if .IFA}}&ifa=1{{end}}{{if .MiLB}}&milb=1{{end}}&page={{sub .CurrentPage 1}}" class="button pagination-btn">&laquo; Prev</a>
+        {{end}}
+        <span class="pagination-page">Page {{.CurrentPage}} of {{.TotalPages}}</span>
+        {{if lt .CurrentPage .TotalPages}}
+        <a href="/free-agents?league_id={{.LeagueID}}{{if .Search}}&q={{.Search}}{{end}}{{if .Pos}}&pos={{.Pos}}{{end}}{{if .IFA}}&ifa=1{{end}}{{if .MiLB}}&milb=1{{end}}&page={{add .CurrentPage 1}}" class="button pagination-btn">Next &raquo;</a>
+        {{end}}
+    </div>
+</div>
+{{else if .Players}}
+<div class="pagination-bar">
+    <span class="pagination-info">Showing {{.TotalCount}} players</span>
+</div>
+{{end}}
+
 <style>
     .search-form { margin-bottom: 2rem; display: flex; gap: 10px; background: var(--fod-gray-light); padding: 15px; border-radius: 8px; }
     .search-form input, .search-form select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
     .ifa-badge { display: inline-block; background: var(--fod-orange-accent); color: white; font-size: 0.75em; font-weight: bold; padding: 2px 6px; border-radius: 4px; vertical-align: middle; }
+    .pagination-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding: 12px 15px; background: var(--fod-gray-light); border-radius: 8px; }
+    .pagination-info { color: #666; font-size: 0.9em; }
+    .pagination-controls { display: flex; align-items: center; gap: 12px; }
+    .pagination-page { font-weight: 600; font-size: 0.9em; }
+    .pagination-btn { font-size: 0.85em; padding: 6px 14px; text-decoration: none; }
+    body.dark-mode .pagination-bar { background: #0A1628; }
+    body.dark-mode .pagination-info { color: #8899AA; }
+    body.dark-mode .pagination-page { color: #E0E0E0; }
 </style>
 {{end}}

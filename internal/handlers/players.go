@@ -24,12 +24,20 @@ func FreeAgentHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			leagueID = "11111111-1111-1111-1111-111111111111"
 		}
 
+		page, _ := strconv.Atoi(c.Query("page"))
+		if page < 1 {
+			page = 1
+		}
+		perPage := 50
+
 		filter := store.PlayerSearchFilter{
 			Search:   search,
 			Position: pos,
 			LeagueID: leagueID,
 			IFAOnly:  ifaOnly,
 			MiLBOnly: milbOnly,
+			Limit:    perPage,
+			Offset:   (page - 1) * perPage,
 		}
 
 		players, err := store.GetFreeAgents(db, filter)
@@ -39,19 +47,32 @@ func FreeAgentHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		totalCount, err := store.CountFreeAgents(db, filter)
+		if err != nil {
+			fmt.Printf("ERROR [FreeAgents count]: %v\n", err)
+		}
+
+		totalPages := (totalCount + perPage - 1) / perPage
+		if totalPages < 1 {
+			totalPages = 1
+		}
+
 		leagues, _ := store.GetLeaguesWithTeams(db)
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
 
 		RenderTemplate(c, "free_agents.html", gin.H{
-			"Players":   players,
-			"Search":    search,
-			"Pos":       pos,
-			"LeagueID":  leagueID,
-			"IFA":       ifaOnly,
-			"MiLB":      milbOnly,
-			"Leagues":   leagues,
-			"User":      user,
-			"IsCommish": len(adminLeagues) > 0,
+			"Players":     players,
+			"Search":      search,
+			"Pos":         pos,
+			"LeagueID":    leagueID,
+			"IFA":         ifaOnly,
+			"MiLB":        milbOnly,
+			"Leagues":     leagues,
+			"User":        user,
+			"IsCommish":   len(adminLeagues) > 0,
+			"CurrentPage": page,
+			"TotalPages":  totalPages,
+			"TotalCount":  totalCount,
 		})
 	}
 }

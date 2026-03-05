@@ -11,12 +11,13 @@ import (
 )
 
 type PlayerSearchFilter struct {
-	LeagueID string
-	Position string
-	Search   string
-	IFAOnly  bool
-	Limit    int
-	Offset   int
+	LeagueID  string
+	Position  string
+	Search    string
+	IFAOnly   bool
+	MiLBOnly  bool
+	Limit     int
+	Offset    int
 }
 
 func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer, error) {
@@ -26,7 +27,8 @@ func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer,
 
 	query := `
 		SELECT id, first_name, last_name, position, mlb_team, COALESCE(fa_status, ''),
-		       COALESCE(contract_2026, ''), COALESCE(is_international_free_agent, FALSE)
+		       COALESCE(contract_2026, ''), COALESCE(is_international_free_agent, FALSE),
+		       COALESCE(is_minor_leaguer, FALSE)
 		FROM players
 		WHERE (team_id IS NULL OR team_id = '00000000-0000-0000-0000-000000000000')
 		AND league_id = $1
@@ -50,7 +52,16 @@ func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer,
 		query += " AND is_international_free_agent = TRUE"
 	}
 
-	query += " ORDER BY last_name ASC LIMIT 50"
+	if filter.MiLBOnly {
+		query += " AND is_minor_leaguer = TRUE"
+	}
+
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	query += fmt.Sprintf(" ORDER BY last_name ASC LIMIT $%d OFFSET $%d", argCount, argCount+1)
+	args = append(args, limit, filter.Offset)
 
 	rows, err := db.Query(context.Background(), query, args...)
 	if err != nil {
@@ -63,7 +74,7 @@ func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer,
 		var p RosterPlayer
 		p.Contracts = make(map[int]string)
 		var rawStatus, c26 string
-		if err := rows.Scan(&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam, &rawStatus, &c26, &p.IsIFA); err != nil {
+		if err := rows.Scan(&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam, &rawStatus, &c26, &p.IsIFA, &p.IsMinorLeaguer); err != nil {
 			continue
 		}
 		p.Contracts[2026] = c26
@@ -80,6 +91,45 @@ func GetFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) ([]RosterPlayer,
 	}
 
 	return players, nil
+}
+
+func CountFreeAgents(db *pgxpool.Pool, filter PlayerSearchFilter) (int, error) {
+	if filter.LeagueID == "" {
+		return 0, nil
+	}
+
+	query := `
+		SELECT COUNT(*)
+		FROM players
+		WHERE (team_id IS NULL OR team_id = '00000000-0000-0000-0000-000000000000')
+		AND league_id = $1
+	`
+	args := []interface{}{filter.LeagueID}
+	argCount := 2
+
+	if filter.Search != "" {
+		query += fmt.Sprintf(" AND (first_name ILIKE $%d OR last_name ILIKE $%d)", argCount, argCount+1)
+		args = append(args, "%"+filter.Search+"%", "%"+filter.Search+"%")
+		argCount += 2
+	}
+
+	if filter.Position != "" {
+		query += fmt.Sprintf(" AND position = $%d", argCount)
+		args = append(args, filter.Position)
+		argCount++
+	}
+
+	if filter.IFAOnly {
+		query += " AND is_international_free_agent = TRUE"
+	}
+
+	if filter.MiLBOnly {
+		query += " AND is_minor_leaguer = TRUE"
+	}
+
+	var count int
+	err := db.QueryRow(context.Background(), query, args...).Scan(&count)
+	return count, err
 }
 
 func SearchAllPlayers(db *pgxpool.Pool, term string) ([]RosterPlayer, error) {
@@ -140,6 +190,7 @@ func GetPlayerByID(db *pgxpool.Pool, id string) (*RosterPlayer, error) {
 		       COALESCE(p.roster_moves_log, '[]'::jsonb),
 		       COALESCE(p.is_international_free_agent, FALSE),
 		       COALESCE(p.dfa_only, FALSE),
+		       COALESCE(p.is_minor_leaguer, FALSE),
 		       p.bid_end_time, COALESCE(p.pending_bid_amount, 0),
 		       COALESCE((SELECT t.name FROM teams t WHERE t.id = p.pending_bid_team_id), ''),
 		       COALESCE(p.contract_2026, ''), COALESCE(p.contract_2027, ''), COALESCE(p.contract_2028, ''),
@@ -156,7 +207,7 @@ func GetPlayerByID(db *pgxpool.Pool, id string) (*RosterPlayer, error) {
 		&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam, &rawStatus,
 		&p.Status40Man, &p.Status26Man, &p.StatusIL, &p.OptionYears,
 		&teamID, &p.LeagueID, &p.LeagueName,
-		&p.Rule5Year, &movesLogRaw, &p.IsIFA, &p.DFAOnly,
+		&p.Rule5Year, &movesLogRaw, &p.IsIFA, &p.DFAOnly, &p.IsMinorLeaguer,
 		&p.BidEndTime, &p.PendingBidAmount, &p.PendingBidTeamName,
 	}
 	for i := range contracts {
