@@ -300,12 +300,18 @@ func MyBidsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			fmt.Printf("ERROR [MyBids]: %v\n", err)
 		}
 
+		outbidPlayers, err := store.GetUserOutbidPlayers(db, user.ID)
+		if err != nil {
+			fmt.Printf("ERROR [MyBids-Outbid]: %v\n", err)
+		}
+
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
 
 		RenderTemplate(c, "my_bids.html", gin.H{
-			"User":     user,
-			"MyBids":   myBids,
-			"IsCommish": len(adminLeagues) > 0 || user.Role == "admin",
+			"User":          user,
+			"MyBids":        myBids,
+			"OutbidPlayers": outbidPlayers,
+			"IsCommish":     len(adminLeagues) > 0 || user.Role == "admin",
 		})
 	}
 }

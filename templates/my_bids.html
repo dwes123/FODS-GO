@@ -49,6 +49,54 @@
 </div>
 {{end}}
 
+<h2 style="margin-top: 2rem;">Outbid</h2>
+
+{{if .OutbidPlayers}}
+<div class="table-container">
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Position</th>
+                <th>League</th>
+                <th>Current High Bidder</th>
+                <th>Bid Points</th>
+                <th>Years</th>
+                <th>AAV</th>
+                <th>Time Remaining</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .OutbidPlayers}}
+            <tr class="outbid-row">
+                <td><a href="/player/{{.ID}}"><strong>{{.FirstName}} {{.LastName}}</strong></a></td>
+                <td>{{.Position}}</td>
+                <td>{{.LeagueName}}</td>
+                <td>{{.BiddingTeamName}}</td>
+                <td>{{printf "%.2f" .BidAmount}}</td>
+                <td>{{.BidYears}}</td>
+                <td>${{formatMoney .BidAAV}}</td>
+                <td>
+                    {{if .IsExpired}}
+                        <span class="time-expired">Expired — {{.BidEndTimeStr}}</span>
+                    {{else}}
+                        <span class="time-remaining" data-end="{{.BidEndTime.Unix}}">{{.TimeRemaining}}</span>
+                        <div style="font-size: 0.8rem; color: #888;">{{.BidEndTimeStr}}</div>
+                    {{end}}
+                </td>
+                <td><a href="/player/{{.ID}}" class="bid-link" style="background: var(--fod-orange-accent);">Re-Bid</a></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div style="padding: 40px; background: #f9f9f9; border-radius: 12px; text-align: center; border: 2px dashed #ddd;">
+    <p style="font-size: 1.1rem; color: #888; margin: 0;">You have no outbid players.</p>
+</div>
+{{end}}
+
 <style>
     .table-container { overflow-x: auto; }
     .time-expired { color: var(--fod-orange-accent); font-weight: bold; }
@@ -64,6 +112,10 @@
         font-weight: bold;
     }
     .bid-link:hover { opacity: 0.85; }
+    .outbid-row { opacity: 0.75; }
+    .outbid-row:hover { opacity: 1; }
+    body.dark-mode .outbid-row { opacity: 0.7; }
+    body.dark-mode .outbid-row:hover { opacity: 1; }
 </style>
 
 <script>
