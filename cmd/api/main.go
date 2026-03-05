@@ -35,6 +35,7 @@ func main() {
 	worker.StartSeasonalWorker(ctx, database)
 	worker.StartHRMonitor(ctx, database)
 	worker.StartStatsWorker(ctx, database)
+	worker.StartMinorLeaguerWorker(ctx, database)
 
 	// 3. Initialize Router
 	r := gin.Default()
@@ -166,6 +167,8 @@ func main() {
 		authorized.GET("/stats/hitting", handlers.HittingLeaderboardHandler(database))
 		authorized.GET("/api/player/:id/gamelog", handlers.PlayerGameLogHandler(database))
 		authorized.POST("/admin/stats/backfill", handlers.AdminBackfillStatsHandler(database))
+		authorized.POST("/admin/minor-leaguer-refresh", handlers.AdminMinorLeaguerRefreshHandler(database))
+		authorized.POST("/admin/populate-mlb-ids", handlers.AdminPopulateMLBIDsHandler(database))
 
 		// Commissioner Tools
 		authorized.GET("/admin", handlers.AdminDashboardHandler(database))

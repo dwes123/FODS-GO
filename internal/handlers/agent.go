@@ -592,6 +592,20 @@ func getAgentTools() []*genai.Tool {
 						Required: []string{"email", "team_name"},
 					},
 				},
+				{
+					Name:        "delete_player",
+					Description: "Permanently delete a player from the database. Use this to remove duplicate or erroneously created player records. This is irreversible — only use when confirmed by a commissioner. Also cleans up related records (dead cap, trade items, pending actions, bids, roster moves log, bid history, waivers).",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"player_id": {
+								Type:        genai.TypeString,
+								Description: "Player UUID to delete",
+							},
+						},
+						Required: []string{"player_id"},
+					},
+				},
 			},
 		},
 	}
@@ -880,6 +894,8 @@ func executeTool(db *pgxpool.Pool, ac *agentCtx, name string, args map[string]in
 		return toolGetUnsubmittedArbitration(db, ac, args)
 	case "assign_team_owner":
 		return toolAssignTeamOwner(db, ac, args)
+	case "delete_player":
+		return toolDeletePlayer(db, ac, args)
 	default:
 		return map[string]interface{}{"error": "Unknown tool: " + name}
 	}
@@ -2693,5 +2709,73 @@ func toolAssignTeamOwner(db *pgxpool.Pool, ac *agentCtx, args map[string]interfa
 		"team":        team.Name,
 		"league":      team.LeagueName,
 		"message":     fmt.Sprintf("Successfully assigned %s (%s) as owner of %s in %s", user.Username, user.Email, team.Name, team.LeagueName),
+	}
+}
+
+func toolDeletePlayer(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	playerID := getStringArg(args, "player_id")
+	if playerID == "" {
+		return map[string]interface{}{"error": "player_id is required"}
+	}
+
+	ctx := context.Background()
+
+	// Fetch player info for confirmation and league access check
+	var firstName, lastName, position, leagueID, teamName string
+	err := db.QueryRow(ctx,
+		`SELECT p.first_name, p.last_name, COALESCE(p.position, ''),
+		        COALESCE(p.league_id::TEXT, ''), COALESCE(t.name, 'Free Agent')
+		 FROM players p
+		 LEFT JOIN teams t ON p.team_id = t.id
+		 WHERE p.id = $1`, playerID).Scan(&firstName, &lastName, &position, &leagueID, &teamName)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:delete_player]: lookup: %v\n", err)
+		return map[string]interface{}{"error": "Player not found"}
+	}
+
+	// League access check
+	if leagueID != "" && !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "Player is not in your managed leagues"}
+	}
+
+	playerName := firstName + " " + lastName
+
+	// Delete related records first (foreign key dependencies), then the player
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:delete_player]: begin tx: %v\n", err)
+		return map[string]interface{}{"error": "Failed to delete player"}
+	}
+	defer tx.Rollback(ctx)
+
+	// Clean up related tables
+	tx.Exec(ctx, "DELETE FROM dead_cap_penalties WHERE player_id = $1", playerID)
+	tx.Exec(ctx, "DELETE FROM trade_items WHERE player_id = $1", playerID)
+	tx.Exec(ctx, "DELETE FROM pending_actions WHERE player_id = $1", playerID)
+	tx.Exec(ctx, "DELETE FROM daily_player_stats WHERE player_id = $1", playerID)
+
+	// Delete the player
+	tag, err := tx.Exec(ctx, "DELETE FROM players WHERE id = $1", playerID)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:delete_player]: delete: %v\n", err)
+		return map[string]interface{}{"error": "Failed to delete player"}
+	}
+
+	if tag.RowsAffected() == 0 {
+		return map[string]interface{}{"error": "Player not found or already deleted"}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		fmt.Printf("ERROR [AgentTool:delete_player]: commit: %v\n", err)
+		return map[string]interface{}{"error": "Failed to delete player"}
+	}
+
+	fmt.Printf("AGENT ACTION: Deleted player %s (%s) [%s, %s, %s]\n", playerName, playerID, position, teamName, leagueID)
+	return map[string]interface{}{
+		"success":     true,
+		"player_name": playerName,
+		"position":    position,
+		"team":        teamName,
+		"message":     fmt.Sprintf("Permanently deleted %s (%s) from %s", playerName, position, teamName),
 	}
 }

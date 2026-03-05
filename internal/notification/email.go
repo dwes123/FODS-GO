@@ -1,38 +1,34 @@
 package notification
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"net/smtp"
+	"net/http"
 	"os"
 )
 
 var (
-	smtpHost     string
-	smtpPort     string
-	smtpUsername string
-	smtpPassword string
-	smtpFrom     string
+	brevoAPIKey  string
+	emailFrom    string
 	emailEnabled bool
 )
 
-// InitEmail reads SMTP config from environment variables.
+// InitEmail reads email config from environment variables.
 // If not configured, email sending is silently skipped.
 func InitEmail() {
-	smtpHost = os.Getenv("SMTP_HOST")
-	smtpPort = os.Getenv("SMTP_PORT")
-	smtpUsername = os.Getenv("SMTP_USERNAME")
-	smtpPassword = os.Getenv("SMTP_PASSWORD")
-	smtpFrom = os.Getenv("SMTP_FROM")
+	brevoAPIKey = os.Getenv("BREVO_API_KEY")
+	emailFrom = os.Getenv("SMTP_FROM")
 
-	if smtpHost != "" && smtpPort != "" && smtpFrom != "" {
+	if brevoAPIKey != "" && emailFrom != "" {
 		emailEnabled = true
-		fmt.Printf("Email notifications enabled (SMTP: %s:%s)\n", smtpHost, smtpPort)
+		fmt.Println("Email notifications enabled (Brevo HTTP API)")
 	} else {
-		fmt.Println("Email notifications disabled (SMTP not configured)")
+		fmt.Println("Email notifications disabled (BREVO_API_KEY not configured)")
 	}
 }
 
-// SendEmail sends an email to the specified recipient.
+// SendEmail sends an email to the specified recipient via Brevo HTTP API.
 // Runs in a goroutine to avoid blocking the caller.
 func SendEmail(to, subject, body string) {
 	if !emailEnabled || to == "" {
@@ -40,18 +36,44 @@ func SendEmail(to, subject, body string) {
 	}
 
 	go func() {
-		msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=\"UTF-8\"\r\n\r\n%s",
-			smtpFrom, to, subject, body)
-
-		var auth smtp.Auth
-		if smtpUsername != "" {
-			auth = smtp.PlainAuth("", smtpUsername, smtpPassword, smtpHost)
+		payload := map[string]interface{}{
+			"sender": map[string]string{
+				"name":  "Front Office Dynasty Sports",
+				"email": emailFrom,
+			},
+			"to": []map[string]string{
+				{"email": to},
+			},
+			"subject":     subject,
+			"htmlContent": body,
 		}
 
-		addr := smtpHost + ":" + smtpPort
-		err := smtp.SendMail(addr, auth, smtpFrom, []string{to}, []byte(msg))
+		jsonBody, err := json.Marshal(payload)
+		if err != nil {
+			fmt.Printf("Email marshal error (to: %s): %v\n", to, err)
+			return
+		}
+
+		req, err := http.NewRequest("POST", "https://api.brevo.com/v3/smtp/email", bytes.NewBuffer(jsonBody))
+		if err != nil {
+			fmt.Printf("Email request error (to: %s): %v\n", to, err)
+			return
+		}
+		req.Header.Set("accept", "application/json")
+		req.Header.Set("content-type", "application/json")
+		req.Header.Set("api-key", brevoAPIKey)
+
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			fmt.Printf("Email send error (to: %s): %v\n", to, err)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode >= 300 {
+			var result map[string]interface{}
+			json.NewDecoder(resp.Body).Decode(&result)
+			fmt.Printf("Email API error (to: %s): status=%d response=%v\n", to, resp.StatusCode, result)
 		}
 	}()
 }

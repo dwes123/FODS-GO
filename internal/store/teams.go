@@ -38,6 +38,7 @@ type RosterPlayer struct {
 	ContractOptionYears map[int]bool    `json:"contract_option_years"`
 	IsIFA               bool            `json:"is_international_free_agent"`
 	DFAOnly             bool            `json:"dfa_only"`
+	IsMinorLeaguer      bool            `json:"is_minor_leaguer"`
 	BidEndTime          *time.Time       `json:"bid_end_time"`
 	PendingBidAmount    float64          `json:"pending_bid_amount"`
 	PendingBidTeamName  string           `json:"pending_bid_team_name"`
@@ -100,7 +101,7 @@ func GetTeamWithRoster(db *pgxpool.Pool, teamID string) (*TeamDetail, error) {
 		SELECT id, first_name, last_name, position, mlb_team,
 		       status_40_man, status_26_man, COALESCE(status_il, ''), option_years_used,
 		       COALESCE(rule_5_eligibility_year, 0), COALESCE(on_trade_block, FALSE),
-		       COALESCE(contract_option_years, '[]'::jsonb),
+		       COALESCE(is_minor_leaguer, FALSE), COALESCE(contract_option_years, '[]'::jsonb),
 		       COALESCE(contract_2026, ''), COALESCE(contract_2027, ''), COALESCE(contract_2028, ''),
 		       COALESCE(contract_2029, ''), COALESCE(contract_2030, ''), COALESCE(contract_2031, ''),
 		       COALESCE(contract_2032, ''), COALESCE(contract_2033, ''), COALESCE(contract_2034, ''),
@@ -124,7 +125,7 @@ func GetTeamWithRoster(db *pgxpool.Pool, teamID string) (*TeamDetail, error) {
 			dest := []interface{}{
 				&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam,
 				&p.Status40Man, &p.Status26Man, &p.StatusIL, &p.OptionYears,
-				&p.Rule5Year, &p.OnTradeBlock, &optionYearsRaw,
+				&p.Rule5Year, &p.OnTradeBlock, &p.IsMinorLeaguer, &optionYearsRaw,
 			}
 			for i := range contracts {
 				dest = append(dest, &contracts[i])

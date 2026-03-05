@@ -77,6 +77,8 @@
         <h3>Power Tools</h3>
         <p>Bid exports and more.</p>
         <a href="/admin/export-bids" class="button button-small">Export Bids CSV</a>
+        <button class="button button-small" style="margin-top: 5px; background: #28a745;" onclick="refreshMiLB(this)">Refresh MiLB Badges</button>
+        <button class="button button-small" style="margin-top: 5px; background: #17a2b8;" onclick="populateMLBIDs(this)">Populate MLB IDs</button>
     </div>
 </div>
 
@@ -119,4 +121,24 @@
 <style>
     .button-danger { background-color: #dc3545; border-color: #dc3545; }
 </style>
+<script>
+function refreshMiLB(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+    fetch('/admin/minor-leaguer-refresh', {method:'POST'})
+        .then(r => r.json())
+        .then(data => { btn.textContent = 'Started!'; btn.style.background = '#17a2b8'; })
+        .catch(() => { btn.textContent = 'Error'; btn.style.background = '#dc3545'; })
+        .finally(() => { setTimeout(() => { btn.disabled = false; btn.textContent = 'Refresh MiLB Badges'; btn.style.background = '#28a745'; }, 5000); });
+}
+function populateMLBIDs(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+    fetch('/admin/populate-mlb-ids', {method:'POST'})
+        .then(r => r.json())
+        .then(data => { btn.textContent = 'Started! (~1hr)'; btn.style.background = '#28a745'; })
+        .catch(() => { btn.textContent = 'Error'; btn.style.background = '#dc3545'; })
+        .finally(() => { setTimeout(() => { btn.disabled = false; btn.textContent = 'Populate MLB IDs'; btn.style.background = '#17a2b8'; }, 10000); });
+}
+</script>
 {{end}}

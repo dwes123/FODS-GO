@@ -144,3 +144,33 @@ func AdminBackfillStatsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Backfill started for %s (pitching + hitting)", date)})
 	}
 }
+
+// AdminMinorLeaguerRefreshHandler triggers the minor leaguer check immediately (admin only).
+func AdminMinorLeaguerRefreshHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		if user.Role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Admin only"})
+			return
+		}
+
+		go worker.ProcessMinorLeaguerCheck(context.Background(), db)
+
+		c.JSON(http.StatusOK, gin.H{"message": "Minor leaguer refresh started — check server logs for progress"})
+	}
+}
+
+// AdminPopulateMLBIDsHandler searches the MLB API to fill in mlb_id for rostered players (admin only).
+func AdminPopulateMLBIDsHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		if user.Role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Admin only"})
+			return
+		}
+
+		go worker.ProcessMLBIDPopulation(context.Background(), db)
+
+		c.JSON(http.StatusOK, gin.H{"message": "MLB ID population started for rostered players — check server logs for progress (~1 hour)"})
+	}
+}

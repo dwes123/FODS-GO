@@ -107,6 +107,13 @@
 {{$posOrder := .PosOrder}}
 {{$pointsMap := .PointsMap}}
 
+<div style="margin: 1rem 0;">
+    <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
+        <input type="checkbox" id="milbFilter" onchange="toggleMiLBFilter(this.checked)">
+        <span class="milb-badge">MiLB</span> Only
+    </label>
+</div>
+
 <div class="roster-section">
     <h2 class="section-title">26-Man Roster</h2>
     {{template "roster_table" dict "Grouped" .Roster26 "PosOrder" $posOrder "Years" $years "IsOwner" $isOwner "TeamID" .Team.ID "PointsMap" $pointsMap}}
@@ -245,6 +252,16 @@ async function toggleTradeBlock(playerID, teamID, onBlock) {
 }
 
 // --- Depth Chart Sorting (Feature 21) ---
+function toggleMiLBFilter(on) {
+    document.querySelectorAll('tr[data-milb]').forEach(function(row) {
+        if (on && row.getAttribute('data-milb') === '0') {
+            row.style.display = 'none';
+        } else {
+            row.style.display = '';
+        }
+    });
+}
+
 {{if $isOwner}}
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.roster-sortable tbody').forEach(function(tbody) {
@@ -336,7 +353,7 @@ async function saveDepthOrder() {
                 {{range .PosOrder}}
                     {{$players := index $grouped .}}
                     {{range $players}}
-                    <tr data-player-id="{{.ID}}">
+                    <tr data-player-id="{{.ID}}" data-milb="{{if .IsMinorLeaguer}}1{{else}}0{{end}}">
                         {{if $isOwner}}<td class="drag-handle" style="cursor: grab; text-align: center;">&#9776;</td>{{end}}
                         <td>
                             <div class="action-buttons">
@@ -361,7 +378,7 @@ async function saveDepthOrder() {
                                 {{end}}
                             </div>
                         </td>
-                        <td><strong><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></strong></td>
+                        <td><strong><a href="/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></strong>{{if .IsMinorLeaguer}} <span class="milb-badge">MiLB</span>{{end}}</td>
                         <td>{{.Position}}</td>
                         <td>{{.MLBTeam}}</td>
                         <td class="fpts-cell">{{$pts := index $pointsMap .ID}}{{if $pts}}{{printf "%.1f" $pts}}{{else}}--{{end}}</td>
