@@ -258,7 +258,7 @@ func GetUserOutbidPlayers(db *pgxpool.Pool, userID string) ([]PendingBidPlayer, 
 		  AND EXISTS (
 			SELECT 1 FROM jsonb_array_elements(COALESCE(p.bid_history, '[]'::jsonb)) AS elem
 			WHERE elem->>'history_team_id' IN (SELECT team_id::TEXT FROM team_owners WHERE user_id = $1)
-			  AND (elem->>'history_timestamp')::timestamp >= COALESCE(p.bid_start_time, p.bid_end_time - INTERVAL '48 hours')
+			  AND (elem->>'history_timestamp')::timestamp >= p.bid_end_time - INTERVAL '7 days'
 		  )
 		ORDER BY p.bid_end_time ASC
 	`
