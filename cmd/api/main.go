@@ -144,6 +144,7 @@ func main() {
 		authorized.POST("/roster/move/il", handlers.MoveToILHandler(database))
 		authorized.POST("/roster/move/activate", handlers.ActivateFromILHandler(database))
 		authorized.POST("/roster/move/dfa", handlers.DFAPlayerHandler(database))
+		authorized.POST("/roster/move/position-swap", handlers.SwapPitcherPositionHandler(database))
 		authorized.POST("/roster/move/trade-block", handlers.ToggleTradeBlockHandler(database))
 		authorized.POST("/roster/depth-order", handlers.SaveDepthOrderHandler(database))
 

@@ -69,6 +69,7 @@ Important tool behaviors:
 - To set or update league dates (opening day, trade deadline, etc.), use set_league_date. Pass league_id='all' to set for all leagues at once.
 - For bug report questions, ALWAYS use get_bug_reports instead of run_query. To update a bug, use the exact bug_id returned by get_bug_reports — do not retype or modify the ID.
 - For expiring contract questions (UFAs, last year of deal), use find_expiring_contracts instead of run_query.
+- For bid history questions, use search_players to find the player ID, then use get_player_bid_history to retrieve all bids.
 
 Common SQL patterns for run_query (replace <league_uuid> with the actual UUID):
 - Players without a team: SELECT p.first_name || ' ' || p.last_name, p.position, l.name FROM players p JOIN leagues l ON p.league_id = l.id WHERE p.team_id IS NULL AND p.league_id = '<league_uuid>' ORDER BY p.last_name LIMIT 50
@@ -593,6 +594,46 @@ func getAgentTools() []*genai.Tool {
 					},
 				},
 				{
+					Name:        "get_player_bid_history",
+					Description: "Get the bid history for a player. Returns all bids from the player's bid_history JSONB, including team name, bid points, years, AAV, and date. Use after search_players to get the player ID.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"player_id": {
+								Type:        genai.TypeString,
+								Description: "Player UUID",
+							},
+						},
+						Required: []string{"player_id"},
+					},
+				},
+				{
+					Name:        "update_player_bid",
+					Description: "Update the pending bid fields on a player who currently has fa_status='pending_bid'. Can modify pending_bid_amount, pending_bid_years, and/or pending_bid_aav. Use after search_players to get the player ID.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"player_id": {
+								Type:        genai.TypeString,
+								Description: "Player UUID",
+							},
+							"pending_bid_amount": {
+								Type:        genai.TypeNumber,
+								Description: "New bid points amount (optional)",
+							},
+							"pending_bid_years": {
+								Type:        genai.TypeInteger,
+								Description: "New contract years (optional)",
+							},
+							"pending_bid_aav": {
+								Type:        genai.TypeNumber,
+								Description: "New AAV in dollars (optional)",
+							},
+						},
+						Required: []string{"player_id"},
+					},
+				},
+				{
 					Name:        "delete_player",
 					Description: "Permanently delete a player from the database. Use this to remove duplicate or erroneously created player records. This is irreversible — only use when confirmed by a commissioner. Also cleans up related records (dead cap, trade items, pending actions, bids, roster moves log, bid history, waivers).",
 					Parameters: &genai.Schema{
@@ -834,71 +875,109 @@ func extractText(resp *genai.GenerateContentResponse) string {
 	return strings.Join(texts, "\n")
 }
 
+var agentWriteTools = map[string]bool{
+	"assign_player_to_team": true,
+	"release_player":        true,
+	"update_player_name":    true,
+	"update_team_balance":   true,
+	"process_pending_action": true,
+	"process_registration":  true,
+	"update_player_contract": true,
+	"add_dead_cap":          true,
+	"dfa_player":            true,
+	"set_league_date":       true,
+	"update_bug_status":     true,
+	"assign_team_owner":     true,
+	"delete_player":         true,
+	"update_player_bid":     true,
+}
+
+func logAgentAction(db *pgxpool.Pool, userID, toolName string, args, result map[string]interface{}) {
+	argsJSON, _ := json.Marshal(args)
+	resultJSON, _ := json.Marshal(result)
+	db.Exec(context.Background(),
+		`INSERT INTO agent_audit_log (user_id, tool_name, tool_args, tool_result) VALUES ($1, $2, $3::jsonb, $4::jsonb)`,
+		userID, toolName, string(argsJSON), string(resultJSON))
+}
+
 func executeTool(db *pgxpool.Pool, ac *agentCtx, name string, args map[string]interface{}) map[string]interface{} {
+	var result map[string]interface{}
+
 	switch name {
 	case "search_players":
-		return toolSearchPlayers(db, ac, args)
+		result = toolSearchPlayers(db, ac, args)
 	case "get_player":
-		return toolGetPlayer(db, args)
+		result = toolGetPlayer(db, args)
 	case "list_teams":
-		return toolListTeams(db, ac, args)
+		result = toolListTeams(db, ac, args)
 	case "get_team_balance":
-		return toolGetTeamBalance(db, ac, args)
+		result = toolGetTeamBalance(db, ac, args)
 	case "assign_player_to_team":
-		return toolAssignPlayer(db, args)
+		result = toolAssignPlayer(db, args)
 	case "release_player":
-		return toolReleasePlayer(db, args)
+		result = toolReleasePlayer(db, args)
 	case "update_player_name":
-		return toolUpdatePlayerName(db, args)
+		result = toolUpdatePlayerName(db, args)
 	case "update_team_balance":
-		return toolUpdateTeamBalance(db, args)
+		result = toolUpdateTeamBalance(db, args)
 	case "run_query":
-		return toolRunQuery(db, args)
+		result = toolRunQuery(db, args)
 	case "get_pending_approvals":
-		return toolGetPendingApprovals(db, ac, args)
+		result = toolGetPendingApprovals(db, ac, args)
 	case "process_pending_action":
-		return toolProcessPendingAction(db, args)
+		result = toolProcessPendingAction(db, args)
 	case "process_registration":
-		return toolProcessRegistration(db, ac.UserID, args)
+		result = toolProcessRegistration(db, ac.UserID, args)
 	case "get_team_roster":
-		return toolGetTeamRoster(db, ac, args)
+		result = toolGetTeamRoster(db, ac, args)
 	case "count_roster":
-		return toolCountRoster(db, args)
+		result = toolCountRoster(db, args)
 	case "get_recent_activity":
-		return toolGetRecentActivity(db, ac, args)
+		result = toolGetRecentActivity(db, ac, args)
 	case "get_team_payrolls":
-		return toolGetTeamPayrolls(db, ac, args)
+		result = toolGetTeamPayrolls(db, ac, args)
 	case "check_roster_compliance":
-		return toolCheckRosterCompliance(db, ac, args)
+		result = toolCheckRosterCompliance(db, ac, args)
 	case "get_waiver_status":
-		return toolGetWaiverStatus(db, ac, args)
+		result = toolGetWaiverStatus(db, ac, args)
 	case "get_league_deadlines":
-		return toolGetLeagueDeadlines(db, ac, args)
+		result = toolGetLeagueDeadlines(db, ac, args)
 	case "find_expiring_contracts":
-		return toolFindExpiringContracts(db, ac, args)
+		result = toolFindExpiringContracts(db, ac, args)
 	case "update_player_contract":
-		return toolUpdatePlayerContract(db, ac, args)
+		result = toolUpdatePlayerContract(db, ac, args)
 	case "add_dead_cap":
-		return toolAddDeadCap(db, ac, args)
+		result = toolAddDeadCap(db, ac, args)
 	case "dfa_player":
-		return toolDFAPlayer(db, ac, args)
+		result = toolDFAPlayer(db, ac, args)
 	case "set_league_date":
-		return toolSetLeagueDate(db, ac, args)
+		result = toolSetLeagueDate(db, ac, args)
 	case "get_bug_reports":
-		return toolGetBugReports(db, ac, args)
+		result = toolGetBugReports(db, ac, args)
 	case "update_bug_status":
-		return toolUpdateBugStatus(db, ac, args)
+		result = toolUpdateBugStatus(db, ac, args)
 	case "get_pending_arbitration":
-		return toolGetPendingArbitration(db, ac, args)
+		result = toolGetPendingArbitration(db, ac, args)
 	case "get_unsubmitted_arbitration":
-		return toolGetUnsubmittedArbitration(db, ac, args)
+		result = toolGetUnsubmittedArbitration(db, ac, args)
 	case "assign_team_owner":
-		return toolAssignTeamOwner(db, ac, args)
+		result = toolAssignTeamOwner(db, ac, args)
+	case "get_player_bid_history":
+		result = toolGetPlayerBidHistory(db, ac, args)
+	case "update_player_bid":
+		result = toolUpdatePlayerBid(db, ac, args)
 	case "delete_player":
-		return toolDeletePlayer(db, ac, args)
+		result = toolDeletePlayer(db, ac, args)
 	default:
-		return map[string]interface{}{"error": "Unknown tool: " + name}
+		result = map[string]interface{}{"error": "Unknown tool: " + name}
 	}
+
+	// Audit log for write operations
+	if agentWriteTools[name] {
+		logAgentAction(db, ac.UserID, name, args, result)
+	}
+
+	return result
 }
 
 func getStringArg(args map[string]interface{}, key string) string {
@@ -2710,6 +2789,100 @@ func toolAssignTeamOwner(db *pgxpool.Pool, ac *agentCtx, args map[string]interfa
 		"league":      team.LeagueName,
 		"message":     fmt.Sprintf("Successfully assigned %s (%s) as owner of %s in %s", user.Username, user.Email, team.Name, team.LeagueName),
 	}
+}
+
+func toolGetPlayerBidHistory(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	playerID := getStringArg(args, "player_id")
+
+	// Verify player exists and is in an accessible league
+	var leagueID, playerName string
+	err := db.QueryRow(context.Background(),
+		"SELECT league_id, first_name || ' ' || last_name FROM players WHERE id = $1", playerID).Scan(&leagueID, &playerName)
+	if err != nil {
+		return map[string]interface{}{"error": "Player not found"}
+	}
+	if !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "Player not in your leagues"}
+	}
+
+	records := store.GetPlayerBidHistory(db, playerID)
+	if len(records) == 0 {
+		return map[string]interface{}{"player": playerName, "message": "No bid history found"}
+	}
+
+	bids := make([]map[string]interface{}, len(records))
+	for i, r := range records {
+		bids[i] = map[string]interface{}{
+			"team_name":  r.TeamName,
+			"bid_points": r.Amount,
+			"years":      r.Years,
+			"aav":        r.AAV,
+			"date":       r.BidDate,
+		}
+	}
+	return map[string]interface{}{"player": playerName, "bid_count": len(records), "bids": bids}
+}
+
+func toolUpdatePlayerBid(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	playerID := getStringArg(args, "player_id")
+
+	ctx := context.Background()
+
+	// Verify player exists, is in accessible league, and has a pending bid
+	var leagueID, playerName, faStatus string
+	err := db.QueryRow(ctx,
+		"SELECT league_id, first_name || ' ' || last_name, COALESCE(fa_status, '') FROM players WHERE id = $1", playerID).Scan(&leagueID, &playerName, &faStatus)
+	if err != nil {
+		return map[string]interface{}{"error": "Player not found"}
+	}
+	if !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "Player not in your leagues"}
+	}
+	if faStatus != "pending_bid" {
+		return map[string]interface{}{"error": fmt.Sprintf("Player does not have a pending bid (fa_status='%s')", faStatus)}
+	}
+
+	// Build dynamic UPDATE
+	sets := []string{}
+	vals := []interface{}{}
+	argN := 1
+
+	if v, ok := args["pending_bid_amount"]; ok {
+		if amt, ok := v.(float64); ok {
+			sets = append(sets, fmt.Sprintf("pending_bid_amount = $%d", argN))
+			vals = append(vals, amt)
+			argN++
+		}
+	}
+	if v, ok := args["pending_bid_years"]; ok {
+		if yrs, ok := v.(float64); ok {
+			sets = append(sets, fmt.Sprintf("pending_bid_years = $%d", argN))
+			vals = append(vals, int(yrs))
+			argN++
+		}
+	}
+	if v, ok := args["pending_bid_aav"]; ok {
+		if aav, ok := v.(float64); ok {
+			sets = append(sets, fmt.Sprintf("pending_bid_aav = $%d", argN))
+			vals = append(vals, aav)
+			argN++
+		}
+	}
+
+	if len(sets) == 0 {
+		return map[string]interface{}{"error": "No bid fields provided to update"}
+	}
+
+	query := fmt.Sprintf("UPDATE players SET %s WHERE id = $%d", strings.Join(sets, ", "), argN)
+	vals = append(vals, playerID)
+
+	_, err = db.Exec(ctx, query, vals...)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:update_player_bid]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to update bid"}
+	}
+
+	return map[string]interface{}{"message": fmt.Sprintf("Updated bid for %s", playerName), "fields_updated": sets}
 }
 
 func toolDeletePlayer(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {

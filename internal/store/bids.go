@@ -245,7 +245,7 @@ func GetUserOutbidPlayers(db *pgxpool.Pool, userID string) ([]PendingBidPlayer, 
 	ctx := context.Background()
 
 	query := `
-		SELECT DISTINCT p.id, p.first_name, p.last_name, COALESCE(p.position, ''),
+		SELECT p.id, p.first_name, p.last_name, COALESCE(p.position, ''),
 			COALESCE(l.name, 'Unknown'), COALESCE(l.id::TEXT, ''),
 			COALESCE(t.name, 'Unknown'),
 			COALESCE(p.pending_bid_amount, 0), COALESCE(p.pending_bid_years, 0),

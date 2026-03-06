@@ -333,6 +333,107 @@ func DFAPlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+type PositionSwapRequest struct {
+	MoveRequest
+	TargetPosition string `json:"target_position"` // Required for "P" players (must be "SP" or "RP")
+}
+
+func SwapPitcherPositionHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req PositionSwapRequest
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		user := c.MustGet("user").(*store.User)
+		isOwner, _ := store.IsTeamOwner(db, req.TeamID, user.ID)
+		if !isOwner {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not own this team"})
+			return
+		}
+
+		ctx := context.Background()
+
+		// Get current position
+		var position string
+		err := db.QueryRow(ctx, "SELECT position FROM players WHERE id = $1 AND team_id = $2", req.PlayerID, req.TeamID).Scan(&position)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Player not found on this team"})
+			return
+		}
+
+		if position != "SP" && position != "RP" && position != "P" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Only pitchers (SP, RP, P) can use position swap"})
+			return
+		}
+
+		var newPosition string
+		if position == "P" {
+			// "P" players must specify target via target_position
+			if req.TargetPosition != "SP" && req.TargetPosition != "RP" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Must specify SP or RP as target position"})
+				return
+			}
+			newPosition = req.TargetPosition
+		} else {
+			// SP↔RP toggle; ignore target_position
+			newPosition = "RP"
+			if position == "RP" {
+				newPosition = "SP"
+			}
+		}
+
+		// Check 14-day cooldown via roster_moves_log JSONB (skip for "P" — first assignment, not a swap)
+		if position != "P" {
+			var lastSwapDate *time.Time
+			err = db.QueryRow(ctx, `
+				SELECT MAX((elem->>'date')::date)
+				FROM players, jsonb_array_elements(COALESCE(roster_moves_log, '[]'::jsonb)) AS elem
+				WHERE players.id = $1 AND elem->>'type' LIKE 'Position Swap%'
+			`, req.PlayerID).Scan(&lastSwapDate)
+			if err == nil && lastSwapDate != nil {
+				cooldownEnd := lastSwapDate.AddDate(0, 0, 14)
+				if time.Now().Before(cooldownEnd) {
+					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Position swap on cooldown. Available after %s.", cooldownEnd.Format("January 2, 2006"))})
+					return
+				}
+			}
+		}
+
+		// If targeting SP on 26-man, check SP limit
+		if newPosition == "SP" {
+			var is26Man bool
+			db.QueryRow(ctx, "SELECT status_26_man FROM players WHERE id = $1", req.PlayerID).Scan(&is26Man)
+			if is26Man {
+				leagueID, _ := store.GetTeamLeagueID(db, req.TeamID)
+				settings := store.GetLeagueSettings(db, leagueID, time.Now().Year())
+				spCount, _ := store.GetTeam26ManSPCount(db, req.TeamID)
+				if spCount >= settings.SP26ManLimit {
+					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("SP limit reached (%d/%d on 26-man). Cannot assign as SP.", spCount, settings.SP26ManLimit)})
+					return
+				}
+			}
+		}
+
+		// Perform the update
+		_, err = db.Exec(ctx, "UPDATE players SET position = $1 WHERE id = $2 AND team_id = $3", newPosition, req.PlayerID, req.TeamID)
+		if err != nil {
+			fmt.Printf("ERROR [SwapPitcherPositionHandler]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+
+		moveDesc := fmt.Sprintf("Position Swap: %s → %s", position, newPosition)
+		store.AppendRosterMove(db, req.PlayerID, req.TeamID, moveDesc)
+
+		pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
+		store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s swapped %s from %s to %s", tName, pName, position, newPosition))
+
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Position changed from %s to %s", position, newPosition)})
+	}
+}
+
 func ToggleTradeBlockHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req TradeBlockRequest
