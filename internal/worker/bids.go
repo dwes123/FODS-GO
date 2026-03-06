@@ -85,6 +85,7 @@ func finalizeBids(db *pgxpool.Pool) {
 					team_id = $1,
 					fa_status = 'rostered',
 					status_40_man = FALSE,
+					status_26_man = FALSE,
 					status_il = NULL,
 					pending_bid_amount = NULL,
 					pending_bid_team_id = NULL

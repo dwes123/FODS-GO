@@ -82,9 +82,18 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				"SELECT COALESCE(pending_bid_amount, 0), COALESCE(fa_status, '') FROM players WHERE id = $1",
 				playerID).Scan(&currentAmount, &currentStatus)
 
-			if currentStatus == "pending_bid" && signingAmount <= currentAmount {
-				c.String(http.StatusBadRequest, fmt.Sprintf("Bid too low. Current bid is $%.0f. You must offer more.", currentAmount))
-				return
+			if currentStatus == "pending_bid" && signingAmount < milbBalance {
+				// Minimum bid: lesser of double the current bid or current + $100K
+				doubleAmount := currentAmount * 2
+				plusHundredK := currentAmount + 100000
+				minBid := doubleAmount
+				if plusHundredK < minBid {
+					minBid = plusHundredK
+				}
+				if signingAmount < minBid {
+					c.String(http.StatusBadRequest, fmt.Sprintf("Bid too low. Minimum bid is $%.0f (lesser of double $%.0f or +$100K), or your full MiLB balance.", minBid, currentAmount))
+					return
+				}
 			}
 
 			// Update Rule 5 eligibility year if provided and not already set
@@ -152,9 +161,18 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				"SELECT COALESCE(pending_bid_amount, 0), COALESCE(fa_status, '') FROM players WHERE id = $1",
 				playerID).Scan(&currentAmount, &currentStatus)
 
-			if currentStatus == "pending_bid" && signingBonus <= currentAmount {
-				c.String(http.StatusBadRequest, fmt.Sprintf("Bid too low. Current bid is $%.0f. You must offer more.", currentAmount))
-				return
+			if currentStatus == "pending_bid" && signingBonus < isbpBalance {
+				// Minimum bid: lesser of double the current bid or current + $100K
+				doubleAmount := currentAmount * 2
+				plusHundredK := currentAmount + 100000
+				minBid := doubleAmount
+				if plusHundredK < minBid {
+					minBid = plusHundredK
+				}
+				if signingBonus < minBid {
+					c.String(http.StatusBadRequest, fmt.Sprintf("Bid too low. Minimum bid is $%.0f (lesser of double $%.0f or +$100K), or your full ISBP balance.", minBid, currentAmount))
+					return
+				}
 			}
 
 			// Submit IFA bid
