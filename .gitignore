@@ -27,3 +27,6 @@ web/.next/
 
 # Environment
 .env
+
+# MCP config (contains credentials)
+.mcp.json

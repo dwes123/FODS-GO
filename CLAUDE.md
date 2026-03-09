@@ -36,6 +36,16 @@ gunzip fantasy_db_YYYY-MM-DD.sql.gz
 ssh root@178.128.178.100 "docker exec -i fantasy_postgres psql -U admin -d fantasy_db" < fantasy_db_YYYY-MM-DD.sql
 ```
 
+### MCP Servers (`.mcp.json`)
+- **postgres** (`@bytebase/dbhub`) — direct DB access via SSH tunnel
+- **github** (`@modelcontextprotocol/server-github`) — GitHub PR/issue management via personal access token
+- `.mcp.json` is in `.gitignore` (contains credentials)
+- **Before starting Claude Code**, open a separate terminal and run the SSH tunnel:
+  ```
+  ssh -N -L 5433:localhost:5433 root@178.128.178.100
+  ```
+  This forwards local port 5433 to the server's PostgreSQL. Leave it running; `Ctrl+C` to stop.
+
 ### Staging/Production Workflow
 1. Make code changes locally
 2. `.\deploy-staging.ps1` — builds, uploads to `/root/app/staging/`, restarts `app-staging` container
@@ -195,8 +205,8 @@ Caddyfile                — Caddy routes: production (frontofficedynastysports.
 - **Roster limits:** Configurable per league/year via `league_settings` (default 26/40); SP limit on 26-man (default 6)
 - **Roster expansion:** Optional date window in `league_dates` (`roster_expansion_start`/`roster_expansion_end`)
 - **Deadline enforcement:** Extension deadline, team option deadline, IFA window, MiLB FA window — all configurable per league/year via `league_dates`
-- **IFA signing:** International free agents use a separate ISBP-based signing flow — single dollar amount (no contract years/AAV/bid points); validates ISBP balance on bid, deducts on finalization; no contract written; IFA flag cleared on signing; player placed in non-40-man minors (`status_40_man = FALSE`, `status_26_man = FALSE`); `status_il` cleared to NULL on finalization; **bid increment rule:** minimum bid is lesser of 2x current bid or current + $100K; full ISBP balance always accepted
-- **MiLB signing:** Minor leaguers (`is_minor_leaguer = TRUE`) show a contract type selector on player profile — Major League (standard years+AAV bid points) or Minor League (flat amount from `milb_balance`); MiLB bids use `bid_type = 'milb'`, validate MiLB FA window and `milb_balance`; bidder can set `rule_5_eligibility_year` at signing; on finalization, deducts from `milb_balance`, no contract written, player placed in minors (`status_40_man = FALSE`, `status_26_man = FALSE`); **bid increment rule:** minimum bid is lesser of 2x current bid or current + $100K; full MiLB balance always accepted
+- **IFA signing:** International free agents use a separate ISBP-based signing flow — single dollar amount (no contract years/AAV/bid points); validates ISBP balance on bid, deducts on finalization; no contract written; IFA flag cleared on signing; player placed in non-40-man minors (`status_40_man = FALSE`, `status_26_man = FALSE`); `status_il` cleared to NULL on finalization; **bid increment rule:** minimum bid is lesser of 2x current bid or current + $100K; full ISBP balance always accepted; **increment enforcement deployed Mar 6, 2026 17:44 UTC** — bids placed before this time were not validated against the increment rule
+- **MiLB signing:** Minor leaguers (`is_minor_leaguer = TRUE`) show a contract type selector on player profile — Major League (standard years+AAV bid points) or Minor League (flat amount from `milb_balance`); MiLB bids use `bid_type = 'milb'`, validate MiLB FA window and `milb_balance`; bidder can set `rule_5_eligibility_year` at signing; on finalization, deducts from `milb_balance`, no contract written, player placed in minors (`status_40_man = FALSE`, `status_26_man = FALSE`); **bid increment rule:** minimum bid is lesser of 2x current bid or current + $100K; full MiLB balance always accepted; **increment enforcement deployed Mar 6, 2026 17:44 UTC** — 26 MiLB bids placed before this time violated the increment rule (mostly Detroit Tigers); all post-fix bids are compliant
 - **Rookie contract auto-assign:** When a player with no current-year contract is promoted to 40-man or 26-man, `assignRookieContractIfEmpty()` automatically writes: $760,000 (current year), TC, TC, ARB 1, ARB 2, ARB 3 across 6 years; contract values "ARB 1"/"ARB 2"/"ARB 3" are displayed as text via `hasPrefix` template function
 - **Trade counter proposals:** Receiver of a PROPOSED trade can counter instead of accept/reject; counter creates a new trade with `parent_trade_id` linking to the original, marks original as `COUNTERED`; roles flip (receiver becomes proposer); players/ISBP pre-populated from original with flipped sides; chainable — either side can keep countering; on accept, recursive CTE cleans up any stale PROPOSED trades in the chain
 
@@ -381,4 +391,5 @@ ssh root@178.128.178.100 "DATABASE_URL='postgres://admin:<prod-password>@localho
 - **Team ownership is via `team_owners` junction table** — never query `teams.user_id` directly (column exists but is legacy); always JOIN `team_owners` to find a user's teams; roster page uses `IsOwner` from handler (via `store.IsTeamOwner()`) for action buttons and "Propose Trade" visibility
 - **`GetManagedTeams` is lightweight** — does NOT populate `.Players`; use `GetTeamWithRoster` when player data is needed (e.g., trade proposal page)
 - **PostgreSQL COALESCE type matching** — `COALESCE(uuid_col, 'text')` fails; must cast: `COALESCE(uuid_col::TEXT, 'text')`
+- **MiLB/IFA bid increment pre-fix data** — The bid increment rule (lesser of 2x or +$100K) was deployed Mar 6, 2026 17:44 UTC (commit `3195eb4`). 26 MiLB bids and 2 IFA bids placed before this time violated the rule and exist in `bid_history` JSONB. These are known historical violations, not current bugs.
 - **ISBP data lives in WP options table** — not on WP users' ACF fields (those are always 0); use the `fod-api-bridge.php` plugin to access via REST API
