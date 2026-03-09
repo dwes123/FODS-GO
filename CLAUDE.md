@@ -42,7 +42,7 @@ ssh root@178.128.178.100 "docker exec -i fantasy_postgres psql -U admin -d fanta
 - `.mcp.json` is in `.gitignore` (contains credentials)
 - **Before starting Claude Code**, open a separate terminal and run the SSH tunnel:
   ```
-  ssh -N -L 5433:localhost:5433 root@178.128.178.100
+  ssh -N -L 15433:localhost:5433 root@178.128.178.100
   ```
   This forwards local port 5433 to the server's PostgreSQL. Leave it running; `Ctrl+C` to stop.
 
