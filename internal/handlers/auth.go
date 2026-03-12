@@ -103,6 +103,9 @@ func LoginHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		// Update last login timestamp
+		store.UpdateLastLogin(db, user.ID)
+
 		setSessionCookie(c, token, 3600*24)
 		c.Redirect(http.StatusFound, "/home")
 	}

@@ -15,8 +15,9 @@ type User struct {
 	Email           string    `json:"email"`
 	PasswordHash    string    `json:"-"`
 	Role            string    `json:"role"`
-	CreatedAt       time.Time `json:"created_at"`
-	ThemePreference string    `json:"theme_preference"`
+	CreatedAt       time.Time  `json:"created_at"`
+	ThemePreference string     `json:"theme_preference"`
+	LastLoginAt     *time.Time `json:"last_login_at"`
 }
 
 type Session struct {
@@ -201,7 +202,7 @@ func GetTeamOwnerEmails(db *pgxpool.Pool, teamID string) ([]string, error) {
 
 func GetAllUsers(db *pgxpool.Pool) ([]User, error) {
 	rows, err := db.Query(context.Background(),
-		`SELECT id, username, email, role, created_at, COALESCE(theme_preference, 'light') FROM users ORDER BY username`)
+		`SELECT id, username, email, role, created_at, COALESCE(theme_preference, 'light'), last_login_at FROM users ORDER BY username`)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +211,7 @@ func GetAllUsers(db *pgxpool.Pool) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.CreatedAt, &u.ThemePreference); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.CreatedAt, &u.ThemePreference, &u.LastLoginAt); err != nil {
 			continue
 		}
 		users = append(users, u)
@@ -222,6 +223,11 @@ func DeleteUser(db *pgxpool.Pool, userID string) error {
 	_, err := db.Exec(context.Background(),
 		`DELETE FROM users WHERE id = $1`, userID)
 	return err
+}
+
+func UpdateLastLogin(db *pgxpool.Pool, userID string) {
+	db.Exec(context.Background(),
+		"UPDATE users SET last_login_at = NOW() WHERE id = $1", userID)
 }
 
 func UpdateThemePreference(db *pgxpool.Pool, userID, theme string) error {
