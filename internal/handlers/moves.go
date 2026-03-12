@@ -232,14 +232,29 @@ func MoveToILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			status40Man = false
 		}
 
-		_, err := db.Exec(context.Background(),
+		// Record pre-IL roster status so we can restore on activation
+		preILStatus := "40"
+		var on26 bool
+		err := db.QueryRow(context.Background(),
+			`SELECT status_26_man FROM players WHERE id = $1 AND team_id = $2`,
+			req.PlayerID, req.TeamID).Scan(&on26)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+		if on26 {
+			preILStatus = "26"
+		}
+
+		_, err = db.Exec(context.Background(),
 			`UPDATE players SET
 				status_il = $1,
 				il_start_date = NOW(),
 				status_26_man = FALSE,
-				status_40_man = $2
+				status_40_man = $2,
+				pre_il_status = $5
 			WHERE id = $3 AND team_id = $4`,
-			statusIL, status40Man, req.PlayerID, req.TeamID)
+			statusIL, status40Man, req.PlayerID, req.TeamID, preILStatus)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -268,9 +283,31 @@ func ActivateFromILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		_, err := db.Exec(context.Background(),
-			`UPDATE players SET status_il = NULL, il_start_date = NULL WHERE id = $1 AND team_id = $2`,
-			req.PlayerID, req.TeamID)
+		// Restore player to their pre-IL roster position
+		var preILStatus *string
+		err := db.QueryRow(context.Background(),
+			`SELECT pre_il_status FROM players WHERE id = $1 AND team_id = $2`,
+			req.PlayerID, req.TeamID).Scan(&preILStatus)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+
+		restore26 := false
+		restore40 := true
+		if preILStatus != nil && *preILStatus == "26" {
+			restore26 = true
+		}
+
+		_, err = db.Exec(context.Background(),
+			`UPDATE players SET
+				status_il = NULL,
+				il_start_date = NULL,
+				pre_il_status = NULL,
+				status_40_man = $3,
+				status_26_man = $4
+			WHERE id = $1 AND team_id = $2`,
+			req.PlayerID, req.TeamID, restore40, restore26)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
