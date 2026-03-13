@@ -184,7 +184,7 @@ func GetPlayerByID(db *pgxpool.Pool, id string) (*RosterPlayer, error) {
 
 	query := `
 		SELECT p.id, p.first_name, p.last_name, p.position, p.mlb_team, p.fa_status,
-		       p.status_40_man, p.status_26_man, COALESCE(p.status_il, ''), p.option_years_used,
+		       p.status_40_man, p.status_26_man, COALESCE(p.status_il, ''), p.option_years_used, p.options_this_season,
 		       p.team_id, p.league_id, l.name as league_name,
 		       COALESCE(p.rule_5_eligibility_year, 0),
 		       COALESCE(p.roster_moves_log, '[]'::jsonb),
@@ -205,7 +205,7 @@ func GetPlayerByID(db *pgxpool.Pool, id string) (*RosterPlayer, error) {
 
 	dest := []interface{}{
 		&p.ID, &p.FirstName, &p.LastName, &p.Position, &p.MLBTeam, &rawStatus,
-		&p.Status40Man, &p.Status26Man, &p.StatusIL, &p.OptionYears,
+		&p.Status40Man, &p.Status26Man, &p.StatusIL, &p.OptionYears, &p.OptionsThisSeason,
 		&teamID, &p.LeagueID, &p.LeagueName,
 		&p.Rule5Year, &movesLogRaw, &p.IsIFA, &p.DFAOnly, &p.IsMinorLeaguer,
 		&p.BidEndTime, &p.PendingBidAmount, &p.PendingBidTeamName,

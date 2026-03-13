@@ -34,17 +34,17 @@ func checkSeasonalTasks(db *pgxpool.Pool) {
 	month := now.Month()
 	day := now.Day()
 
-	// Nov 1: Reset option years used
+	// Nov 1: Reset per-season option count (lifetime option_years_used is NOT reset)
 	if month == 11 && day == 1 {
 		key := fmt.Sprintf("seasonal_option_reset_%d", year)
 		if !hasRunThisYear(db, ctx, key) {
-			result, err := db.Exec(ctx, `UPDATE players SET option_years_used = 0 WHERE option_years_used > 0`)
+			result, err := db.Exec(ctx, `UPDATE players SET options_this_season = 0 WHERE options_this_season > 0`)
 			if err != nil {
 				fmt.Printf("Seasonal Worker Error (option reset): %v\n", err)
 				return
 			}
 			markAsRun(db, ctx, key)
-			fmt.Printf("Seasonal Worker: Reset option_years_used for %d players\n", result.RowsAffected())
+			fmt.Printf("Seasonal Worker: Reset options_this_season for %d players\n", result.RowsAffected())
 		}
 	}
 

@@ -13,7 +13,8 @@
         <div class="meta-card">
             <p><strong>40-Man:</strong> {{if .Player.Status40Man}}Yes{{else}}No{{end}}</p>
             <p><strong>26-Man:</strong> {{if .Player.Status26Man}}Yes{{else}}No{{end}}</p>
-            <p><strong>Option Years:</strong> {{.Player.OptionYears}}</p>
+            <p><strong>Option Years:</strong> {{.Player.OptionYears}}/3 used</p>
+            <p><strong>Options This Season:</strong> {{.Player.OptionsThisSeason}}/5 used</p>
             {{if .Player.Rule5Year}}<p><strong>Rule 5 Eligibility:</strong> {{.Player.Rule5Year}}</p>{{end}}
         </div>
     </div>

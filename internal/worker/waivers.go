@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -31,9 +32,11 @@ func processExpiredWaivers(db *pgxpool.Pool) {
 	ctx := context.Background()
 
 	rows, err := db.Query(ctx, `
-		SELECT id, first_name, last_name, league_id, waiving_team_id, COALESCE(dfa_clear_action, 'release')
-		FROM players
-		WHERE fa_status = 'on waivers' AND waiver_end_time <= NOW()
+		SELECT p.id, p.first_name, p.last_name, p.league_id::TEXT, p.waiving_team_id,
+		       COALESCE(p.dfa_clear_action, 'release'), COALESCE(t.name, 'Unknown')
+		FROM players p
+		LEFT JOIN teams t ON t.id = p.waiving_team_id
+		WHERE p.fa_status = 'on waivers' AND p.waiver_end_time <= NOW()
 	`)
 	if err != nil {
 		fmt.Printf("Waiver Worker Error: %v\n", err)
@@ -42,8 +45,8 @@ func processExpiredWaivers(db *pgxpool.Pool) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var pID, fName, lName, lID, waivingTeamID, clearAction string
-		if err := rows.Scan(&pID, &fName, &lName, &lID, &waivingTeamID, &clearAction); err != nil {
+		var pID, fName, lName, lID, waivingTeamID, clearAction, waivingTeamName string
+		if err := rows.Scan(&pID, &fName, &lName, &lID, &waivingTeamID, &clearAction, &waivingTeamName); err != nil {
 			continue
 		}
 
@@ -114,11 +117,23 @@ func processExpiredWaivers(db *pgxpool.Pool) {
 		}
 		tx.Commit(ctx)
 
+		playerName := fName + " " + lName
 		if winningTeamID != "" {
+			// Look up claiming team name
+			var claimTeamName string
+			db.QueryRow(ctx, `SELECT name FROM teams WHERE id = $1`, winningTeamID).Scan(&claimTeamName)
+			store.LogActivity(db, lID, winningTeamID, "Added Player",
+				fmt.Sprintf("%s claimed %s off waivers (from %s)", claimTeamName, playerName, waivingTeamName))
+			store.LogActivity(db, lID, waivingTeamID, "Dropped Player",
+				fmt.Sprintf("%s lost %s on waivers (claimed by %s)", waivingTeamName, playerName, claimTeamName))
 			fmt.Printf("Waiver Worker: %s %s claimed by Team %s\n", fName, lName, winningTeamID)
 		} else if clearAction == "minors" {
+			store.LogActivity(db, lID, waivingTeamID, "Roster Move",
+				fmt.Sprintf("%s cleared waivers — %s sent to minors", playerName, waivingTeamName))
 			fmt.Printf("Waiver Worker: %s %s cleared waivers — sent to minors\n", fName, lName)
 		} else {
+			store.LogActivity(db, lID, waivingTeamID, "Dropped Player",
+				fmt.Sprintf("%s released %s (cleared waivers, dead cap applied)", waivingTeamName, playerName))
 			fmt.Printf("Waiver Worker: %s %s cleared waivers — released with dead cap\n", fName, lName)
 		}
 	}

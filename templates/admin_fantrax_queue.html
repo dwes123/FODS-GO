@@ -1,8 +1,23 @@
 {{define "title"}}Fantrax Queue{{end}}
 
 {{define "content"}}
-<h2>Fantrax Processing Queue</h2>
-<p>Track which roster-affecting transactions have been synced to Fantrax.</p>
+<style>
+.txn-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: bold;
+    color: white;
+    white-space: nowrap;
+}
+.txn-ADDED\ PLAYER { background: #28a745; }
+.txn-DROPPED\ PLAYER { background: #dc3545; }
+.txn-TRADE { background: #E87426; }
+.txn-ROSTER\ MOVE { background: #2E6DA4; }
+</style>
+<h2>Commissioner Queue</h2>
+<p>All roster-affecting transactions — signings, waivers, trades, and roster moves (last 7 days).</p>
 
 <form method="GET" action="/admin/fantrax-queue" style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
     <select name="league_id" onchange="this.form.submit()" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc;">
@@ -23,6 +38,7 @@
     <thead>
         <tr>
             <th>Date</th>
+            <th>Type</th>
             <th>Team</th>
             <th>Summary</th>
             <th>League</th>
@@ -32,7 +48,8 @@
     <tbody>
         {{range .Queue}}
         <tr>
-            <td>{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}</td>
+            <td>{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</td>
+            <td><span class="txn-badge txn-{{.TransactionType}}">{{.TransactionType}}</span></td>
             <td>{{.TeamName}}</td>
             <td>{{.Summary}}</td>
             <td>{{.LeagueName}}</td>

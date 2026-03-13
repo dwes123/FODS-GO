@@ -28,10 +28,11 @@ func finalizeBids(db *pgxpool.Pool) {
 	ctx := context.Background()
 
 	rows, err := db.Query(ctx, `
-		SELECT id, first_name, last_name, pending_bid_team_id, pending_bid_years, pending_bid_aav,
-		       COALESCE(bid_type, 'standard')
-		FROM players
-		WHERE fa_status = 'pending_bid' AND bid_end_time <= NOW()
+		SELECT p.id, p.first_name, p.last_name, p.pending_bid_team_id, p.pending_bid_years, p.pending_bid_aav,
+		       COALESCE(p.bid_type, 'standard'), t.name, p.league_id::TEXT
+		FROM players p
+		JOIN teams t ON t.id = p.pending_bid_team_id
+		WHERE p.fa_status = 'pending_bid' AND p.bid_end_time <= NOW()
 	`)
 	if err != nil {
 		fmt.Printf("Worker Error: %v\n", err)
@@ -40,10 +41,10 @@ func finalizeBids(db *pgxpool.Pool) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var pID, fName, lName, teamID, bidType string
+		var pID, fName, lName, teamID, bidType, teamName, leagueID string
 		var years int
 		var aav float64
-		if err := rows.Scan(&pID, &fName, &lName, &teamID, &years, &aav, &bidType); err != nil {
+		if err := rows.Scan(&pID, &fName, &lName, &teamID, &years, &aav, &bidType, &teamName, &leagueID); err != nil {
 			continue
 		}
 
@@ -124,10 +125,22 @@ func finalizeBids(db *pgxpool.Pool) {
 			}
 		}
 
+		// Build summary with signing type
+		playerName := fName + " " + lName
+		var summary string
+		switch bidType {
+		case "ifa":
+			summary = fmt.Sprintf("%s signed %s using ISBP ($%.0f)", teamName, playerName, aav)
+		case "milb":
+			summary = fmt.Sprintf("%s signed %s as MiLB Free Agent ($%.0f)", teamName, playerName, aav)
+		default:
+			summary = fmt.Sprintf("%s signed %s as Free Agent (%dyr/$%.0f)", teamName, playerName, years, aav)
+		}
+
 		_, err = tx.Exec(ctx, `
-			INSERT INTO transactions (team_id, player_id, transaction_type, status)
-			VALUES ($1, $2, 'Added Player', 'COMPLETED')
-		`, teamID, pID)
+			INSERT INTO transactions (team_id, player_id, league_id, transaction_type, status, summary)
+			VALUES ($1, $2, $3, 'Added Player', 'COMPLETED', $4)
+		`, teamID, pID, leagueID, summary)
 
 		if err != nil {
 			tx.Rollback(ctx)
@@ -135,6 +148,7 @@ func finalizeBids(db *pgxpool.Pool) {
 		}
 
 		tx.Commit(ctx)
+
 		fmt.Printf("✅ Worker: %s %s signed by Team %s for %d years at %.0f AAV\n", fName, lName, teamID, years, aav)
 	}
 }

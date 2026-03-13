@@ -195,9 +195,47 @@ func OptionToMinorsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		_, err := db.Exec(context.Background(),
-			`UPDATE players SET status_26_man = FALSE, option_years_used = option_years_used + 1 WHERE id = $1 AND team_id = $2`,
-			req.PlayerID, req.TeamID)
+		// Check option limits: 3 lifetime years, 5 sends per year
+		var optionYearsUsed, optionsThisSeason, optionYearLogged int
+		err := db.QueryRow(context.Background(),
+			`SELECT option_years_used, options_this_season, option_year_logged FROM players WHERE id = $1 AND team_id = $2`,
+			req.PlayerID, req.TeamID).Scan(&optionYearsUsed, &optionsThisSeason, &optionYearLogged)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+
+		currentYear := time.Now().Year()
+		isNewOptionYear := optionYearLogged != currentYear
+
+		if isNewOptionYear && optionYearsUsed >= 3 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Player is out of options (3 option years used)"})
+			return
+		}
+
+		if !isNewOptionYear && optionsThisSeason >= 5 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Player has been optioned 5 times this season (maximum reached)"})
+			return
+		}
+
+		// Build update: always increment options_this_season, conditionally increment option_years_used
+		if isNewOptionYear {
+			_, err = db.Exec(context.Background(),
+				`UPDATE players SET
+					status_26_man = FALSE,
+					option_years_used = option_years_used + 1,
+					options_this_season = 1,
+					option_year_logged = $3
+				WHERE id = $1 AND team_id = $2`,
+				req.PlayerID, req.TeamID, currentYear)
+		} else {
+			_, err = db.Exec(context.Background(),
+				`UPDATE players SET
+					status_26_man = FALSE,
+					options_this_season = options_this_season + 1
+				WHERE id = $1 AND team_id = $2`,
+				req.PlayerID, req.TeamID)
+		}
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})

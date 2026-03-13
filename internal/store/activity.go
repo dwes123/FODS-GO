@@ -38,10 +38,10 @@ func GetFantraxQueue(db *pgxpool.Pool, leagueID string, showCompleted bool) ([]A
 		LEFT JOIN teams ON t.team_id = teams.id
 		LEFT JOIN players p ON t.player_id = p.id
 		LEFT JOIN leagues l ON teams.league_id = l.id OR t.league_id = l.id
-		WHERE t.transaction_type IN ('Roster Move', 'Added Player', 'Trade')
+		WHERE t.transaction_type IN ('Roster Move', 'Added Player', 'Dropped Player', 'Trade')
 		  AND COALESCE(t.summary, '') NOT LIKE '%promoted%to 40-Man roster%'
 		  AND COALESCE(t.summary, '') NOT LIKE '%promoted%to 26-Man roster%'
-		  AND t.created_at >= CURRENT_DATE
+		  AND t.created_at >= CURRENT_DATE - INTERVAL '7 days'
 	`
 
 	args := []interface{}{}

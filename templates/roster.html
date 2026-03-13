@@ -346,6 +346,7 @@ async function saveDepthOrder() {
                     <th>MLB</th>
                     <th>FPTS</th>
                     <th>Status</th>
+                    <th title="Option Years Used / Options This Season">Opts</th>
                     {{range $years}}<th>{{.}}</th>{{end}}
                 </tr>
             </thead>
@@ -383,6 +384,7 @@ async function saveDepthOrder() {
                         <td>{{.MLBTeam}}</td>
                         <td class="fpts-cell">{{$pts := index $pointsMap .ID}}{{if $pts}}{{printf "%.1f" $pts}}{{else}}--{{end}}</td>
                         <td>{{.Status}}</td>
+                        <td title="{{.OptionYears}}/3 years, {{.OptionsThisSeason}}/5 this season">{{.OptionYears}}yr / {{.OptionsThisSeason}}s</td>
                         {{$p := .}}
                         {{range $years}}
                             {{$isOptionYear := index $p.ContractOptionYears .}}
