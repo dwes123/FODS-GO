@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -118,6 +119,16 @@ func SubmitExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		// Block if player already has an approved extension
+		var existingExt int
+		db.QueryRow(context.Background(),
+			`SELECT COUNT(*) FROM pending_actions WHERE player_id = $1 AND action_type = 'EXTENSION' AND status = 'APPROVED'`,
+			playerID).Scan(&existingExt)
+		if existingExt > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "This player has already been extended. Only one extension per player is allowed."})
+			return
+		}
+
 		// Find the first contract year without a dollar amount
 		// Non-dollar values like UFA, TC, ARB, ARB 1, ARB 2, ARB 3 don't count
 		startYear := 0
@@ -202,6 +213,20 @@ func ProcessRestructureHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		isOwner, _ := store.IsTeamOwner(db, player.TeamID, user.ID)
 		if !isOwner && user.Role != "admin" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		// Validate both years are years the player is actually signed for (not UFA or empty)
+		fromYearInt, _ := strconv.Atoi(fromYear)
+		toYearInt, _ := strconv.Atoi(toYear)
+		fromVal := strings.ToUpper(strings.TrimSpace(player.Contracts[fromYearInt]))
+		toVal := strings.ToUpper(strings.TrimSpace(player.Contracts[toYearInt]))
+		if fromVal == "" || fromVal == "UFA" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Player is not signed for %s — cannot move salary from that year.", fromYear)})
+			return
+		}
+		if toVal == "" || toVal == "UFA" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Player is not signed for %s — cannot move salary to that year.", toYear)})
 			return
 		}
 

@@ -299,6 +299,10 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 			if a < b { return a }
 			return b
 		},
+		"isSignedYear": func(val string) bool {
+			v := strings.ToUpper(strings.TrimSpace(val))
+			return v != "" && v != "UFA"
+		},
 		"formatMoney": func(v interface{}) string {
 			p := message.NewPrinter(language.English)
 			switch val := v.(type) {

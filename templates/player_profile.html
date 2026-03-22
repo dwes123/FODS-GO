@@ -12,9 +12,10 @@
         </div>
         <div class="meta-card">
             <p><strong>40-Man:</strong> {{if .Player.Status40Man}}Yes{{else}}No{{end}}</p>
-            <p><strong>26-Man:</strong> {{if .Player.Status26Man}}Yes{{else}}No{{end}}</p>
-            <p><strong>Option Years:</strong> {{.Player.OptionYears}}/3 used</p>
-            <p><strong>Options This Season:</strong> {{.Player.OptionsThisSeason}}/5 used</p>
+            <p><strong>26-Man:</strong> {{if .Player.Status26Man}}Yes{{else if .Player.StatusIL}}Yes (on {{.Player.StatusIL}}){{else}}No{{end}}</p>
+            {{if .Player.DFAOnly}}<p><strong>DFA Only:</strong> Yes</p>
+            {{else}}<p><strong>Option Years:</strong> {{.Player.OptionYears}}/3 used</p>
+            <p><strong>Options This Season:</strong> {{.Player.OptionsThisSeason}}/5 used</p>{{end}}
             {{if .Player.Rule5Year}}<p><strong>Rule 5 Eligibility:</strong> {{.Player.Rule5Year}}</p>{{end}}
         </div>
     </div>
@@ -123,13 +124,13 @@
                         <div class="form-group">
                             <label>From Year:</label>
                             <select name="from_year">
-                                {{range $year, $val := .Player.Contracts}}{{if ne $val ""}}<option value="{{$year}}">{{$year}}</option>{{end}}{{end}}
+                                {{range $year, $val := .Player.Contracts}}{{if isSignedYear $val}}<option value="{{$year}}">{{$year}}</option>{{end}}{{end}}
                             </select>
                         </div>
                         <div class="form-group">
                             <label>To Year:</label>
                             <select name="to_year">
-                                {{range $year, $val := .Player.Contracts}}{{if ne $val ""}}<option value="{{$year}}">{{$year}}</option>{{end}}{{end}}
+                                {{range $year, $val := .Player.Contracts}}{{if isSignedYear $val}}<option value="{{$year}}">{{$year}}</option>{{end}}{{end}}
                             </select>
                         </div>
                         <div class="form-group">

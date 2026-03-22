@@ -66,12 +66,22 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				return
 			}
 
-			// Check MiLB balance
+			// Check MiLB balance including all outstanding MiLB bids for this team
 			var milbBalance float64
 			db.QueryRow(context.Background(),
 				"SELECT COALESCE(milb_balance, 0) FROM teams WHERE id = $1", teamID).Scan(&milbBalance)
-			if signingAmount > milbBalance {
-				c.String(http.StatusBadRequest, fmt.Sprintf("Insufficient MiLB balance. Signing amount: $%.0f, Available: $%.0f", signingAmount, milbBalance))
+
+			// Sum all other pending MiLB bids by this team (exclude current player since bid replaces)
+			var otherBidsTotal float64
+			db.QueryRow(context.Background(),
+				`SELECT COALESCE(SUM(pending_bid_amount), 0) FROM players
+				 WHERE pending_bid_team_id = $1 AND bid_type = 'milb'
+				   AND fa_status = 'pending_bid' AND id != $2`,
+				teamID, playerID).Scan(&otherBidsTotal)
+
+			availableBalance := milbBalance - otherBidsTotal
+			if signingAmount > availableBalance {
+				c.String(http.StatusBadRequest, fmt.Sprintf("Insufficient MiLB balance. Signing amount: $%.0f, Other open bids: $%.0f, Available: $%.0f", signingAmount, otherBidsTotal, availableBalance))
 				return
 			}
 
@@ -82,7 +92,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				"SELECT COALESCE(pending_bid_amount, 0), COALESCE(fa_status, '') FROM players WHERE id = $1",
 				playerID).Scan(&currentAmount, &currentStatus)
 
-			if currentStatus == "pending_bid" && signingAmount < milbBalance {
+			if currentStatus == "pending_bid" && signingAmount < availableBalance {
 				// Minimum bid: lesser of double the current bid or current + $100K
 				doubleAmount := currentAmount * 2
 				plusHundredK := currentAmount + 100000
