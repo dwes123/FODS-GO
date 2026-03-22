@@ -174,3 +174,31 @@ func AdminPopulateMLBIDsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "MLB ID population started for rostered players — check server logs for progress (~1 hour)"})
 	}
 }
+
+// AdminComplianceCheckHandler runs a manual roster compliance check across all leagues (admin only).
+func AdminComplianceCheckHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		if user.Role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Admin only"})
+			return
+		}
+
+		report := worker.RunComplianceCheck(db)
+
+		var violations []map[string]string
+		for _, v := range report.Violations {
+			violations = append(violations, map[string]string{
+				"league": v.LeagueName,
+				"team":   v.TeamName,
+				"issue":  v.Issue,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"violation_count": len(report.Violations),
+			"violations":      violations,
+			"checked_at":      report.CheckedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+}

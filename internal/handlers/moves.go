@@ -195,13 +195,19 @@ func OptionToMinorsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// Check option limits: 3 lifetime years, 5 sends per year
+		// Check if player is DFA-only (cannot be optioned)
+		var dfaOnly bool
 		var optionYearsUsed, optionsThisSeason, optionYearLogged int
 		err := db.QueryRow(context.Background(),
-			`SELECT option_years_used, options_this_season, option_year_logged FROM players WHERE id = $1 AND team_id = $2`,
-			req.PlayerID, req.TeamID).Scan(&optionYearsUsed, &optionsThisSeason, &optionYearLogged)
+			`SELECT COALESCE(dfa_only, FALSE), option_years_used, options_this_season, option_year_logged FROM players WHERE id = $1 AND team_id = $2`,
+			req.PlayerID, req.TeamID).Scan(&dfaOnly, &optionYearsUsed, &optionsThisSeason, &optionYearLogged)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+
+		if dfaOnly {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "DFA-only players cannot be optioned. Use the Waive button instead."})
 			return
 		}
 
@@ -265,21 +271,30 @@ func MoveToILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		statusIL := req.Duration + "-Day IL"
-		status40Man := true
-		if req.Duration == "60" {
-			status40Man = false
-		}
 
-		// Record pre-IL roster status so we can restore on activation
-		preILStatus := "40"
+		// Validate IL duration based on position
+		var position string
 		var on26 bool
 		err := db.QueryRow(context.Background(),
-			`SELECT status_26_man FROM players WHERE id = $1 AND team_id = $2`,
-			req.PlayerID, req.TeamID).Scan(&on26)
+			`SELECT position, status_26_man FROM players WHERE id = $1 AND team_id = $2`,
+			req.PlayerID, req.TeamID).Scan(&position, &on26)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
 		}
+
+		isPitcher := position == "SP" || position == "RP" || position == "P"
+		if req.Duration == "10" && isPitcher {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Pitchers must use the 15-Day or 60-Day IL"})
+			return
+		}
+		if req.Duration == "15" && !isPitcher {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Position players must use the 10-Day or 60-Day IL"})
+			return
+		}
+
+		// Record pre-IL roster status so we can restore on activation
+		preILStatus := "40"
 		if on26 {
 			preILStatus = "26"
 		}
@@ -289,10 +304,9 @@ func MoveToILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				status_il = $1,
 				il_start_date = NOW(),
 				status_26_man = FALSE,
-				status_40_man = $2,
-				pre_il_status = $5
-			WHERE id = $3 AND team_id = $4`,
-			statusIL, status40Man, req.PlayerID, req.TeamID, preILStatus)
+				pre_il_status = $3
+			WHERE id = $2 AND team_id = $4`,
+			statusIL, req.PlayerID, preILStatus, req.TeamID)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -405,6 +419,45 @@ func DFAPlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
 		store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s designated %s for assignment", tName, pName))
 		c.JSON(http.StatusOK, gin.H{"message": "Player designated for assignment (DFA)"})
+	}
+}
+
+func WaivePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req MoveRequest
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		user := c.MustGet("user").(*store.User)
+		isOwner, _ := store.IsTeamOwner(db, req.TeamID, user.ID)
+		if !isOwner {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not own this team"})
+			return
+		}
+
+		waiverEnd := time.Now().Add(48 * time.Hour)
+
+		_, err := db.Exec(context.Background(),
+			`UPDATE players SET
+				fa_status = 'on waivers',
+				waiver_end_time = $1,
+				waiving_team_id = $2,
+				dfa_clear_action = 'minors',
+				status_26_man = FALSE
+			WHERE id = $3 AND team_id = $2`,
+			waiverEnd, req.TeamID, req.PlayerID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+
+		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Placed on Waivers")
+		pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
+		store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s placed %s on waivers", tName, pName))
+		c.JSON(http.StatusOK, gin.H{"message": "Player placed on waivers"})
 	}
 }
 

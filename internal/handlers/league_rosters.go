@@ -33,8 +33,8 @@ func LeagueRostersHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		// Fetch teams with roster counts for selected league
 		rows, err := db.Query(context.Background(), `
 			SELECT t.id, t.name, COALESCE(t.owner_name, ''),
-				COUNT(*) FILTER (WHERE p.status_40_man = true) as cnt_40,
-				COUNT(*) FILTER (WHERE p.status_26_man = true) as cnt_26,
+				COUNT(*) FILTER (WHERE p.status_40_man = true AND COALESCE(p.status_il, '') != '60-Day IL') as cnt_40,
+				COUNT(*) FILTER (WHERE p.status_26_man = true AND COALESCE(p.status_il, '') != '60-Day IL') as cnt_26,
 				COUNT(*) FILTER (WHERE p.status_40_man = false AND COALESCE(p.status_il, '') = '') as cnt_minors
 			FROM teams t
 			LEFT JOIN players p ON p.team_id = t.id

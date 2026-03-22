@@ -105,19 +105,17 @@ func finalizeBids(db *pgxpool.Pool) {
 			}
 			fmt.Printf("💰 Worker: Deducted $%.0f MiLB from Team %s for MiLB signing of %s %s\n", aav, teamID, fName, lName)
 		} else {
-			// Standard signing: write contract, mark DFA-only
-			_, err = tx.Exec(ctx, `
-				UPDATE players SET
-					team_id = $1,
-					fa_status = 'rostered',
-					contract_2026 = $2,
-					status_40_man = TRUE,
-					status_il = NULL,
-					dfa_only = TRUE,
-					pending_bid_amount = NULL,
-					pending_bid_team_id = NULL
-				WHERE id = $3
-			`, teamID, fmt.Sprintf("%.0f", aav), pID)
+			// Standard signing: write contract for all years, mark DFA-only
+			currentYear := time.Now().Year()
+			aavStr := fmt.Sprintf("%.0f", aav)
+			setClauses := `team_id = $1, fa_status = 'rostered', status_40_man = TRUE, status_il = NULL, dfa_only = TRUE, pending_bid_amount = NULL, pending_bid_team_id = NULL`
+			for i := 0; i < years; i++ {
+				yr := currentYear + i
+				if yr >= 2026 && yr <= 2040 {
+					setClauses += fmt.Sprintf(", contract_%d = '%s'", yr, aavStr)
+				}
+			}
+			_, err = tx.Exec(ctx, fmt.Sprintf(`UPDATE players SET %s WHERE id = $2`, setClauses), teamID, pID)
 
 			if err != nil {
 				tx.Rollback(ctx)

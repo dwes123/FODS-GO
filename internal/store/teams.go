@@ -341,8 +341,8 @@ func ClaimTeam(db *pgxpool.Pool, teamID, userID, username string) error {
 func GetTeamRosterCounts(db *pgxpool.Pool, teamID string) (count26 int, count40 int, err error) {
 	err = db.QueryRow(context.Background(), `
 		SELECT
-			COUNT(*) FILTER (WHERE status_26_man = TRUE),
-			COUNT(*) FILTER (WHERE status_40_man = TRUE)
+			COUNT(*) FILTER (WHERE status_26_man = TRUE AND COALESCE(status_il, '') != '60-Day IL'),
+			COUNT(*) FILTER (WHERE status_40_man = TRUE AND COALESCE(status_il, '') != '60-Day IL')
 		FROM players
 		WHERE team_id = $1
 	`, teamID).Scan(&count26, &count40)
@@ -355,6 +355,7 @@ func GetTeam26ManSPCount(db *pgxpool.Pool, teamID string) (int, error) {
 	err := db.QueryRow(context.Background(), `
 		SELECT COUNT(*) FROM players
 		WHERE team_id = $1 AND status_26_man = TRUE AND position = 'SP'
+			AND COALESCE(status_il, '') != '60-Day IL'
 	`, teamID).Scan(&count)
 	return count, err
 }

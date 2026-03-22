@@ -1,0 +1,78 @@
+{{define "title"}}IRL Financials{{end}}
+
+{{define "content"}}
+<div class="content-container">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+        <h2>IRL Financials: {{.LeagueName}} ({{.Year}})</h2>
+        <div class="filters" style="display: flex; gap: 10px;">
+            <form action="/league/irl-financials" method="GET" style="display: flex; gap: 10px;">
+                <select name="league_id" onchange="this.form.submit()" style="padding: 5px; border-radius: 4px;">
+                    {{$currentLg := .LeagueID}}
+                    {{range .Leagues}}
+                    <option value="{{.ID}}" {{if eq .ID $currentLg}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
+                </select>
+                <select name="year" onchange="this.form.submit()" style="padding: 5px; border-radius: 4px;">
+                    {{$currentYr := .Year}}
+                    {{range $y := seq 2026 2027}}
+                    <option value="{{$y}}" {{if eq $y $currentYr}}selected{{end}}>{{$y}}</option>
+                    {{end}}
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 15px; padding: 10px 15px; background: var(--card-bg, #f8f9fa); border-radius: 6px; border: 1px solid var(--border-color, #dee2e6);">
+        <strong>Luxury Tax Threshold:</strong> ${{formatMoney .LuxuryTaxLimit}}
+        &nbsp;&bull;&nbsp;
+        <strong>Rates shown:</strong> 1st-time offender
+    </div>
+
+    <div class="table-container" style="overflow-x: auto;">
+        <table class="fantasy-table-base">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Team</th>
+                    <th>Manager</th>
+                    <th style="text-align: right;">Payroll</th>
+                    <th style="text-align: right;">Buy-In</th>
+                    <th style="text-align: right;">Luxury Tax</th>
+                    <th style="text-align: right;">Total IRL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range $i, $t := .Teams}}
+                <tr {{if $t.IsOverTax}}style="background-color: rgba(207, 19, 34, 0.08);"{{end}}>
+                    <td>{{add $i 1}}</td>
+                    <td><strong><a href="/team/financials/{{$t.TeamID}}">{{$t.TeamName}}</a></strong></td>
+                    <td>{{$t.OwnerName}}</td>
+                    <td style="text-align: right;">${{formatMoney $t.TotalSalary}}</td>
+                    <td style="text-align: right;">${{printf "%.2f" $t.BuyIn}}</td>
+                    <td style="text-align: right; {{if $t.IsOverTax}}color: #cf1322; font-weight: bold;{{end}}">
+                        {{if $t.IsOverTax}}${{printf "%.2f" $t.LuxuryTaxPen}}{{else}}—{{end}}
+                    </td>
+                    <td style="text-align: right; font-weight: bold;">${{printf "%.2f" $t.TotalIRL}}</td>
+                </tr>
+                {{else}}
+                <tr><td colspan="7">No team data found for this league.</td></tr>
+                {{end}}
+            </tbody>
+            <tfoot>
+                <tr style="font-weight: bold; border-top: 2px solid var(--border-color, #333);">
+                    <td colspan="4" style="text-align: right;">League Totals:</td>
+                    <td style="text-align: right;">${{printf "%.2f" .TotalBuyIn}}</td>
+                    <td style="text-align: right; color: #cf1322;">${{printf "%.2f" .TotalTax}}</td>
+                    <td style="text-align: right;">${{printf "%.2f" .TotalIRL}}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div style="margin-top: 20px; font-size: 0.85rem; color: #888;">
+        <p>* All dollar amounts under Buy-In, Luxury Tax, and Total IRL are real-life USD.</p>
+        <p>* Luxury tax penalties shown are for first-time offenders. Repeat offender rates are higher.</p>
+        <p>* Click a team name to view their full in-game financial breakdown.</p>
+    </div>
+</div>
+{{end}}

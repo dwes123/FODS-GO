@@ -84,7 +84,19 @@ Multi-step reasoning:
 - For trade fairness, use get_team_payrolls for salary impact + check_roster_compliance to check limits after the trade.
 - For farm system / prospect questions, use get_team_roster and filter for "Minors" status players.
 - For upcoming free agents, use find_expiring_contracts with the current year.
-- For complex questions, break into multiple tool calls. NEVER ask the user to run queries manually — chain tools yourself.`
+- For complex questions, break into multiple tool calls. NEVER ask the user to run queries manually — chain tools yourself.
+- For trade block questions (who's available, what's on the block), use get_trade_block instead of run_query.
+- For fantasy points leaderboard questions (top scorers, best performers), use get_leaderboard with stat_type='pitching' or 'hitting'.
+- For player performance questions (recent stats, game log), use search_players to find the ID, then get_player_game_log.
+- For pending player add requests, use get_pending_player_requests. To approve/reject, use process_player_request.
+- For team option questions, use get_players_with_options.
+- For active bid questions (current bids, open auctions), use get_pending_bids.
+- For rotation submission status, use get_rotation_status.
+- For finding teams without owners, use get_unassigned_teams.
+- To create a new player, use create_player. To remove a team owner, use remove_team_owner.
+- For Fantrax sync queue, use get_fantrax_queue.
+- For transaction history with type filters, use get_transaction_log (supports 'Added Player', 'Dropped Player', 'Roster Move', 'Trade').
+- For team owner contact info, use get_team_owner_emails.`
 
 // Tool definitions for Gemini function calling
 func getAgentTools() []*genai.Tool {
@@ -647,6 +659,279 @@ func getAgentTools() []*genai.Tool {
 						Required: []string{"player_id"},
 					},
 				},
+				{
+					Name:        "get_trade_block",
+					Description: "Get all players currently on the trade block for a league. Shows player name, position, team, contract info, and any trade block notes.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"league_id": {
+								Type:        genai.TypeString,
+								Description: "League UUID to filter by. Leave empty for all accessible leagues.",
+							},
+						},
+					},
+				},
+				{
+					Name:        "get_leaderboard",
+					Description: "Get the fantasy points leaderboard for pitching or hitting. Returns top players ranked by total fantasy points for a date range.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"stat_type": {
+								Type:        genai.TypeString,
+								Description: "Either 'pitching' or 'hitting'",
+							},
+							"league_id": {
+								Type:        genai.TypeString,
+								Description: "Optional league UUID to filter by",
+							},
+							"start_date": {
+								Type:        genai.TypeString,
+								Description: "Start date in YYYY-MM-DD format (defaults to start of current season)",
+							},
+							"end_date": {
+								Type:        genai.TypeString,
+								Description: "End date in YYYY-MM-DD format (defaults to today)",
+							},
+							"limit": {
+								Type:        genai.TypeInteger,
+								Description: "Number of results (default 25, max 50)",
+							},
+						},
+						Required: []string{"stat_type"},
+					},
+				},
+				{
+					Name:        "get_player_game_log",
+					Description: "Get a player's game-by-game stats and fantasy points. Auto-detects pitching vs hitting based on position, or specify stat_type.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"player_id": {
+								Type:        genai.TypeString,
+								Description: "Player UUID",
+							},
+							"stat_type": {
+								Type:        genai.TypeString,
+								Description: "Either 'pitching' or 'hitting'. If omitted, auto-detects from player position.",
+							},
+							"limit": {
+								Type:        genai.TypeInteger,
+								Description: "Number of games to return (default 20)",
+							},
+						},
+						Required: []string{"player_id"},
+					},
+				},
+				{
+					Name:        "get_pending_player_requests",
+					Description: "Get all pending player add requests submitted by team owners. Shows requested player name, position, MLB team, league, submitter, and notes.",
+					Parameters: &genai.Schema{
+						Type:       genai.TypeObject,
+						Properties: map[string]*genai.Schema{},
+					},
+				},
+				{
+					Name:        "process_player_request",
+					Description: "Approve or reject a pending player add request. On approval, the player is automatically created as a free agent.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"request_id": {
+								Type:        genai.TypeString,
+								Description: "The player add request UUID",
+							},
+							"decision": {
+								Type:        genai.TypeString,
+								Description: "Either 'approve' or 'reject'",
+							},
+						},
+						Required: []string{"request_id", "decision"},
+					},
+				},
+				{
+					Name:        "get_players_with_options",
+					Description: "Get all players with team options for a given year. Shows player name, team, option salary, and buyout amount. Can filter by league.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"year": {
+								Type:        genai.TypeInteger,
+								Description: "Contract year to check for team options (e.g. 2027). Defaults to current year + 1.",
+							},
+							"league_id": {
+								Type:        genai.TypeString,
+								Description: "Optional league UUID to filter by",
+							},
+						},
+					},
+				},
+				{
+					Name:        "get_pending_bids",
+					Description: "Get all active pending bids across leagues. Shows player name, bidding team, bid points, years, AAV, and time remaining.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"league_id": {
+								Type:        genai.TypeString,
+								Description: "Optional league UUID to filter by. Leave empty for all accessible leagues.",
+							},
+						},
+					},
+				},
+				{
+					Name:        "get_rotation_status",
+					Description: "Check which teams have submitted their weekly pitching rotations. Shows submitted vs total team count per league.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"league_id": {
+								Type:        genai.TypeString,
+								Description: "League UUID (required)",
+							},
+							"week": {
+								Type:        genai.TypeString,
+								Description: "Week start date in YYYY-MM-DD format (defaults to current week's Monday)",
+							},
+						},
+						Required: []string{"league_id"},
+					},
+				},
+				{
+					Name:        "get_unassigned_teams",
+					Description: "Get all teams that currently have no owner assigned. Useful for finding open teams during onboarding.",
+					Parameters: &genai.Schema{
+						Type:       genai.TypeObject,
+						Properties: map[string]*genai.Schema{},
+					},
+				},
+				{
+					Name:        "remove_team_owner",
+					Description: "Remove a user from a team's ownership. Requires team_id and user_id (use list_teams and run_query to find these).",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"team_id": {
+								Type:        genai.TypeString,
+								Description: "Team UUID",
+							},
+							"user_id": {
+								Type:        genai.TypeString,
+								Description: "User UUID to remove from team ownership",
+							},
+						},
+						Required: []string{"team_id", "user_id"},
+					},
+				},
+				{
+					Name:        "get_transaction_log",
+					Description: "Get filtered transaction history. More structured than get_recent_activity — supports filtering by league and transaction type (Added Player, Dropped Player, Roster Move, Trade).",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"league_id": {
+								Type:        genai.TypeString,
+								Description: "Optional league UUID to filter by",
+							},
+							"transaction_type": {
+								Type:        genai.TypeString,
+								Description: "Optional filter: 'Added Player', 'Dropped Player', 'Roster Move', or 'Trade'",
+							},
+							"limit": {
+								Type:        genai.TypeInteger,
+								Description: "Number of results (default 50, max 200)",
+							},
+						},
+					},
+				},
+				{
+					Name:        "create_player",
+					Description: "Create a new player in the database. Use this to add players that don't exist yet (e.g. international signings, draft picks).",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"first_name": {
+								Type:        genai.TypeString,
+								Description: "Player's first name",
+							},
+							"last_name": {
+								Type:        genai.TypeString,
+								Description: "Player's last name",
+							},
+							"position": {
+								Type:        genai.TypeString,
+								Description: "Position (e.g. SP, RP, C, 1B, 2B, 3B, SS, OF, DH)",
+							},
+							"mlb_team": {
+								Type:        genai.TypeString,
+								Description: "MLB team abbreviation (e.g. NYY, LAD, CHC)",
+							},
+							"league_id": {
+								Type:        genai.TypeString,
+								Description: "League UUID to place the player in",
+							},
+							"team_id": {
+								Type:        genai.TypeString,
+								Description: "Optional team UUID to assign the player to. Leave empty for free agent.",
+							},
+							"is_ifa": {
+								Type:        genai.TypeBoolean,
+								Description: "Whether this is an international free agent",
+							},
+						},
+						Required: []string{"first_name", "last_name", "position", "league_id"},
+					},
+				},
+				{
+					Name:        "get_fantrax_queue",
+					Description: "Get roster-affecting transactions pending Fantrax sync. Shows transactions that need to be processed in Fantrax.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"league_id": {
+								Type:        genai.TypeString,
+								Description: "Optional league UUID to filter by",
+							},
+							"show_completed": {
+								Type:        genai.TypeBoolean,
+								Description: "Include already-completed items (default false)",
+							},
+						},
+					},
+				},
+				{
+					Name:        "check_roster_expansion",
+					Description: "Check whether the roster expansion window is currently active for a league.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"league_id": {
+								Type:        genai.TypeString,
+								Description: "League UUID (required)",
+							},
+							"year": {
+								Type:        genai.TypeInteger,
+								Description: "Season year (defaults to current year)",
+							},
+						},
+						Required: []string{"league_id"},
+					},
+				},
+				{
+					Name:        "get_team_owner_emails",
+					Description: "Get the email addresses of all owners of a team. Useful for contacting team owners.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"team_id": {
+								Type:        genai.TypeString,
+								Description: "Team UUID",
+							},
+						},
+						Required: []string{"team_id"},
+					},
+				},
 			},
 		},
 	}
@@ -888,8 +1173,11 @@ var agentWriteTools = map[string]bool{
 	"set_league_date":       true,
 	"update_bug_status":     true,
 	"assign_team_owner":     true,
-	"delete_player":         true,
-	"update_player_bid":     true,
+	"delete_player":           true,
+	"update_player_bid":       true,
+	"process_player_request":  true,
+	"remove_team_owner":       true,
+	"create_player":           true,
 }
 
 func logAgentAction(db *pgxpool.Pool, userID, toolName string, args, result map[string]interface{}) {
@@ -968,6 +1256,36 @@ func executeTool(db *pgxpool.Pool, ac *agentCtx, name string, args map[string]in
 		result = toolUpdatePlayerBid(db, ac, args)
 	case "delete_player":
 		result = toolDeletePlayer(db, ac, args)
+	case "get_trade_block":
+		result = toolGetTradeBlock(db, ac, args)
+	case "get_leaderboard":
+		result = toolGetLeaderboard(db, ac, args)
+	case "get_player_game_log":
+		result = toolGetPlayerGameLog(db, ac, args)
+	case "get_pending_player_requests":
+		result = toolGetPendingPlayerRequests(db, ac, args)
+	case "process_player_request":
+		result = toolProcessPlayerRequest(db, ac, args)
+	case "get_players_with_options":
+		result = toolGetPlayersWithOptions(db, ac, args)
+	case "get_pending_bids":
+		result = toolGetPendingBids(db, ac, args)
+	case "get_rotation_status":
+		result = toolGetRotationStatus(db, ac, args)
+	case "get_unassigned_teams":
+		result = toolGetUnassignedTeams(db, ac, args)
+	case "remove_team_owner":
+		result = toolRemoveTeamOwner(db, ac, args)
+	case "get_transaction_log":
+		result = toolGetTransactionLog(db, ac, args)
+	case "create_player":
+		result = toolCreatePlayer(db, ac, args)
+	case "get_fantrax_queue":
+		result = toolGetFantraxQueue(db, ac, args)
+	case "check_roster_expansion":
+		result = toolCheckRosterExpansion(db, ac, args)
+	case "get_team_owner_emails":
+		result = toolGetTeamOwnerEmails(db, ac, args)
 	default:
 		result = map[string]interface{}{"error": "Unknown tool: " + name}
 	}
@@ -2842,6 +3160,11 @@ func toolUpdatePlayerBid(db *pgxpool.Pool, ac *agentCtx, args map[string]interfa
 		return map[string]interface{}{"error": fmt.Sprintf("Player does not have a pending bid (fa_status='%s')", faStatus)}
 	}
 
+	// Check bid_type — for milb/ifa bids, amount and aav are always the same
+	var bidType string
+	db.QueryRow(ctx, "SELECT COALESCE(bid_type, 'standard') FROM players WHERE id = $1", playerID).Scan(&bidType)
+	isFlatBid := bidType == "milb" || bidType == "ifa"
+
 	// Build dynamic UPDATE
 	sets := []string{}
 	vals := []interface{}{}
@@ -2852,6 +3175,12 @@ func toolUpdatePlayerBid(db *pgxpool.Pool, ac *agentCtx, args map[string]interfa
 			sets = append(sets, fmt.Sprintf("pending_bid_amount = $%d", argN))
 			vals = append(vals, amt)
 			argN++
+			// For flat bids, keep amount and aav in sync
+			if isFlatBid {
+				sets = append(sets, fmt.Sprintf("pending_bid_aav = $%d", argN))
+				vals = append(vals, amt)
+				argN++
+			}
 		}
 	}
 	if v, ok := args["pending_bid_years"]; ok {
@@ -2866,6 +3195,12 @@ func toolUpdatePlayerBid(db *pgxpool.Pool, ac *agentCtx, args map[string]interfa
 			sets = append(sets, fmt.Sprintf("pending_bid_aav = $%d", argN))
 			vals = append(vals, aav)
 			argN++
+			// For flat bids, keep amount and aav in sync
+			if isFlatBid {
+				sets = append(sets, fmt.Sprintf("pending_bid_amount = $%d", argN))
+				vals = append(vals, aav)
+				argN++
+			}
 		}
 	}
 
@@ -2950,5 +3285,623 @@ func toolDeletePlayer(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{
 		"position":    position,
 		"team":        teamName,
 		"message":     fmt.Sprintf("Permanently deleted %s (%s) from %s", playerName, position, teamName),
+	}
+}
+
+func toolGetTradeBlock(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	leagueID := getStringArg(args, "league_id")
+
+	var allPlayers []map[string]interface{}
+	leaguesToCheck := ac.LeagueIDs
+	if leagueID != "" {
+		if !ac.canAccessLeague(leagueID) {
+			return map[string]interface{}{"error": "You don't have access to this league"}
+		}
+		leaguesToCheck = []string{leagueID}
+	}
+
+	for _, lid := range leaguesToCheck {
+		players, err := store.GetTradeBlockPlayers(db, lid)
+		if err != nil {
+			fmt.Printf("ERROR [AgentTool:get_trade_block]: %v\n", err)
+			continue
+		}
+		for _, p := range players {
+			allPlayers = append(allPlayers, map[string]interface{}{
+				"player_id":     p.PlayerID,
+				"player_name":   p.PlayerName,
+				"position":      p.Position,
+				"mlb_team":      p.MLBTeam,
+				"team_name":     p.TeamName,
+				"league_name":   p.LeagueName,
+				"notes":         p.TradeBlockNotes,
+				"contract_2026": p.Contract2026,
+				"contract_2027": p.Contract2027,
+				"contract_2028": p.Contract2028,
+			})
+		}
+	}
+
+	return map[string]interface{}{
+		"count":   len(allPlayers),
+		"players": allPlayers,
+	}
+}
+
+func toolGetLeaderboard(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	statType := getStringArg(args, "stat_type")
+	if statType != "pitching" && statType != "hitting" {
+		return map[string]interface{}{"error": "stat_type must be 'pitching' or 'hitting'"}
+	}
+
+	leagueID := getStringArg(args, "league_id")
+	if leagueID != "" && !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "You don't have access to this league"}
+	}
+
+	startDate := getStringArg(args, "start_date")
+	endDate := getStringArg(args, "end_date")
+	limit := getIntArg(args, "limit")
+
+	if startDate == "" {
+		startDate = fmt.Sprintf("%d-03-20", time.Now().Year())
+	}
+	if endDate == "" {
+		endDate = time.Now().Format("2006-01-02")
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 25
+	}
+
+	if statType == "pitching" {
+		entries, err := store.GetPitchingLeaderboard(db, leagueID, startDate, endDate, limit)
+		if err != nil {
+			fmt.Printf("ERROR [AgentTool:get_leaderboard]: %v\n", err)
+			return map[string]interface{}{"error": "Failed to load leaderboard"}
+		}
+		var results []map[string]interface{}
+		for _, e := range entries {
+			if leagueID == "" && !ac.canAccessLeague("") {
+				// No league filter — include all accessible
+			}
+			results = append(results, map[string]interface{}{
+				"player_id":    e.PlayerID,
+				"player_name":  e.PlayerName,
+				"position":     e.Position,
+				"team_name":    e.TeamName,
+				"league_name":  e.LeagueName,
+				"games_played": e.GamesPlayed,
+				"total_points": e.TotalPoints,
+				"avg_points":   e.AvgPoints,
+				"ip":           e.TotalIP,
+				"k":            e.TotalK,
+				"er":           e.TotalER,
+				"qs":           e.TotalQS,
+				"sv":           e.TotalSV,
+				"hld":          e.TotalHLD,
+			})
+		}
+		return map[string]interface{}{"count": len(results), "stat_type": "pitching", "players": results}
+	}
+
+	entries, err := store.GetHittingLeaderboard(db, leagueID, startDate, endDate, limit)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_leaderboard]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to load leaderboard"}
+	}
+	var results []map[string]interface{}
+	for _, e := range entries {
+		results = append(results, map[string]interface{}{
+			"player_id":    e.PlayerID,
+			"player_name":  e.PlayerName,
+			"position":     e.Position,
+			"team_name":    e.TeamName,
+			"league_name":  e.LeagueName,
+			"games_played": e.GamesPlayed,
+			"total_points": e.TotalPoints,
+			"avg_points":   e.AvgPoints,
+			"h":            e.TotalH,
+			"hr":           e.TotalHR,
+			"rbi":          e.TotalRBI,
+			"r":            e.TotalR,
+			"bb":           e.TotalBB,
+			"sb":           e.TotalSB,
+			"k":            e.TotalK,
+			"cs":           e.TotalCS,
+		})
+	}
+	return map[string]interface{}{"count": len(results), "stat_type": "hitting", "players": results}
+}
+
+func toolGetPlayerGameLog(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	playerID := getStringArg(args, "player_id")
+	if playerID == "" {
+		return map[string]interface{}{"error": "player_id is required"}
+	}
+
+	statType := getStringArg(args, "stat_type")
+	limit := getIntArg(args, "limit")
+	if limit <= 0 {
+		limit = 20
+	}
+
+	// Auto-detect stat type from player position if not specified
+	if statType == "" {
+		ctx := context.Background()
+		var position string
+		err := db.QueryRow(ctx, "SELECT COALESCE(position, '') FROM players WHERE id = $1", playerID).Scan(&position)
+		if err != nil {
+			return map[string]interface{}{"error": "Player not found"}
+		}
+		if position == "SP" || position == "RP" || position == "P" {
+			statType = "pitching"
+		} else {
+			statType = "hitting"
+		}
+	}
+
+	games, err := store.GetPlayerGameLog(db, playerID, statType, limit)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_player_game_log]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to load game log"}
+	}
+
+	var results []map[string]interface{}
+	for _, g := range games {
+		entry := map[string]interface{}{
+			"game_date":      g.GameDate,
+			"opponent":       g.Opponent,
+			"fantasy_points": g.FantasyPoints,
+			"stat_type":      g.StatType,
+		}
+		// Include raw stats
+		for k, v := range g.RawStats {
+			entry[k] = v
+		}
+		results = append(results, entry)
+	}
+
+	return map[string]interface{}{
+		"count":     len(results),
+		"stat_type": statType,
+		"games":     results,
+	}
+}
+
+func toolGetPendingPlayerRequests(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	requests, err := store.GetPendingPlayerRequests(db, ac.LeagueIDs)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_pending_player_requests]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to load player requests"}
+	}
+
+	var results []map[string]interface{}
+	for _, r := range requests {
+		results = append(results, map[string]interface{}{
+			"request_id":  r.ID,
+			"first_name":  r.FirstName,
+			"last_name":   r.LastName,
+			"position":    r.Position,
+			"mlb_team":    r.MLBTeam,
+			"league_name": r.LeagueName,
+			"is_ifa":      r.IsIFA,
+			"notes":       r.Notes,
+			"submitted_by": r.Username,
+			"created_at":  r.CreatedAt.Format("2006-01-02 15:04"),
+		})
+	}
+
+	return map[string]interface{}{
+		"count":    len(results),
+		"requests": results,
+	}
+}
+
+func toolProcessPlayerRequest(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	requestID := getStringArg(args, "request_id")
+	decision := getStringArg(args, "decision")
+	if requestID == "" || decision == "" {
+		return map[string]interface{}{"error": "request_id and decision are required"}
+	}
+
+	decision = strings.ToLower(decision)
+	if decision == "approve" {
+		err := store.ApprovePlayerRequest(db, requestID, ac.UserID)
+		if err != nil {
+			fmt.Printf("ERROR [AgentTool:process_player_request]: %v\n", err)
+			return map[string]interface{}{"error": "Failed to approve request"}
+		}
+		fmt.Printf("AGENT ACTION: Approved player request %s\n", requestID)
+		return map[string]interface{}{"success": true, "message": "Player request approved — player created as free agent"}
+	} else if decision == "reject" {
+		err := store.RejectPlayerRequest(db, requestID, ac.UserID)
+		if err != nil {
+			fmt.Printf("ERROR [AgentTool:process_player_request]: %v\n", err)
+			return map[string]interface{}{"error": "Failed to reject request"}
+		}
+		fmt.Printf("AGENT ACTION: Rejected player request %s\n", requestID)
+		return map[string]interface{}{"success": true, "message": "Player request rejected"}
+	}
+
+	return map[string]interface{}{"error": "decision must be 'approve' or 'reject'"}
+}
+
+func toolGetPlayersWithOptions(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	year := getIntArg(args, "year")
+	if year == 0 {
+		year = time.Now().Year() + 1
+	}
+	leagueID := getStringArg(args, "league_id")
+
+	// GetPlayersWithOptions takes a teamID — we need to iterate teams
+	// Use run_query approach for league-wide search
+	ctx := context.Background()
+	col := fmt.Sprintf("contract_%d", year)
+	query := fmt.Sprintf(`
+		SELECT p.id, p.first_name || ' ' || p.last_name, t.name, l.name, p.league_id, %s
+		FROM players p
+		JOIN teams t ON p.team_id = t.id
+		JOIN leagues l ON p.league_id = l.id
+		WHERE p.contract_option_years IS NOT NULL
+		  AND p.contract_option_years::TEXT != '[]'
+		  AND p.contract_option_years::TEXT != 'null'
+		  AND p.contract_option_years @> $1::jsonb
+		ORDER BY t.name, p.last_name
+	`, col)
+
+	yearJSON := fmt.Sprintf("[%d]", year)
+	rows, err := db.Query(ctx, query, yearJSON)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_players_with_options]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to query team options"}
+	}
+	defer rows.Close()
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		var id, name, teamName, leagueName, playerLeagueID, salary string
+		if err := rows.Scan(&id, &name, &teamName, &leagueName, &playerLeagueID, &salary); err != nil {
+			continue
+		}
+		if !ac.canAccessLeague(playerLeagueID) {
+			continue
+		}
+		if leagueID != "" && playerLeagueID != leagueID {
+			continue
+		}
+		results = append(results, map[string]interface{}{
+			"player_id":   id,
+			"player_name": name,
+			"team_name":   teamName,
+			"league_name": leagueName,
+			"year":        year,
+			"salary":      salary,
+		})
+	}
+
+	return map[string]interface{}{
+		"count":   len(results),
+		"year":    year,
+		"players": results,
+	}
+}
+
+func toolGetPendingBids(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	leagueID := getStringArg(args, "league_id")
+	if leagueID != "" && !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "You don't have access to this league"}
+	}
+
+	var allBids []map[string]interface{}
+	leaguesToCheck := ac.LeagueIDs
+	if leagueID != "" {
+		leaguesToCheck = []string{leagueID}
+	}
+
+	for _, lid := range leaguesToCheck {
+		bids, err := store.GetPendingBids(db, lid)
+		if err != nil {
+			fmt.Printf("ERROR [AgentTool:get_pending_bids]: %v\n", err)
+			continue
+		}
+		for _, b := range bids {
+			allBids = append(allBids, map[string]interface{}{
+				"player_id":     b.ID,
+				"player_name":   b.FirstName + " " + b.LastName,
+				"position":      b.Position,
+				"league_name":   b.LeagueName,
+				"bidding_team":  b.BiddingTeamName,
+				"bid_points":    b.BidAmount,
+				"bid_years":     b.BidYears,
+				"bid_aav":       b.BidAAV,
+				"time_remaining": b.TimeRemaining,
+				"is_expired":    b.IsExpired,
+			})
+		}
+	}
+
+	return map[string]interface{}{
+		"count": len(allBids),
+		"bids":  allBids,
+	}
+}
+
+func toolGetRotationStatus(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	leagueID := getStringArg(args, "league_id")
+	if leagueID == "" {
+		return map[string]interface{}{"error": "league_id is required"}
+	}
+	if !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "You don't have access to this league"}
+	}
+
+	week := getStringArg(args, "week")
+	if week == "" {
+		// Default to current week's Monday
+		now := time.Now()
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		monday := now.AddDate(0, 0, -(weekday - 1))
+		week = monday.Format("2006-01-02")
+	}
+
+	submitted, err := store.GetSubmittedTeamCount(db, leagueID, week)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_rotation_status]: submitted count: %v\n", err)
+		return map[string]interface{}{"error": "Failed to check rotation status"}
+	}
+
+	total, err := store.GetLeagueTeamCount(db, leagueID)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_rotation_status]: team count: %v\n", err)
+		return map[string]interface{}{"error": "Failed to get team count"}
+	}
+
+	return map[string]interface{}{
+		"week":           week,
+		"submitted":      submitted,
+		"total_teams":    total,
+		"all_submitted":  submitted >= total,
+		"missing_count":  total - submitted,
+	}
+}
+
+func toolGetUnassignedTeams(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	teams, err := store.GetUnassignedTeams(db)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_unassigned_teams]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to load unassigned teams"}
+	}
+
+	var results []map[string]interface{}
+	for _, t := range teams {
+		if !ac.canAccessLeague(t.LeagueID) {
+			continue
+		}
+		results = append(results, map[string]interface{}{
+			"team_id":     t.ID,
+			"team_name":   t.Name,
+			"league_id":   t.LeagueID,
+			"league_name": t.LeagueName,
+		})
+	}
+
+	return map[string]interface{}{
+		"count": len(results),
+		"teams": results,
+	}
+}
+
+func toolRemoveTeamOwner(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	teamID := getStringArg(args, "team_id")
+	userID := getStringArg(args, "user_id")
+	if teamID == "" || userID == "" {
+		return map[string]interface{}{"error": "team_id and user_id are required"}
+	}
+
+	// Verify team is in commissioner's leagues
+	ctx := context.Background()
+	var leagueID string
+	err := db.QueryRow(ctx, "SELECT league_id::TEXT FROM teams WHERE id = $1", teamID).Scan(&leagueID)
+	if err != nil {
+		return map[string]interface{}{"error": "Team not found"}
+	}
+	if !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "Team is not in your managed leagues"}
+	}
+
+	err = store.RemoveTeamOwner(db, teamID, userID)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:remove_team_owner]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to remove team owner"}
+	}
+
+	fmt.Printf("AGENT ACTION: Removed user %s from team %s\n", userID, teamID)
+	return map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Removed user %s from team %s", userID, teamID),
+	}
+}
+
+func toolGetTransactionLog(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	leagueID := getStringArg(args, "league_id")
+	txnType := getStringArg(args, "transaction_type")
+	limit := getIntArg(args, "limit")
+
+	if leagueID != "" && !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "You don't have access to this league"}
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	activities, err := store.GetTransactionLog(db, limit, leagueID, txnType)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_transaction_log]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to load transactions"}
+	}
+
+	var results []map[string]interface{}
+	for _, a := range activities {
+		results = append(results, map[string]interface{}{
+			"id":                a.ID,
+			"team_name":        a.TeamName,
+			"player_name":      a.PlayerName,
+			"transaction_type": a.TransactionType,
+			"summary":          a.Summary,
+			"league_name":      a.LeagueName,
+			"created_at":       a.CreatedAt.Format("2006-01-02 15:04"),
+			"fantrax_processed": a.FantraxProcessed,
+		})
+	}
+
+	return map[string]interface{}{
+		"count":        len(results),
+		"transactions": results,
+	}
+}
+
+func toolCreatePlayer(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	firstName := getStringArg(args, "first_name")
+	lastName := getStringArg(args, "last_name")
+	position := getStringArg(args, "position")
+	leagueID := getStringArg(args, "league_id")
+
+	if firstName == "" || lastName == "" || position == "" || leagueID == "" {
+		return map[string]interface{}{"error": "first_name, last_name, position, and league_id are required"}
+	}
+	if !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "You don't have access to this league"}
+	}
+
+	teamID := getStringArg(args, "team_id")
+	mlbTeam := getStringArg(args, "mlb_team")
+
+	var isIFA bool
+	if v, ok := args["is_ifa"]; ok {
+		if b, ok := v.(bool); ok {
+			isIFA = b
+		}
+	}
+
+	player := store.PlayerAdminUpdate{
+		FirstName: firstName,
+		LastName:  lastName,
+		Position:  position,
+		LeagueID:  leagueID,
+		TeamID:    teamID,
+		MLBTeam:   mlbTeam,
+		IsIFA:     isIFA,
+		FaStatus:  "available",
+	}
+
+	newID, err := store.AdminCreatePlayer(db, player)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:create_player]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to create player"}
+	}
+
+	fmt.Printf("AGENT ACTION: Created player %s %s (%s) in league %s [ID: %s]\n", firstName, lastName, position, leagueID, newID)
+	return map[string]interface{}{
+		"success":   true,
+		"player_id": newID,
+		"message":   fmt.Sprintf("Created %s %s (%s) — ID: %s", firstName, lastName, position, newID),
+	}
+}
+
+func toolGetFantraxQueue(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	leagueID := getStringArg(args, "league_id")
+	if leagueID != "" && !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "You don't have access to this league"}
+	}
+
+	var showCompleted bool
+	if v, ok := args["show_completed"]; ok {
+		if b, ok := v.(bool); ok {
+			showCompleted = b
+		}
+	}
+
+	activities, err := store.GetFantraxQueue(db, leagueID, showCompleted)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_fantrax_queue]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to load Fantrax queue"}
+	}
+
+	var results []map[string]interface{}
+	for _, a := range activities {
+		results = append(results, map[string]interface{}{
+			"id":                a.ID,
+			"team_name":        a.TeamName,
+			"player_name":      a.PlayerName,
+			"transaction_type": a.TransactionType,
+			"summary":          a.Summary,
+			"league_name":      a.LeagueName,
+			"created_at":       a.CreatedAt.Format("2006-01-02 15:04"),
+			"fantrax_processed": a.FantraxProcessed,
+		})
+	}
+
+	return map[string]interface{}{
+		"count":        len(results),
+		"transactions": results,
+	}
+}
+
+func toolCheckRosterExpansion(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	leagueID := getStringArg(args, "league_id")
+	if leagueID == "" {
+		return map[string]interface{}{"error": "league_id is required"}
+	}
+	if !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "You don't have access to this league"}
+	}
+
+	year := getIntArg(args, "year")
+	if year == 0 {
+		year = time.Now().Year()
+	}
+
+	active := store.IsRosterExpansionActive(db, leagueID, year)
+
+	return map[string]interface{}{
+		"league_id":        leagueID,
+		"year":             year,
+		"expansion_active": active,
+	}
+}
+
+func toolGetTeamOwnerEmails(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	teamID := getStringArg(args, "team_id")
+	if teamID == "" {
+		return map[string]interface{}{"error": "team_id is required"}
+	}
+
+	// Verify team is in commissioner's leagues
+	ctx := context.Background()
+	var leagueID, teamName string
+	err := db.QueryRow(ctx, "SELECT league_id::TEXT, name FROM teams WHERE id = $1", teamID).Scan(&leagueID, &teamName)
+	if err != nil {
+		return map[string]interface{}{"error": "Team not found"}
+	}
+	if !ac.canAccessLeague(leagueID) {
+		return map[string]interface{}{"error": "Team is not in your managed leagues"}
+	}
+
+	emails, err := store.GetTeamOwnerEmails(db, teamID)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:get_team_owner_emails]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to get owner emails"}
+	}
+
+	return map[string]interface{}{
+		"team_name": teamName,
+		"count":     len(emails),
+		"emails":    emails,
 	}
 }

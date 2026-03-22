@@ -165,7 +165,7 @@
         <select id="ilDuration">
             <option value="10">10-Day IL</option>
             <option value="15">15-Day IL</option>
-            <option value="60">60-Day IL (Removes from 40-man)</option>
+            <option value="60">60-Day IL (Does not count against 26/40-man)</option>
         </select>
         <div class="modal-actions">
             <button value="cancel">Cancel</button>
@@ -190,6 +190,17 @@
     </form>
 </dialog>
 
+<dialog id="waiveModal" class="modal">
+    <h3>Waive Player</h3>
+    <p>Remove from the 26-man but stay on the 40-man. Player will be put through Waivers and reassigned to 40-man if cleared.</p>
+    <form method="dialog">
+        <div class="modal-actions">
+            <button value="cancel">Cancel</button>
+            <button id="confirmWaiveBtn" value="confirm" class="button button-danger">Confirm Waive</button>
+        </div>
+    </form>
+</dialog>
+
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 let currentPlayerID = null;
@@ -200,9 +211,14 @@ async function movePlayer(type, playerID, teamID) {
     await sendRequest(`/roster/move/${type}`, { player_id: playerID, team_id: teamID });
 }
 
-function openILModal(playerID, teamID) {
+function openILModal(playerID, teamID, position) {
     currentPlayerID = playerID;
     currentTeamID = teamID;
+    const sel = document.getElementById('ilDuration');
+    const isPitcher = position === 'SP' || position === 'RP' || position === 'P';
+    sel.querySelector('option[value="10"]').hidden = isPitcher;
+    sel.querySelector('option[value="15"]').hidden = !isPitcher;
+    sel.value = isPitcher ? '15' : '10';
     document.getElementById('ilModal').showModal();
 }
 
@@ -210,6 +226,12 @@ function openDFAModal(playerID, teamID) {
     currentPlayerID = playerID;
     currentTeamID = teamID;
     document.getElementById('dfaModal').showModal();
+}
+
+function openWaiveModal(playerID, teamID) {
+    currentPlayerID = playerID;
+    currentTeamID = teamID;
+    document.getElementById('waiveModal').showModal();
 }
 
 document.getElementById('confirmILBtn').addEventListener('click', async (e) => {
@@ -224,6 +246,12 @@ document.getElementById('confirmDFABtn').addEventListener('click', async (e) => 
     const clearAction = document.getElementById('dfaClearAction').value;
     await sendRequest('/roster/move/dfa', { player_id: currentPlayerID, team_id: currentTeamID, dfa_clear_action: clearAction });
     document.getElementById('dfaModal').close();
+});
+
+document.getElementById('confirmWaiveBtn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    await sendRequest('/roster/move/waive', { player_id: currentPlayerID, team_id: currentTeamID });
+    document.getElementById('waiveModal').close();
 });
 
 async function sendRequest(url, data) {
@@ -367,12 +395,16 @@ async function saveDepthOrder() {
                                             {{if not .Status26Man}}
                                                 <button class="button" onclick="movePlayer('26man', '{{.ID}}', '{{$teamID}}')">26</button>
                                             {{else}}
-                                                <button class="button" onclick="movePlayer('option', '{{.ID}}', '{{$teamID}}')">Opt</button>
+                                                {{if .DFAOnly}}
+                                                    <button class="button" onclick="openWaiveModal('{{.ID}}', '{{$teamID}}')">Waive</button>
+                                                {{else}}
+                                                    <button class="button" onclick="movePlayer('option', '{{.ID}}', '{{$teamID}}')">Opt</button>
+                                                {{end}}
                                             {{end}}
                                         {{else}}
                                             <button class="button" onclick="movePlayer('40man', '{{.ID}}', '{{$teamID}}')">40</button>
                                         {{end}}
-                                        <button class="button button-secondary" onclick="openILModal('{{.ID}}', '{{$teamID}}')">IL</button>
+                                        <button class="button button-secondary" onclick="openILModal('{{.ID}}', '{{$teamID}}', '{{.Position}}')">IL</button>
                                         <button class="button button-danger" onclick="openDFAModal('{{.ID}}', '{{$teamID}}')">DFA</button>
                                         <button class="button {{if .OnTradeBlock}}button-warning{{end}}" onclick="toggleTradeBlock('{{.ID}}', '{{$teamID}}', {{not .OnTradeBlock}})" title="{{if .OnTradeBlock}}Remove from Trade Block{{else}}Add to Trade Block{{end}}">TB</button>
                                     {{end}}
@@ -384,7 +416,7 @@ async function saveDepthOrder() {
                         <td>{{.MLBTeam}}</td>
                         <td class="fpts-cell">{{$pts := index $pointsMap .ID}}{{if $pts}}{{printf "%.1f" $pts}}{{else}}--{{end}}</td>
                         <td>{{.Status}}</td>
-                        <td title="{{.OptionYears}}/3 years, {{.OptionsThisSeason}}/5 this season">{{.OptionYears}}yr / {{.OptionsThisSeason}}s</td>
+                        <td title="{{if .DFAOnly}}DFA Only{{else}}{{.OptionYears}}/3 years, {{.OptionsThisSeason}}/5 this season{{end}}">{{if .DFAOnly}}--{{else}}{{.OptionYears}}yr / {{.OptionsThisSeason}}s{{end}}</td>
                         {{$p := .}}
                         {{range $years}}
                             {{$isOptionYear := index $p.ContractOptionYears .}}

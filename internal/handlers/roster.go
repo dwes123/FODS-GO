@@ -64,21 +64,34 @@ func RosterHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 		}
 
-		// Compute roster counts
+		// Compute roster counts (60-Day IL players don't count against limits)
 		count26 := 0
 		for _, players := range roster26 {
-			count26 += len(players)
+			for _, p := range players {
+				if p.StatusIL != "60-Day IL" {
+					count26++
+				}
+			}
 		}
 		count40only := 0
 		for _, players := range roster40 {
-			count40only += len(players)
+			for _, p := range players {
+				if p.StatusIL != "60-Day IL" {
+					count40only++
+				}
+			}
 		}
 		countMinors := 0
 		for _, players := range minors {
 			countMinors += len(players)
 		}
 		count40 := count26 + count40only
-		spCount := len(roster26["SP"])
+		spCount := 0
+		for _, p := range roster26["SP"] {
+			if p.StatusIL != "60-Day IL" {
+				spCount++
+			}
+		}
 
 		currentYear := time.Now().Year()
 		settings := store.GetLeagueSettings(db, team.LeagueID, currentYear)

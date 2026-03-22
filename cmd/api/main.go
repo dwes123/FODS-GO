@@ -36,6 +36,7 @@ func main() {
 	worker.StartHRMonitor(ctx, database)
 	worker.StartStatsWorker(ctx, database)
 	worker.StartMinorLeaguerWorker(ctx, database)
+	worker.StartComplianceWorker(ctx, database)
 
 	// 3. Initialize Router
 	r := gin.Default()
@@ -98,6 +99,7 @@ func main() {
 		// Standings & Financials
 		authorized.GET("/standings", handlers.StandingsHandler(database))
 		authorized.GET("/league/financials", handlers.LeagueFinancialsHandler(database))
+		authorized.GET("/league/irl-financials", handlers.IRLFinancialsHandler(database))
 		authorized.GET("/team/financials/:id", handlers.TeamFinancialsHandler(database))
 
 		// Profile & Team Management
@@ -144,6 +146,7 @@ func main() {
 		authorized.POST("/roster/move/il", handlers.MoveToILHandler(database))
 		authorized.POST("/roster/move/activate", handlers.ActivateFromILHandler(database))
 		authorized.POST("/roster/move/dfa", handlers.DFAPlayerHandler(database))
+		authorized.POST("/roster/move/waive", handlers.WaivePlayerHandler(database))
 		authorized.POST("/roster/move/position-swap", handlers.SwapPitcherPositionHandler(database))
 		authorized.POST("/roster/move/trade-block", handlers.ToggleTradeBlockHandler(database))
 		authorized.POST("/roster/depth-order", handlers.SaveDepthOrderHandler(database))
@@ -170,6 +173,7 @@ func main() {
 		authorized.POST("/admin/stats/backfill", handlers.AdminBackfillStatsHandler(database))
 		authorized.POST("/admin/minor-leaguer-refresh", handlers.AdminMinorLeaguerRefreshHandler(database))
 		authorized.POST("/admin/populate-mlb-ids", handlers.AdminPopulateMLBIDsHandler(database))
+		authorized.POST("/admin/compliance-check", handlers.AdminComplianceCheckHandler(database))
 
 		// Commissioner Tools
 		authorized.GET("/admin", handlers.AdminDashboardHandler(database))
