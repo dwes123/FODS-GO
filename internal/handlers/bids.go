@@ -155,12 +155,22 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				return
 			}
 
-			// Check ISBP balance
+			// Check ISBP balance including all outstanding IFA bids for this team
 			var isbpBalance float64
 			db.QueryRow(context.Background(),
 				"SELECT COALESCE(isbp_balance, 0) FROM teams WHERE id = $1", teamID).Scan(&isbpBalance)
-			if signingBonus > isbpBalance {
-				c.String(http.StatusBadRequest, fmt.Sprintf("Insufficient ISBP balance. Signing bonus: $%.0f, Available: $%.0f", signingBonus, isbpBalance))
+
+			// Sum all other pending IFA bids by this team (exclude current player since bid replaces)
+			var otherIFABids float64
+			db.QueryRow(context.Background(),
+				`SELECT COALESCE(SUM(pending_bid_amount), 0) FROM players
+				 WHERE pending_bid_team_id = $1 AND bid_type = 'ifa'
+				   AND fa_status = 'pending_bid' AND id != $2`,
+				teamID, playerID).Scan(&otherIFABids)
+
+			availableISBP := isbpBalance - otherIFABids
+			if signingBonus > availableISBP {
+				c.String(http.StatusBadRequest, fmt.Sprintf("Insufficient ISBP balance. Signing bonus: $%.0f, Other open bids: $%.0f, Available: $%.0f", signingBonus, otherIFABids, availableISBP))
 				return
 			}
 
@@ -171,7 +181,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				"SELECT COALESCE(pending_bid_amount, 0), COALESCE(fa_status, '') FROM players WHERE id = $1",
 				playerID).Scan(&currentAmount, &currentStatus)
 
-			if currentStatus == "pending_bid" && signingBonus < isbpBalance {
+			if currentStatus == "pending_bid" && signingBonus < availableISBP {
 				// Minimum bid: lesser of double the current bid or current + $100K
 				doubleAmount := currentAmount * 2
 				plusHundredK := currentAmount + 100000
