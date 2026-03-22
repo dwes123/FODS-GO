@@ -182,11 +182,37 @@ func ProcessAction(db *pgxpool.Pool, actionID, status string) error {
 			_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET %s = $1 WHERE id = $2", contractCol), fmt.Sprintf("%.2f", *amount), *pID)
 			if err != nil { return err }
 		} else if aType == "EXTENSION" && pID != nil {
+			// Try new format with option_years metadata first
+			var extData struct {
+				Salaries    map[string]float64 `json:"salaries"`
+				OptionYears []int              `json:"option_years"`
+			}
 			var salaries map[string]float64
-			json.Unmarshal(multiYear, &salaries)
+			if err := json.Unmarshal(multiYear, &extData); err == nil && extData.Salaries != nil {
+				salaries = extData.Salaries
+			} else {
+				// Fallback: legacy format is just a salary map
+				json.Unmarshal(multiYear, &salaries)
+			}
 			for yr, amt := range salaries {
 				contractCol := fmt.Sprintf("contract_%s", yr)
 				_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET %s = $1 WHERE id = $2", contractCol), fmt.Sprintf("%.2f", amt), *pID)
+				if err != nil { return err }
+			}
+			// Set contract_option_years if any team options were included
+			if len(extData.OptionYears) > 0 {
+				// Merge with existing option years
+				var existingRaw []byte
+				tx.QueryRow(ctx, `SELECT COALESCE(contract_option_years, '[]'::jsonb) FROM players WHERE id = $1`, *pID).Scan(&existingRaw)
+				var existingYears []int
+				json.Unmarshal(existingRaw, &existingYears)
+				merged := make(map[int]bool)
+				for _, y := range existingYears { merged[y] = true }
+				for _, y := range extData.OptionYears { merged[y] = true }
+				var final []int
+				for y := range merged { final = append(final, y) }
+				optJSON, _ := json.Marshal(final)
+				_, err = tx.Exec(ctx, `UPDATE players SET contract_option_years = $1::jsonb WHERE id = $2`, optJSON, *pID)
 				if err != nil { return err }
 			}
 		} else if aType == "RESTRUCTURE" && pID != nil && len(multiYear) > 0 {

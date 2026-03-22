@@ -451,20 +451,31 @@ function calcExtension() {
             '<td>' + years + '</td>' +
             '<td>$' + Math.round(aav).toLocaleString() + '</td>' +
             '<td>$' + Math.round(total).toLocaleString() + '</td>' +
-            '<td><button class="button button-small" onclick="submitExtension(' + years + ', ' + Math.round(aav) + ')">Select</button></td>' +
+            '<td>' +
+                '<select id="opt_' + years + '" style="width:60px;margin-right:5px;">' +
+                '<option value="0">0 TO</option><option value="1">1 TO</option><option value="2">2 TO</option><option value="3">3 TO</option>' +
+                '</select>' +
+                '<button class="button button-small" onclick="submitExtension(' + years + ', ' + Math.round(aav) + ')">Select</button>' +
+            '</td>' +
             '</tr>';
     }
     html += '</tbody></table>';
+    html += '<p class="note" style="margin-top:8px;">TO = Team Option years added after the guaranteed years at the same AAV.</p>';
     document.getElementById('ext_results').innerHTML = html;
 }
 
 async function submitExtension(years, aav) {
-    if (!confirm('Submit request for ' + years + ' years at $' + aav.toLocaleString() + '?')) return;
+    const optionYears = parseInt(document.getElementById('opt_' + years).value) || 0;
+    let msg = 'Submit request for ' + years + ' guaranteed years at $' + aav.toLocaleString() + '/yr';
+    if (optionYears > 0) msg += ' + ' + optionYears + ' team option year' + (optionYears > 1 ? 's' : '') + ' at the same AAV';
+    msg += '?';
+    if (!confirm(msg)) return;
 
     const formData = new FormData();
     formData.append('player_id', '{{.Player.ID}}');
     formData.append('years', years);
     formData.append('aav', aav);
+    formData.append('option_years', optionYears);
     formData.append('war', document.getElementById('ext_war').value);
 
     try {

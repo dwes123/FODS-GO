@@ -83,10 +83,15 @@ func SubmitExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		playerID := c.PostForm("player_id")
 		years, _ := strconv.Atoi(c.PostForm("years"))
 		aav, _ := strconv.ParseFloat(c.PostForm("aav"), 64)
+		optionYears, _ := strconv.Atoi(c.PostForm("option_years"))
 		war := c.PostForm("war")
 
 		if years < 1 || years > 8 || aav <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid extension parameters"})
+			return
+		}
+		if optionYears < 0 || optionYears > 3 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Team options must be between 0 and 3"})
 			return
 		}
 
@@ -139,20 +144,39 @@ func SubmitExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				break
 			}
 		}
-		if startYear == 0 || startYear+years-1 > 2040 {
+		totalYears := years + optionYears
+		if startYear == 0 || startYear+totalYears-1 > 2040 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Not enough contract years available for this extension length"})
 			return
 		}
 
-		// Build year-by-year contract map
+		// Build year-by-year contract map (guaranteed + option years all at same AAV)
 		salaries := make(map[string]float64)
-		for i := 0; i < years; i++ {
+		for i := 0; i < totalYears; i++ {
 			salaries[fmt.Sprintf("%d", startYear+i)] = aav
 		}
 
-		contractData, _ := json.Marshal(salaries)
+		// Track which years are team options
+		var optionYearsList []int
+		for i := years; i < totalYears; i++ {
+			optionYearsList = append(optionYearsList, startYear+i)
+		}
+
+		// Build contract data with option year metadata
+		type extensionData struct {
+			Salaries    map[string]float64 `json:"salaries"`
+			OptionYears []int              `json:"option_years"`
+		}
+		extData := extensionData{Salaries: salaries, OptionYears: optionYearsList}
+		contractData, _ := json.Marshal(extData)
+
+		endYear := startYear + years - 1
 		summary := fmt.Sprintf("Extension request for %s %s: %d years at $%s AAV (years %d-%d)",
-			player.FirstName, player.LastName, years, formatDollar(aav), startYear, startYear+years-1)
+			player.FirstName, player.LastName, years, formatDollar(aav), startYear, endYear)
+		if optionYears > 0 {
+			optEnd := startYear + totalYears - 1
+			summary += fmt.Sprintf(" + %d team option year(s) (%d-%d)", optionYears, endYear+1, optEnd)
+		}
 		if war != "" {
 			summary += fmt.Sprintf(" | 3-Year WAR: %s", war)
 		}
