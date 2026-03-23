@@ -129,17 +129,10 @@ async function loadTeamData() {
         pitchers = await pitcherRes.json();
         const existing = await rotRes.json();
 
-        // Load banked starts separately so it doesn't block the form
-        bankedStarts = [];
-        try {
-            const bankedRes = await fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`);
-            if (bankedRes.ok) bankedStarts = await bankedRes.json();
-        } catch (e) { console.warn('Failed to load banked starts:', e); }
-
         // Populate pitcher selects
         document.querySelectorAll('.pitcher-select').forEach(sel => {
             sel.innerHTML = '<option value="">-- None --</option>';
-            pitchers.forEach(p => {
+            (pitchers || []).forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
                 opt.textContent = `${p.first_name} ${p.last_name} (${p.position})`;
@@ -150,15 +143,23 @@ async function loadTeamData() {
         // Pre-fill existing rotation
         dayNames.forEach(day => {
             const col = document.querySelector(`.day-column[data-day="${day}"]`);
-            const entry = existing[day];
-            col.querySelector('.p1-select').value = entry ? (entry.p1_id || '') : '';
-            col.querySelector('.p2-select').value = entry ? (entry.p2_id || '') : '';
+            const entry = existing ? existing[day] : null;
+            if (col) {
+                col.querySelector('.p1-select').value = entry ? (entry.p1_id || '') : '';
+                col.querySelector('.p2-select').value = entry ? (entry.p2_id || '') : '';
+            }
         });
-
-        renderBankedStarts();
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('rotation_form').style.display = 'block';
+
+        // Load banked starts separately (non-blocking)
+        bankedStarts = [];
+        try {
+            const bankedRes = await fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`);
+            if (bankedRes.ok) bankedStarts = await bankedRes.json();
+        } catch (e) { console.warn('Failed to load banked starts:', e); }
+        renderBankedStarts();
     } catch (e) {
         document.getElementById('loading').style.display = 'none';
         alert('Failed to load data: ' + e.message);
