@@ -464,6 +464,7 @@ func UnuseBankedStart(db *pgxpool.Pool, bankedStartID string) error {
 
 // UsedBankedDisplay is a template-friendly struct for showing used banked starts on the dashboard.
 type UsedBankedDisplay struct {
+	PitcherID   string
 	PitcherName string
 	Points      float64
 	HasPoints   bool
@@ -474,6 +475,7 @@ func GetUsedBankedStartsForWeek(db *pgxpool.Pool, leagueID, week string) (map[st
 	ctx := context.Background()
 	rows, err := db.Query(ctx, `
 		SELECT bs.team_id::TEXT,
+		       bs.pitcher_id::TEXT,
 		       p.first_name || ' ' || p.last_name AS pitcher_name,
 		       bs.used_day,
 		       COALESCE(bs.fantasy_points, 0),
@@ -493,7 +495,7 @@ func GetUsedBankedStartsForWeek(db *pgxpool.Pool, leagueID, week string) (map[st
 		var teamID string
 		var d UsedBankedDisplay
 		var usedDay int
-		if err := rows.Scan(&teamID, &d.PitcherName, &usedDay, &d.Points, &d.HasPoints); err != nil {
+		if err := rows.Scan(&teamID, &d.PitcherID, &d.PitcherName, &usedDay, &d.Points, &d.HasPoints); err != nil {
 			continue
 		}
 		if result[teamID] == nil {

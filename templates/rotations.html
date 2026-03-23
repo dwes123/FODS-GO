@@ -53,6 +53,7 @@
                                 {{if $entry.Pitcher1Name}}
                                 <div class="pitcher-row">
                                     <span class="pitcher-name">{{$entry.Pitcher1Name}}</span>
+                                    {{if isBankedStarter $banked $entry.TeamID $dayIdx $entry.Pitcher1ID}}<span class="banked-tag">BANKED</span>{{end}}
                                     {{$p1pts := getPoints $pts $entry.Pitcher1ID $entry.Pitcher1Date}}
                                     {{if ge $p1pts 0.0}}<span class="pts">{{printf "%.1f" $p1pts}}</span>{{end}}
                                 </div>
@@ -63,20 +64,6 @@
                                     {{$p2pts := getPoints $pts $entry.Pitcher2ID $entry.Pitcher2Date}}
                                     {{if ge $p2pts 0.0}}<span class="pts-banked">{{printf "%.1f" $p2pts}}</span>{{end}}
                                 </div>
-                                {{end}}
-                                {{if and $banked $entry.TeamID}}
-                                    {{$teamBanked := index $banked $entry.TeamID}}
-                                    {{if $teamBanked}}
-                                        {{$dayBanked := index $teamBanked $dayIdx}}
-                                        {{if $dayBanked}}
-                                            {{range $dayBanked}}
-                                            <div class="used-banked-row">
-                                                <span class="used-banked-name">{{.PitcherName}}</span>
-                                                {{if .HasPoints}}<span class="pts-used">{{printf "%.1f" .Points}}</span>{{end}}
-                                            </div>
-                                            {{end}}
-                                        {{end}}
-                                    {{end}}
                                 {{end}}
                             </div>
                         {{else}}
@@ -101,6 +88,7 @@
     .pitcher-row { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
     .pitcher-name { font-weight: 600; color: var(--fod-blue-primary); }
     .pitcher-name-banked { font-weight: 500; color: #888; font-style: italic; }
+    .banked-tag { background: #E87426; color: #fff; font-size: 0.6rem; font-weight: bold; padding: 1px 4px; border-radius: 3px; vertical-align: middle; margin-left: 2px; }
     .pts { font-weight: bold; color: #E87426; font-size: 0.75rem; }
     .pts-banked { font-weight: bold; color: #aaa; font-size: 0.75rem; }
     .banked-row { border-top: 1px dashed #ddd; padding-top: 2px; margin-top: 2px; }

@@ -303,6 +303,21 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 			v := strings.ToUpper(strings.TrimSpace(val))
 			return v != "" && v != "UFA"
 		},
+		"isBankedStarter": func(bankedMap map[string]map[int][]store.UsedBankedDisplay, teamID string, dayIdx int, pitcherID string) bool {
+			if bankedMap == nil || teamID == "" || pitcherID == "" {
+				return false
+			}
+			if teamDays, ok := bankedMap[teamID]; ok {
+				if dayEntries, ok := teamDays[dayIdx]; ok {
+					for _, e := range dayEntries {
+						if e.PitcherID == pitcherID {
+							return true
+						}
+					}
+				}
+			}
+			return false
+		},
 		"getPoints": func(ptsMap map[string]map[string]float64, playerID, date string) float64 {
 			if ptsMap == nil || playerID == "" || date == "" {
 				return -1
