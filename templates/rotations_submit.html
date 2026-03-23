@@ -152,18 +152,30 @@ async function loadTeamData() {
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('rotation_form').style.display = 'block';
-
-        // Load banked starts separately (non-blocking)
-        bankedStarts = [];
-        try {
-            const bankedRes = await fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`);
-            if (bankedRes.ok) bankedStarts = await bankedRes.json();
-        } catch (e) { console.warn('Failed to load banked starts:', e); }
-        renderBankedStarts();
     } catch (e) {
         document.getElementById('loading').style.display = 'none';
         alert('Failed to load data: ' + e.message);
+        return;
     }
+
+    // Load banked starts completely outside the main try/catch
+    loadBankedStarts(teamID);
+}
+
+async function loadBankedStarts(teamID) {
+    bankedStarts = [];
+    bankedUsages = [];
+    const url = '/api/team/banked-starts?team_id=' + teamID + '&week={{.SelectedWeek}}';
+    try {
+        const res = await fetch(url);
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) bankedStarts = data;
+        }
+    } catch (e) {
+        console.warn('Banked starts fetch failed:', e);
+    }
+    renderBankedStarts();
 }
 
 function renderBankedStarts() {
@@ -270,15 +282,8 @@ async function submitRotation() {
         if (res.ok) {
             status.textContent = 'Rotation saved!';
             status.style.color = 'green';
-            // Reload banked starts to reflect new banked pitchers
-            try {
-                const bankedRes = await fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`);
-                if (bankedRes.ok) {
-                    bankedStarts = await bankedRes.json();
-                    bankedUsages = [];
-                    renderBankedStarts();
-                }
-            } catch (e) { console.warn('Failed to reload banked starts:', e); }
+            // Reload all data including banked starts
+            await loadTeamData();
         } else {
             status.textContent = 'Error: ' + json.error;
             status.style.color = 'red';
