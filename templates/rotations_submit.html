@@ -27,19 +27,20 @@
         {{range .Days}}
         <div class="day-column" data-day="{{.}}">
             <h4 class="day-header">{{.}}</h4>
+            <div class="day-date"></div>
+            <input type="hidden" name="{{.}}_p1_date" class="p1-date">
+            <input type="hidden" name="{{.}}_p2_date" class="p2-date">
             <div class="pitcher-slot">
                 <label>Active Starter:</label>
                 <select class="p1-select pitcher-select" name="{{.}}_p1_id">
                     <option value="">-- None --</option>
                 </select>
-                <input type="date" name="{{.}}_p1_date" class="p1-date">
             </div>
             <div class="pitcher-slot banked-slot">
                 <label>Banked Pitcher:</label>
                 <select class="p2-select pitcher-select" name="{{.}}_p2_id">
                     <option value="">-- None --</option>
                 </select>
-                <input type="date" name="{{.}}_p2_date" class="p2-date">
             </div>
         </div>
         {{end}}
@@ -54,6 +55,53 @@
 <script>
 let pitchers = [];
 
+// Compute dates for each day from the week identifier (YYYY-WW)
+function computeWeekDates(weekStr) {
+    const parts = weekStr.split('-');
+    const year = parseInt(parts[0]);
+    const week = parseInt(parts[1]);
+
+    // ISO week: Jan 4 is always in week 1. Find Monday of week 1, then offset.
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7; // Convert Sunday=0 to 7
+    const week1Monday = new Date(jan4);
+    week1Monday.setDate(jan4.getDate() - dayOfWeek + 1);
+
+    const dates = {};
+    const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    dayNames.forEach((day, i) => {
+        const d = new Date(week1Monday);
+        d.setDate(week1Monday.getDate() + (week - 1) * 7 + i);
+        dates[day] = d;
+    });
+    return dates;
+}
+
+function formatDateDisplay(d) {
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatDateISO(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+const weekDates = computeWeekDates('{{.SelectedWeek}}');
+
+// Set date labels and hidden field values
+document.querySelectorAll('.day-column').forEach(col => {
+    const day = col.dataset.day;
+    const date = weekDates[day];
+    if (date) {
+        col.querySelector('.day-date').textContent = formatDateDisplay(date);
+        const isoDate = formatDateISO(date);
+        col.querySelector('.p1-date').value = isoDate;
+        col.querySelector('.p2-date').value = isoDate;
+    }
+});
+
 async function loadTeamData() {
     const teamID = document.getElementById('team_select').value;
     if (!teamID) {
@@ -65,11 +113,9 @@ async function loadTeamData() {
     document.getElementById('rotation_form').style.display = 'none';
 
     try {
-        // Load pitchers
         const pitcherRes = await fetch(`/api/team/pitchers?team_id=${teamID}`);
         pitchers = await pitcherRes.json();
 
-        // Populate all pitcher selects
         document.querySelectorAll('.pitcher-select').forEach(sel => {
             sel.innerHTML = '<option value="">-- None --</option>';
             pitchers.forEach(p => {
@@ -84,21 +130,16 @@ async function loadTeamData() {
         const rotRes = await fetch(`/api/team/rotation?team_id=${teamID}&week={{.SelectedWeek}}`);
         const existing = await rotRes.json();
 
-        // Pre-fill existing entries
         const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
         days.forEach(day => {
             const col = document.querySelector(`.day-column[data-day="${day}"]`);
             const entry = existing[day];
             if (entry) {
                 col.querySelector('.p1-select').value = entry.p1_id || '';
-                col.querySelector('.p1-date').value = entry.p1_date || '';
                 col.querySelector('.p2-select').value = entry.p2_id || '';
-                col.querySelector('.p2-date').value = entry.p2_date || '';
             } else {
                 col.querySelector('.p1-select').value = '';
-                col.querySelector('.p1-date').value = '';
                 col.querySelector('.p2-select').value = '';
-                col.querySelector('.p2-date').value = '';
             }
         });
 
@@ -154,10 +195,11 @@ async function submitRotation() {
     .week-label { font-weight: bold; font-size: 1.1rem; }
     .rotation-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
     .day-column { background: var(--card-bg, #fff); border: 1px solid var(--border-color, #ddd); border-radius: 8px; padding: 12px; }
-    .day-header { text-transform: capitalize; margin: 0 0 10px 0; text-align: center; color: var(--fod-blue-primary); border-bottom: 2px solid var(--fod-blue-primary); padding-bottom: 6px; }
+    .day-header { text-transform: capitalize; margin: 0 0 2px 0; text-align: center; color: var(--fod-blue-primary); border-bottom: 2px solid var(--fod-blue-primary); padding-bottom: 6px; }
+    .day-date { text-align: center; font-size: 0.85rem; color: #666; margin-bottom: 10px; font-weight: 600; }
     .pitcher-slot { margin-bottom: 12px; }
     .pitcher-slot label { display: block; font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: #555; }
-    .pitcher-slot select, .pitcher-slot input { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
+    .pitcher-slot select { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
     .banked-slot { background: var(--banked-bg, #f0f7ff); padding: 8px; border-radius: 6px; border: 1px dashed #bcd; }
     #submit-status { font-weight: bold; }
 
