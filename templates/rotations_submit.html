@@ -165,16 +165,22 @@ async function loadTeamData() {
 async function loadBankedStarts(teamID) {
     bankedStarts = [];
     bankedUsages = [];
-    const url = '/api/team/banked-starts?team_id=' + teamID + '&week={{.SelectedWeek}}';
+    var bsWeek = '{{.SelectedWeek}}';
+    console.log('loadBankedStarts called, teamID=' + teamID + ', week=' + bsWeek);
+    var url = '/api/team/banked-starts?team_id=' + teamID + '&week=' + bsWeek;
     try {
-        const res = await fetch(url);
+        console.log('Fetching banked starts from: ' + url);
+        var res = await fetch(url);
+        console.log('Banked starts response status: ' + res.status);
         if (res.ok) {
-            const data = await res.json();
+            var data = await res.json();
+            console.log('Banked starts data:', data);
             if (Array.isArray(data)) bankedStarts = data;
         }
     } catch (e) {
         console.warn('Banked starts fetch failed:', e);
     }
+    console.log('Calling renderBankedStarts with ' + bankedStarts.length + ' starts');
     renderBankedStarts();
 }
 
