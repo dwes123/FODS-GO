@@ -1,85 +1,174 @@
 {{define "title"}}Submit Rotation{{end}}
 
 {{define "content"}}
-<h2>Submit Rotation</h2>
-
-<form action="/rotations/save" method="POST" class="submit-form">
-    <div class="form-group">
-        <label>Select Team:</label>
-        <select name="team_id" id="team_select" required onchange="loadPitchers()">
-            <option value="">-- Choose a Team --</option>
-            {{range .MyTeams}}
-            <option value="{{.ID}}">{{.Name}}</option>
-            {{end}}
-        </select>
+<div class="rotation-submit-header">
+    <h2>Submit Weekly Rotation</h2>
+    <div class="week-nav">
+        <a href="/rotations/submit?week={{.PrevWeek}}" class="button button-small">&laquo; Prev</a>
+        <span class="week-label">Week {{.SelectedWeek}} ({{.WeekStart}} – {{.WeekEnd}})</span>
+        <a href="/rotations/submit?week={{.NextWeek}}" class="button button-small">Next &raquo;</a>
     </div>
+</div>
 
-    <div class="form-group">
-        <label>Day of Week:</label>
-        <select name="day" required>
-            {{range .Days}}<option value="{{.}}">{{.}}</option>{{end}}
-        </select>
-    </div>
+<div class="form-group" style="max-width:400px;margin-bottom:20px;">
+    <label>Select Team:</label>
+    <select id="team_select" required onchange="loadTeamData()">
+        <option value="">-- Choose a Team --</option>
+        {{range .MyTeams}}
+        <option value="{{.ID}}">{{.Name}}</option>
+        {{end}}
+    </select>
+</div>
 
-    <div id="pitcher_fields" style="display: none;">
-        <div class="pitcher-box">
-            <h4>Starting Pitcher 1</h4>
-            <div class="form-group">
-                <select name="p1_id" id="p1_select" class="pitcher-list"><option value="">-- None --</option></select>
-                <input type="date" name="p1_date">
+<div id="loading" style="display:none;">Loading roster...</div>
+
+<div id="rotation_form" style="display:none;">
+    <div class="rotation-week-grid">
+        {{range .Days}}
+        <div class="day-column" data-day="{{.}}">
+            <h4 class="day-header">{{.}}</h4>
+            <div class="pitcher-slot">
+                <label>Active Starter:</label>
+                <select class="p1-select pitcher-select" name="{{.}}_p1_id">
+                    <option value="">-- None --</option>
+                </select>
+                <input type="date" name="{{.}}_p1_date" class="p1-date">
+            </div>
+            <div class="pitcher-slot banked-slot">
+                <label>Banked Pitcher:</label>
+                <select class="p2-select pitcher-select" name="{{.}}_p2_id">
+                    <option value="">-- None --</option>
+                </select>
+                <input type="date" name="{{.}}_p2_date" class="p2-date">
             </div>
         </div>
-
-        <div class="pitcher-box">
-            <h4>Starting Pitcher 2</h4>
-            <div class="form-group">
-                <select name="p2_id" id="p2_select" class="pitcher-list"><option value="">-- None --</option></select>
-                <input type="date" name="p2_date">
-            </div>
-        </div>
-
-        <button type="submit" class="button">Submit Rotation</button>
+        {{end}}
     </div>
-    
-    <div id="loading" style="display: none;">Loading roster...</div>
-</form>
+
+    <div id="submit-area" style="margin-top:20px;">
+        <button type="button" class="button button-primary" onclick="submitRotation()">Save Rotation</button>
+        <span id="submit-status" style="margin-left:15px;"></span>
+    </div>
+</div>
 
 <script>
-async function loadPitchers() {
+let pitchers = [];
+
+async function loadTeamData() {
     const teamID = document.getElementById('team_select').value;
-    if (!teamID) return;
+    if (!teamID) {
+        document.getElementById('rotation_form').style.display = 'none';
+        return;
+    }
 
     document.getElementById('loading').style.display = 'block';
-    document.getElementById('pitcher_fields').style.display = 'none';
+    document.getElementById('rotation_form').style.display = 'none';
 
     try {
-        const res = await fetch(`/api/team/pitchers?team_id=${teamID}`);
-        const pitchers = await res.json();
+        // Load pitchers
+        const pitcherRes = await fetch(`/api/team/pitchers?team_id=${teamID}`);
+        pitchers = await pitcherRes.json();
 
-        const selects = document.querySelectorAll('.pitcher-list');
-        selects.forEach(s => {
-            s.innerHTML = '<option value="">-- None --</option>';
+        // Populate all pitcher selects
+        document.querySelectorAll('.pitcher-select').forEach(sel => {
+            sel.innerHTML = '<option value="">-- None --</option>';
             pitchers.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
-                opt.innerText = `${p.first_name} ${p.last_name} (${p.position})`;
-                s.appendChild(opt);
+                opt.textContent = `${p.first_name} ${p.last_name} (${p.position})`;
+                sel.appendChild(opt);
             });
         });
 
+        // Load existing rotation data for this team+week
+        const rotRes = await fetch(`/api/team/rotation?team_id=${teamID}&week={{.SelectedWeek}}`);
+        const existing = await rotRes.json();
+
+        // Pre-fill existing entries
+        const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+        days.forEach(day => {
+            const col = document.querySelector(`.day-column[data-day="${day}"]`);
+            const entry = existing[day];
+            if (entry) {
+                col.querySelector('.p1-select').value = entry.p1_id || '';
+                col.querySelector('.p1-date').value = entry.p1_date || '';
+                col.querySelector('.p2-select').value = entry.p2_id || '';
+                col.querySelector('.p2-date').value = entry.p2_date || '';
+            } else {
+                col.querySelector('.p1-select').value = '';
+                col.querySelector('.p1-date').value = '';
+                col.querySelector('.p2-select').value = '';
+                col.querySelector('.p2-date').value = '';
+            }
+        });
+
         document.getElementById('loading').style.display = 'none';
-        document.getElementById('pitcher_fields').style.display = 'block';
+        document.getElementById('rotation_form').style.display = 'block';
     } catch (e) {
-        alert("Failed to load pitchers");
+        document.getElementById('loading').style.display = 'none';
+        alert('Failed to load data: ' + e.message);
+    }
+}
+
+async function submitRotation() {
+    const teamID = document.getElementById('team_select').value;
+    if (!teamID) { alert('Select a team first'); return; }
+
+    const formData = new FormData();
+    formData.append('team_id', teamID);
+    formData.append('week', '{{.SelectedWeek}}');
+
+    const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    days.forEach(day => {
+        const col = document.querySelector(`.day-column[data-day="${day}"]`);
+        formData.append(day + '_p1_id', col.querySelector('.p1-select').value);
+        formData.append(day + '_p1_date', col.querySelector('.p1-date').value);
+        formData.append(day + '_p2_id', col.querySelector('.p2-select').value);
+        formData.append(day + '_p2_date', col.querySelector('.p2-date').value);
+    });
+
+    const status = document.getElementById('submit-status');
+    status.textContent = 'Saving...';
+    status.style.color = '#666';
+
+    try {
+        const res = await fetch('/rotations/save', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (res.ok) {
+            status.textContent = 'Rotation saved!';
+            status.style.color = 'green';
+        } else {
+            status.textContent = 'Error: ' + json.error;
+            status.style.color = 'red';
+        }
+    } catch (e) {
+        status.textContent = 'Request failed';
+        status.style.color = 'red';
     }
 }
 </script>
 
 <style>
-    .submit-form { max-width: 500px; background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; }
-    .pitcher-box { background: #f0f7ff; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #bcd; }
-    .form-group { margin-bottom: 15px; }
-    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; }
-    .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .rotation-submit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    .week-nav { display: flex; align-items: center; gap: 10px; }
+    .week-label { font-weight: bold; font-size: 1.1rem; }
+    .rotation-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+    .day-column { background: var(--card-bg, #fff); border: 1px solid var(--border-color, #ddd); border-radius: 8px; padding: 12px; }
+    .day-header { text-transform: capitalize; margin: 0 0 10px 0; text-align: center; color: var(--fod-blue-primary); border-bottom: 2px solid var(--fod-blue-primary); padding-bottom: 6px; }
+    .pitcher-slot { margin-bottom: 12px; }
+    .pitcher-slot label { display: block; font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: #555; }
+    .pitcher-slot select, .pitcher-slot input { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
+    .banked-slot { background: var(--banked-bg, #f0f7ff); padding: 8px; border-radius: 6px; border: 1px dashed #bcd; }
+    #submit-status { font-weight: bold; }
+
+    @media (max-width: 1200px) {
+        .rotation-week-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (max-width: 768px) {
+        .rotation-week-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+        .rotation-week-grid { grid-template-columns: 1fr; }
+    }
 </style>
 {{end}}
