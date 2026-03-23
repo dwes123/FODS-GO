@@ -455,15 +455,25 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		bankedUsageJSON := c.PostForm("banked_usage")
 		if bankedUsageJSON != "" {
 			type bankedUsageReq struct {
-				ID  string `json:"id"`
-				Day int    `json:"day"`
+				ID   string `json:"id"`
+				Day  int    `json:"day"`
+				Date string `json:"date"`
 			}
 			var usages []bankedUsageReq
 			if err := json.Unmarshal([]byte(bankedUsageJSON), &usages); err == nil {
 				for _, u := range usages {
-					// Compute date for the target day from the week identifier
-					targetDate := computeDateForDay(week, u.Day)
-					if err := store.UseBankedStart(db, u.ID, week, u.Day, targetDate); err != nil {
+					targetDate := u.Date
+					// Determine which week the target date falls in
+					usedWeek := week
+					if targetDate != "" {
+						if t, err := time.Parse("2006-01-02", targetDate); err == nil {
+							y, w := t.ISOWeek()
+							usedWeek = fmt.Sprintf("%d-%02d", y, w)
+						}
+					} else {
+						targetDate = computeDateForDay(week, u.Day)
+					}
+					if err := store.UseBankedStart(db, u.ID, usedWeek, u.Day, targetDate); err != nil {
 						fmt.Printf("ERROR [SubmitRotation]: use banked start %s: %v\n", u.ID, err)
 					}
 				}

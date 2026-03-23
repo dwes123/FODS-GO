@@ -213,18 +213,22 @@ function renderBankedStarts() {
         html += '<td>';
 
         if (isUsed) {
-            html += `<span class="banked-assigned">${dayLabels[usedOn.day]}</span> `;
+            const usedInfo = usedOn.dateLabel || dayLabels[usedOn.day];
+            html += `<span class="banked-assigned">${usedInfo}</span> `;
             html += `<button class="button button-small button-danger" onclick="removeBankedUsage('${bs.id}')">Remove</button>`;
         } else {
+            // Build next 8 days starting from the day after the banked date
+            const bankedDate = new Date(bs.banked_date + 'T12:00:00');
             html += `<select onchange="assignBankedStart('${bs.id}', this.value)" style="font-size:0.85rem;">`;
             html += '<option value="">-- Select Day --</option>';
-            dayNames.forEach((day, idx) => {
-                // For same-week: only allow days after the banked day
-                // For cross-week: allow any day
-                if (isCrossWeek || idx > bankedDayIdx) {
-                    html += `<option value="${idx}">${dayLabels[idx]}</option>`;
-                }
-            });
+            for (let i = 1; i <= 8; i++) {
+                const targetDate = new Date(bankedDate);
+                targetDate.setDate(bankedDate.getDate() + i);
+                const dayOfWeek = (targetDate.getDay() + 6) % 7; // Convert Sun=0 to Mon=0
+                const label = targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                const isoDate = formatDateISO(targetDate);
+                html += `<option value="${dayOfWeek}|${isoDate}">${label}</option>`;
+            }
             html += '</select>';
         }
 
@@ -246,9 +250,14 @@ function renderBankedStarts() {
     });
 }
 
-function assignBankedStart(id, dayIdx) {
-    if (dayIdx === '') return;
-    bankedUsages.push({ id: id, day: parseInt(dayIdx) });
+function assignBankedStart(id, val) {
+    if (val === '') return;
+    const parts = val.split('|');
+    const dayIdx = parseInt(parts[0]);
+    const date = parts[1];
+    const dateObj = new Date(date + 'T12:00:00');
+    const dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    bankedUsages.push({ id: id, day: dayIdx, date: date, dateLabel: dateLabel });
     renderBankedStarts();
 }
 
