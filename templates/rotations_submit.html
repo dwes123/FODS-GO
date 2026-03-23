@@ -120,15 +120,21 @@ async function loadTeamData() {
     bankedUsages = [];
 
     try {
-        const [pitcherRes, rotRes, bankedRes] = await Promise.all([
+        // Load pitchers and rotation (required), banked starts (optional)
+        const [pitcherRes, rotRes] = await Promise.all([
             fetch(`/api/team/pitchers?team_id=${teamID}`),
-            fetch(`/api/team/rotation?team_id=${teamID}&week={{.SelectedWeek}}`),
-            fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`)
+            fetch(`/api/team/rotation?team_id=${teamID}&week={{.SelectedWeek}}`)
         ]);
 
         pitchers = await pitcherRes.json();
         const existing = await rotRes.json();
-        bankedStarts = await bankedRes.json();
+
+        // Load banked starts separately so it doesn't block the form
+        bankedStarts = [];
+        try {
+            const bankedRes = await fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`);
+            if (bankedRes.ok) bankedStarts = await bankedRes.json();
+        } catch (e) { console.warn('Failed to load banked starts:', e); }
 
         // Populate pitcher selects
         document.querySelectorAll('.pitcher-select').forEach(sel => {
