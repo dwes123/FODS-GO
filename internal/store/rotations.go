@@ -367,11 +367,17 @@ func GetAvailableBankedStarts(db *pgxpool.Pool, teamID, currentWeek, prevWeek st
 		results = append(results, r)
 	}
 
-	// Lazily populate points for any that are missing
+	// Lazily populate points for any that are missing, then update our results in-place
 	if len(needPoints) > 0 {
 		populateBankedStartPoints(db, needPoints)
-		// Re-query to get updated points
-		return GetAvailableBankedStarts(db, teamID, currentWeek, prevWeek)
+		// Re-read the points we just populated
+		for i := range results {
+			if results[i].FantasyPoints == nil {
+				var pts *float64
+				db.QueryRow(ctx, `SELECT fantasy_points FROM banked_starts WHERE id = $1`, results[i].ID).Scan(&pts)
+				results[i].FantasyPoints = pts
+			}
+		}
 	}
 
 	return results, nil
