@@ -237,17 +237,28 @@ function renderBankedStarts() {
             html += `<button class="button button-small button-danger" onclick="removeBankedUsage('${bs.id}')">Remove</button>`;
         } else {
             // Build next 8 days starting from the day after the banked date
+            // Only show days that don't already have an active starter
             const bankedDate = new Date(bs.banked_date + 'T12:00:00');
             html += `<select onchange="assignBankedStart('${bs.id}', this.value)" style="font-size:0.85rem;">`;
             html += '<option value="">-- Select Day --</option>';
+            let hasOptions = false;
             for (let i = 1; i <= 8; i++) {
                 const targetDate = new Date(bankedDate);
                 targetDate.setDate(bankedDate.getDate() + i);
                 const dayOfWeek = (targetDate.getDay() + 6) % 7; // Convert Sun=0 to Mon=0
+                const dayName = dayNames[dayOfWeek];
+                // Check if this day already has an active starter in the form
+                const col = document.querySelector(`.day-column[data-day="${dayName}"]`);
+                if (col) {
+                    const p1Val = col.querySelector('.p1-select').value;
+                    if (p1Val) continue; // Skip days with a starter already set
+                }
                 const label = targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                 const isoDate = formatDateISO(targetDate);
                 html += `<option value="${dayOfWeek}|${isoDate}">${label}</option>`;
+                hasOptions = true;
             }
+            if (!hasOptions) html += '<option value="" disabled>No empty days available</option>';
             html += '</select>';
         }
 

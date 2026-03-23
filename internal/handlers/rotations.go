@@ -473,6 +473,19 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 						targetDate = computeDateForDay(week, u.Day)
 					}
 
+					// Check if the target day already has an active starter
+					hasStarter := false
+					for _, e := range entries {
+						if dayIndex[e.day] == u.Day && e.p1ID != "" {
+							hasStarter = true
+							break
+						}
+					}
+					if hasStarter {
+						fmt.Printf("WARN [SubmitRotation]: banked start %s target day %d already has a starter\n", u.ID, u.Day)
+						continue
+					}
+
 					// Mark the banked start as used
 					if err := store.UseBankedStart(db, u.ID, usedWeek, u.Day, targetDate); err != nil {
 						fmt.Printf("ERROR [SubmitRotation]: use banked start %s: %v\n", u.ID, err)
