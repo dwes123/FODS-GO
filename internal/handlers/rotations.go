@@ -531,16 +531,23 @@ func GetBankedStartsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 		prevWeek, _ := adjacentWeeks(week)
-		starts, err := store.GetAvailableBankedStarts(db, teamID, week, prevWeek)
+		available, err := store.GetAvailableBankedStarts(db, teamID, week, prevWeek)
 		if err != nil {
 			fmt.Printf("ERROR [GetBankedStarts]: %v\n", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			return
 		}
-		if starts == nil {
-			starts = []store.BankedStartRecord{}
+		if available == nil {
+			available = []store.BankedStartRecord{}
 		}
-		c.JSON(http.StatusOK, starts)
+		used, _ := store.GetUsedBankedStartsForTeam(db, teamID, week, prevWeek)
+		if used == nil {
+			used = []store.BankedStartRecord{}
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"available": available,
+			"used":      used,
+		})
 	}
 }
 

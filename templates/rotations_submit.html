@@ -162,26 +162,45 @@ async function loadTeamData() {
     loadBankedStarts(teamID);
 }
 
+let usedBankedStarts = []; // Already-used banked starts
+
 async function loadBankedStarts(teamID) {
     bankedStarts = [];
+    usedBankedStarts = [];
     bankedUsages = [];
-    var bsWeek = '{{.SelectedWeek}}';
-    console.log('loadBankedStarts called, teamID=' + teamID + ', week=' + bsWeek);
-    var url = '/api/team/banked-starts?team_id=' + teamID + '&week=' + bsWeek;
+    var url = '/api/team/banked-starts?team_id=' + teamID + '&week={{.SelectedWeek}}';
     try {
-        console.log('Fetching banked starts from: ' + url);
         var res = await fetch(url);
-        console.log('Banked starts response status: ' + res.status);
         if (res.ok) {
             var data = await res.json();
-            console.log('Banked starts data:', data);
-            if (Array.isArray(data)) bankedStarts = data;
+            if (data.available && Array.isArray(data.available)) bankedStarts = data.available;
+            if (data.used && Array.isArray(data.used)) usedBankedStarts = data.used;
         }
     } catch (e) {
         console.warn('Banked starts fetch failed:', e);
     }
-    console.log('Calling renderBankedStarts with ' + bankedStarts.length + ' starts');
     renderBankedStarts();
+    renderUsedBankedBadges();
+}
+
+function renderUsedBankedBadges() {
+    // Show "BANKED" badge on day columns where the active starter came from a used banked start
+    document.querySelectorAll('.banked-used-badge').forEach(el => el.remove());
+    usedBankedStarts.forEach(bs => {
+        if (bs.used_day != null && bs.used_date) {
+            // Find the day column matching this used_date
+            const dayIdx = bs.used_day;
+            const dayName = dayNames[dayIdx];
+            const col = document.querySelector(`.day-column[data-day="${dayName}"]`);
+            if (col) {
+                const badge = document.createElement('div');
+                badge.className = 'banked-used-badge';
+                const pts = bs.fantasy_points != null ? ' (' + bs.fantasy_points.toFixed(1) + ' pts)' : '';
+                badge.innerHTML = '<span class="banked-badge">BANKED: ' + bs.pitcher_name + pts + '</span>';
+                col.querySelector('.banked-applied').appendChild(badge);
+            }
+        }
+    });
 }
 
 function renderBankedStarts() {

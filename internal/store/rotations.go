@@ -452,6 +452,47 @@ func UpsertRotationStarter(db *pgxpool.Pool, teamID, leagueID, week string, day 
 	`, teamID, leagueID, week, day, pitcherID, date)
 }
 
+// GetUsedBankedStartsForTeam returns used banked starts for a team from the current or previous week.
+func GetUsedBankedStartsForTeam(db *pgxpool.Pool, teamID, currentWeek, prevWeek string) ([]BankedStartRecord, error) {
+	ctx := context.Background()
+	rows, err := db.Query(ctx, `
+		SELECT bs.id, bs.team_id::TEXT, bs.pitcher_id::TEXT,
+		       p.first_name || ' ' || p.last_name AS pitcher_name,
+		       bs.banked_week, bs.banked_day, bs.banked_date,
+		       bs.fantasy_points, bs.used_week, bs.used_day, bs.used_date
+		FROM banked_starts bs
+		JOIN players p ON bs.pitcher_id = p.id
+		WHERE bs.team_id = $1
+		  AND bs.used_week IS NOT NULL
+		  AND bs.banked_week IN ($2, $3)
+		ORDER BY bs.used_day
+	`, teamID, currentWeek, prevWeek)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []BankedStartRecord
+	for rows.Next() {
+		var r BankedStartRecord
+		var bankedDate, usedDate time.Time
+		var usedDay int
+		var usedWeek string
+		if err := rows.Scan(&r.ID, &r.TeamID, &r.PitcherID, &r.PitcherName,
+			&r.BankedWeek, &r.BankedDay, &bankedDate,
+			&r.FantasyPoints, &usedWeek, &usedDay, &usedDate); err != nil {
+			continue
+		}
+		r.BankedDate = bankedDate.Format("2006-01-02")
+		r.UsedWeek = &usedWeek
+		r.UsedDay = &usedDay
+		ud := usedDate.Format("2006-01-02")
+		r.UsedDate = &ud
+		results = append(results, r)
+	}
+	return results, nil
+}
+
 // UnuseBankedStart clears usage fields on a banked start.
 func UnuseBankedStart(db *pgxpool.Pool, bankedStartID string) error {
 	ctx := context.Background()
