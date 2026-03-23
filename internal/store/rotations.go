@@ -431,6 +431,27 @@ func UseBankedStart(db *pgxpool.Pool, bankedStartID, usedWeek string, usedDay in
 	return nil
 }
 
+// GetBankedStartPitcherID returns the pitcher_id for a banked start.
+func GetBankedStartPitcherID(db *pgxpool.Pool, bankedStartID string) (string, error) {
+	ctx := context.Background()
+	var pitcherID string
+	err := db.QueryRow(ctx, `SELECT pitcher_id::TEXT FROM banked_starts WHERE id = $1`, bankedStartID).Scan(&pitcherID)
+	return pitcherID, err
+}
+
+// UpsertRotationStarter sets the active starter (pitcher_1) on a rotation day, creating the entry if needed.
+func UpsertRotationStarter(db *pgxpool.Pool, teamID, leagueID, week string, day int, pitcherID, date string) {
+	ctx := context.Background()
+	db.Exec(ctx, `
+		INSERT INTO rotations (team_id, league_id, week_identifier, day_of_week, pitcher_1_id, pitcher_1_date, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		ON CONFLICT (team_id, week_identifier, day_of_week) DO UPDATE SET
+			pitcher_1_id = $5,
+			pitcher_1_date = $6,
+			updated_at = NOW()
+	`, teamID, leagueID, week, day, pitcherID, date)
+}
+
 // UnuseBankedStart clears usage fields on a banked start.
 func UnuseBankedStart(db *pgxpool.Pool, bankedStartID string) error {
 	ctx := context.Background()

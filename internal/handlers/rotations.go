@@ -451,7 +451,7 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			fmt.Printf("ERROR [SubmitRotation]: sync banked starts: %v\n", err)
 		}
 
-		// Process banked start usages
+		// Process banked start usages — slot the banked pitcher as active starter on the target day
 		bankedUsageJSON := c.PostForm("banked_usage")
 		if bankedUsageJSON != "" {
 			type bankedUsageReq struct {
@@ -463,7 +463,6 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			if err := json.Unmarshal([]byte(bankedUsageJSON), &usages); err == nil {
 				for _, u := range usages {
 					targetDate := u.Date
-					// Determine which week the target date falls in
 					usedWeek := week
 					if targetDate != "" {
 						if t, err := time.Parse("2006-01-02", targetDate); err == nil {
@@ -473,9 +472,20 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 					} else {
 						targetDate = computeDateForDay(week, u.Day)
 					}
+
+					// Mark the banked start as used
 					if err := store.UseBankedStart(db, u.ID, usedWeek, u.Day, targetDate); err != nil {
 						fmt.Printf("ERROR [SubmitRotation]: use banked start %s: %v\n", u.ID, err)
+						continue
 					}
+
+					// Get the pitcher ID from the banked start and set as active starter on target day
+					pitcherID, err := store.GetBankedStartPitcherID(db, u.ID)
+					if err != nil {
+						fmt.Printf("ERROR [SubmitRotation]: get banked pitcher %s: %v\n", u.ID, err)
+						continue
+					}
+					store.UpsertRotationStarter(db, teamID, leagueID, usedWeek, u.Day, pitcherID, targetDate)
 				}
 			}
 		}
