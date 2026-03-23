@@ -303,6 +303,17 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 			v := strings.ToUpper(strings.TrimSpace(val))
 			return v != "" && v != "UFA"
 		},
+		"getPoints": func(ptsMap map[string]map[string]float64, playerID, date string) float64 {
+			if ptsMap == nil || playerID == "" || date == "" {
+				return -1
+			}
+			if inner, ok := ptsMap[playerID]; ok {
+				if pts, ok := inner[date]; ok {
+					return pts
+				}
+			}
+			return -1
+		},
 		"formatMoney": func(v interface{}) string {
 			p := message.NewPrinter(language.English)
 			switch val := v.(type) {

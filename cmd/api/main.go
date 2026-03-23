@@ -166,6 +166,7 @@ func main() {
 		authorized.POST("/rotations/save", handlers.SubmitRotationHandler(database))
 		authorized.GET("/api/team/pitchers", handlers.GetTeamPitchersHandler(database))
 		authorized.GET("/api/team/rotation", handlers.GetTeamRotationHandler(database))
+		authorized.GET("/api/team/banked-starts", handlers.GetBankedStartsHandler(database))
 
 		// Fantasy Stats
 		authorized.GET("/stats/pitching", handlers.StatsLeaderboardHandler(database))

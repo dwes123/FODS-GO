@@ -7,7 +7,7 @@
 </div>
 
 <div class="filters">
-    <form method="GET" action="/rotations" style="display: flex; gap: 20px;">
+    <form method="GET" action="/rotations" style="display: flex; gap: 20px; align-items: end;">
         <div>
             <label>League:</label>
             <select name="league_id" onchange="this.form.submit()">
@@ -17,10 +17,15 @@
                 {{end}}
             </select>
         </div>
-        <div>
+        <div class="week-nav-dash">
+            <a href="/rotations?league_id={{.SelectedLID}}&week={{.PrevWeek}}" class="button button-small">&laquo;</a>
             <label>Week:</label>
             <input type="text" name="week" value="{{.SelectedWeek}}" style="width: 100px;">
             <button type="submit" class="button button-info">Go</button>
+            <a href="/rotations?league_id={{.SelectedLID}}&week={{.NextWeek}}" class="button button-small">&raquo;</a>
+        </div>
+        <div>
+            <span class="submit-count">{{.SubmittedTeams}}/{{.TotalTeams}} teams submitted</span>
         </div>
     </form>
 </div>
@@ -30,22 +35,49 @@
         <thead>
             <tr>
                 <th>Team</th>
-                {{range .Days}}<th>{{.}}</th>{{end}}
+                {{range .Days}}<th style="text-transform:capitalize;">{{.}}</th>{{end}}
             </tr>
         </thead>
         <tbody>
             {{$days := .Days}}
+            {{$pts := .PointsMap}}
+            {{$banked := .UsedBanked}}
             {{range $teamName, $teamDays := .Submissions}}
             <tr>
                 <td><strong>{{$teamName}}</strong></td>
-                {{range $days}}
+                {{range $dayIdx, $day := $days}}
                     <td>
-                        {{$entry := index $teamDays .}}
+                        {{$entry := index $teamDays $day}}
                         {{if $entry}}
                             <div class="rotation-cell">
-                                <div class="pitcher">{{$entry.Pitcher1Name}} {{if $entry.Pitcher1Date}}({{$entry.Pitcher1Date}}){{end}}</div>
-                                <div class="pitcher">{{$entry.Pitcher2Name}} {{if $entry.Pitcher2Date}}({{$entry.Pitcher2Date}}){{end}}</div>
-                                <small class="time">Updated: {{$entry.UpdatedAt.Format "3:04 PM"}}</small>
+                                {{if $entry.Pitcher1Name}}
+                                <div class="pitcher-row">
+                                    <span class="pitcher-name">{{$entry.Pitcher1Name}}</span>
+                                    {{$p1pts := getPoints $pts $entry.Pitcher1ID $entry.Pitcher1Date}}
+                                    {{if ge $p1pts 0.0}}<span class="pts">{{printf "%.1f" $p1pts}}</span>{{end}}
+                                </div>
+                                {{end}}
+                                {{if $entry.Pitcher2Name}}
+                                <div class="pitcher-row banked-row">
+                                    <span class="pitcher-name-banked">{{$entry.Pitcher2Name}}</span>
+                                    {{$p2pts := getPoints $pts $entry.Pitcher2ID $entry.Pitcher2Date}}
+                                    {{if ge $p2pts 0.0}}<span class="pts-banked">{{printf "%.1f" $p2pts}}</span>{{end}}
+                                </div>
+                                {{end}}
+                                {{if and $banked $entry.TeamID}}
+                                    {{$teamBanked := index $banked $entry.TeamID}}
+                                    {{if $teamBanked}}
+                                        {{$dayBanked := index $teamBanked $dayIdx}}
+                                        {{if $dayBanked}}
+                                            {{range $dayBanked}}
+                                            <div class="used-banked-row">
+                                                <span class="used-banked-name">{{.PitcherName}}</span>
+                                                {{if .HasPoints}}<span class="pts-used">{{printf "%.1f" .Points}}</span>{{end}}
+                                            </div>
+                                            {{end}}
+                                        {{end}}
+                                    {{end}}
+                                {{end}}
                             </div>
                         {{else}}
                             <span class="empty">--</span>
@@ -63,8 +95,18 @@
 <style>
     .rotations-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .filters { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }
-    .rotation-cell { font-size: 0.8rem; line-height: 1.2; }
-    .pitcher { font-weight: 600; color: var(--fod-blue-primary); }
+    .week-nav-dash { display: flex; align-items: center; gap: 6px; }
+    .submit-count { font-weight: 600; color: #666; font-size: 0.9rem; }
+    .rotation-cell { font-size: 0.8rem; line-height: 1.4; }
+    .pitcher-row { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+    .pitcher-name { font-weight: 600; color: var(--fod-blue-primary); }
+    .pitcher-name-banked { font-weight: 500; color: #888; font-style: italic; }
+    .pts { font-weight: bold; color: #E87426; font-size: 0.75rem; }
+    .pts-banked { font-weight: bold; color: #aaa; font-size: 0.75rem; }
+    .banked-row { border-top: 1px dashed #ddd; padding-top: 2px; margin-top: 2px; }
+    .used-banked-row { display: flex; justify-content: space-between; align-items: center; background: #fff3e0; border-radius: 3px; padding: 1px 4px; margin-top: 2px; }
+    .used-banked-name { font-weight: 600; color: #E87426; font-size: 0.75rem; }
+    .pts-used { font-weight: bold; color: #E87426; font-size: 0.75rem; }
     .time { color: #999; font-size: 0.7rem; }
     .empty { color: #ccc; }
     .compact td, .compact th { padding: 8px !important; }

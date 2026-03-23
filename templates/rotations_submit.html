@@ -42,8 +42,16 @@
                     <option value="">-- None --</option>
                 </select>
             </div>
+            <div class="banked-applied" data-day="{{.}}"></div>
         </div>
         {{end}}
+    </div>
+
+    <!-- Available Banked Starts -->
+    <div id="banked-section" style="display:none;margin-top:20px;">
+        <h3>Available Banked Starts</h3>
+        <p class="note">Assign a banked start to a day to add those points. Each banked start can only be used once.</p>
+        <div id="banked-list"></div>
     </div>
 
     <div id="submit-area" style="margin-top:20px;">
@@ -54,21 +62,20 @@
 
 <script>
 let pitchers = [];
+let bankedStarts = [];
+let bankedUsages = []; // [{id, day}]
+const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-// Compute dates for each day from the week identifier (YYYY-WW)
 function computeWeekDates(weekStr) {
     const parts = weekStr.split('-');
     const year = parseInt(parts[0]);
     const week = parseInt(parts[1]);
-
-    // ISO week: Jan 4 is always in week 1. Find Monday of week 1, then offset.
     const jan4 = new Date(year, 0, 4);
-    const dayOfWeek = jan4.getDay() || 7; // Convert Sunday=0 to 7
+    const dayOfWeek = jan4.getDay() || 7;
     const week1Monday = new Date(jan4);
     week1Monday.setDate(jan4.getDate() - dayOfWeek + 1);
-
     const dates = {};
-    const dayNames = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
     dayNames.forEach((day, i) => {
         const d = new Date(week1Monday);
         d.setDate(week1Monday.getDate() + (week - 1) * 7 + i);
@@ -90,7 +97,6 @@ function formatDateISO(d) {
 
 const weekDates = computeWeekDates('{{.SelectedWeek}}');
 
-// Set date labels and hidden field values
 document.querySelectorAll('.day-column').forEach(col => {
     const day = col.dataset.day;
     const date = weekDates[day];
@@ -111,11 +117,20 @@ async function loadTeamData() {
 
     document.getElementById('loading').style.display = 'block';
     document.getElementById('rotation_form').style.display = 'none';
+    bankedUsages = [];
 
     try {
-        const pitcherRes = await fetch(`/api/team/pitchers?team_id=${teamID}`);
-        pitchers = await pitcherRes.json();
+        const [pitcherRes, rotRes, bankedRes] = await Promise.all([
+            fetch(`/api/team/pitchers?team_id=${teamID}`),
+            fetch(`/api/team/rotation?team_id=${teamID}&week={{.SelectedWeek}}`),
+            fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`)
+        ]);
 
+        pitchers = await pitcherRes.json();
+        const existing = await rotRes.json();
+        bankedStarts = await bankedRes.json();
+
+        // Populate pitcher selects
         document.querySelectorAll('.pitcher-select').forEach(sel => {
             sel.innerHTML = '<option value="">-- None --</option>';
             pitchers.forEach(p => {
@@ -126,22 +141,15 @@ async function loadTeamData() {
             });
         });
 
-        // Load existing rotation data for this team+week
-        const rotRes = await fetch(`/api/team/rotation?team_id=${teamID}&week={{.SelectedWeek}}`);
-        const existing = await rotRes.json();
-
-        const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-        days.forEach(day => {
+        // Pre-fill existing rotation
+        dayNames.forEach(day => {
             const col = document.querySelector(`.day-column[data-day="${day}"]`);
             const entry = existing[day];
-            if (entry) {
-                col.querySelector('.p1-select').value = entry.p1_id || '';
-                col.querySelector('.p2-select').value = entry.p2_id || '';
-            } else {
-                col.querySelector('.p1-select').value = '';
-                col.querySelector('.p2-select').value = '';
-            }
+            col.querySelector('.p1-select').value = entry ? (entry.p1_id || '') : '';
+            col.querySelector('.p2-select').value = entry ? (entry.p2_id || '') : '';
         });
+
+        renderBankedStarts();
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('rotation_form').style.display = 'block';
@@ -149,6 +157,79 @@ async function loadTeamData() {
         document.getElementById('loading').style.display = 'none';
         alert('Failed to load data: ' + e.message);
     }
+}
+
+function renderBankedStarts() {
+    const list = document.getElementById('banked-list');
+    const section = document.getElementById('banked-section');
+
+    // Clear applied indicators
+    document.querySelectorAll('.banked-applied').forEach(el => el.innerHTML = '');
+
+    if (!bankedStarts || bankedStarts.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+    let html = '<table class="fantasy-table-base compact"><thead><tr><th>Pitcher</th><th>Banked Date</th><th>Points</th><th>Use On</th></tr></thead><tbody>';
+
+    bankedStarts.forEach(bs => {
+        const isUsed = bankedUsages.some(u => u.id === bs.id);
+        const usedOn = isUsed ? bankedUsages.find(u => u.id === bs.id) : null;
+        const pts = bs.fantasy_points != null ? bs.fantasy_points.toFixed(1) : 'Pending';
+        const bankedDayIdx = bs.banked_day;
+        const isCrossWeek = bs.banked_week !== '{{.SelectedWeek}}';
+
+        html += '<tr>';
+        html += `<td>${bs.pitcher_name}</td>`;
+        html += `<td>${bs.banked_date}${isCrossWeek ? ' <span class="cross-week-badge">prev week</span>' : ''}</td>`;
+        html += `<td class="pts-cell">${pts}</td>`;
+        html += '<td>';
+
+        if (isUsed) {
+            html += `<span class="banked-assigned">${dayLabels[usedOn.day]}</span> `;
+            html += `<button class="button button-small button-danger" onclick="removeBankedUsage('${bs.id}')">Remove</button>`;
+        } else {
+            html += `<select onchange="assignBankedStart('${bs.id}', this.value)" style="font-size:0.85rem;">`;
+            html += '<option value="">-- Select Day --</option>';
+            dayNames.forEach((day, idx) => {
+                // For same-week: only allow days after the banked day
+                // For cross-week: allow any day
+                if (isCrossWeek || idx > bankedDayIdx) {
+                    html += `<option value="${idx}">${dayLabels[idx]}</option>`;
+                }
+            });
+            html += '</select>';
+        }
+
+        html += '</td></tr>';
+    });
+
+    html += '</tbody></table>';
+    list.innerHTML = html;
+
+    // Show applied banked starts on day columns
+    bankedUsages.forEach(u => {
+        const dayName = dayNames[u.day];
+        const bs = bankedStarts.find(b => b.id === u.id);
+        if (bs) {
+            const el = document.querySelector(`.banked-applied[data-day="${dayName}"]`);
+            const pts = bs.fantasy_points != null ? bs.fantasy_points.toFixed(1) : '?';
+            el.innerHTML += `<div class="banked-badge">Banked: ${bs.pitcher_name} (${pts} pts)</div>`;
+        }
+    });
+}
+
+function assignBankedStart(id, dayIdx) {
+    if (dayIdx === '') return;
+    bankedUsages.push({ id: id, day: parseInt(dayIdx) });
+    renderBankedStarts();
+}
+
+function removeBankedUsage(id) {
+    bankedUsages = bankedUsages.filter(u => u.id !== id);
+    renderBankedStarts();
 }
 
 async function submitRotation() {
@@ -159,14 +240,18 @@ async function submitRotation() {
     formData.append('team_id', teamID);
     formData.append('week', '{{.SelectedWeek}}');
 
-    const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-    days.forEach(day => {
+    dayNames.forEach(day => {
         const col = document.querySelector(`.day-column[data-day="${day}"]`);
         formData.append(day + '_p1_id', col.querySelector('.p1-select').value);
         formData.append(day + '_p1_date', col.querySelector('.p1-date').value);
         formData.append(day + '_p2_id', col.querySelector('.p2-select').value);
         formData.append(day + '_p2_date', col.querySelector('.p2-date').value);
     });
+
+    // Include banked usage
+    if (bankedUsages.length > 0) {
+        formData.append('banked_usage', JSON.stringify(bankedUsages));
+    }
 
     const status = document.getElementById('submit-status');
     status.textContent = 'Saving...';
@@ -178,6 +263,11 @@ async function submitRotation() {
         if (res.ok) {
             status.textContent = 'Rotation saved!';
             status.style.color = 'green';
+            // Reload banked starts to reflect usage
+            const bankedRes = await fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`);
+            bankedStarts = await bankedRes.json();
+            bankedUsages = [];
+            renderBankedStarts();
         } else {
             status.textContent = 'Error: ' + json.error;
             status.style.color = 'red';
@@ -201,16 +291,18 @@ async function submitRotation() {
     .pitcher-slot label { display: block; font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: #555; }
     .pitcher-slot select { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
     .banked-slot { background: var(--banked-bg, #f0f7ff); padding: 8px; border-radius: 6px; border: 1px dashed #bcd; }
+    .banked-applied { margin-top: 6px; }
+    .banked-badge { background: #fff3e0; border: 1px solid #E87426; border-radius: 4px; padding: 4px 6px; font-size: 0.75rem; font-weight: 600; color: #E87426; margin-top: 4px; }
+    .banked-assigned { background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem; }
+    .cross-week-badge { background: #e3f2fd; color: #1565c0; padding: 1px 6px; border-radius: 3px; font-size: 0.75rem; }
+    .pts-cell { font-weight: bold; color: #E87426; }
+    #banked-section { background: var(--card-bg, #fff); border: 1px solid var(--border-color, #ddd); border-radius: 8px; padding: 16px; }
+    #banked-section h3 { margin-top: 0; color: var(--fod-blue-primary); }
+    #banked-section .note { font-size: 0.85rem; color: #666; margin-bottom: 12px; }
     #submit-status { font-weight: bold; }
 
-    @media (max-width: 1200px) {
-        .rotation-week-grid { grid-template-columns: repeat(4, 1fr); }
-    }
-    @media (max-width: 768px) {
-        .rotation-week-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 480px) {
-        .rotation-week-grid { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 1200px) { .rotation-week-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 768px) { .rotation-week-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .rotation-week-grid { grid-template-columns: 1fr; } }
 </style>
 {{end}}

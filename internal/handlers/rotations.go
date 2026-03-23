@@ -109,6 +109,36 @@ func RotationsDashboardHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		prevWeek, nextWeek := adjacentWeeks(selectedWeek)
 		monDate, sunDate := weekDateRange(selectedWeek)
 
+		// Collect pitcher IDs and dates for points lookup
+		var pitcherIDs []string
+		var dates []string
+		pidSet := make(map[string]bool)
+		dateSet := make(map[string]bool)
+		for _, teamDays := range submissions {
+			for _, entry := range teamDays {
+				if entry.Pitcher1ID != "" && !pidSet[entry.Pitcher1ID] {
+					pitcherIDs = append(pitcherIDs, entry.Pitcher1ID)
+					pidSet[entry.Pitcher1ID] = true
+				}
+				if entry.Pitcher2ID != "" && !pidSet[entry.Pitcher2ID] {
+					pitcherIDs = append(pitcherIDs, entry.Pitcher2ID)
+					pidSet[entry.Pitcher2ID] = true
+				}
+				if entry.Pitcher1Date != "" && !dateSet[entry.Pitcher1Date] {
+					dates = append(dates, entry.Pitcher1Date)
+					dateSet[entry.Pitcher1Date] = true
+				}
+				if entry.Pitcher2Date != "" && !dateSet[entry.Pitcher2Date] {
+					dates = append(dates, entry.Pitcher2Date)
+					dateSet[entry.Pitcher2Date] = true
+				}
+			}
+		}
+		pointsMap, _ := store.GetPitcherPointsForDates(db, pitcherIDs, dates)
+
+		// Get used banked starts for this week
+		usedBanked, _ := store.GetUsedBankedStartsForWeek(db, leagueID, selectedWeek)
+
 		RenderTemplate(c, "rotations.html", gin.H{
 			"User":           user,
 			"Submissions":    submissions,
@@ -124,6 +154,8 @@ func RotationsDashboardHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"SubmittedTeams": submittedTeams,
 			"Days":           []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"},
 			"IsCommish":      len(adminLeagues) > 0,
+			"PointsMap":      pointsMap,
+			"UsedBanked":     usedBanked,
 		})
 	}
 }
@@ -404,6 +436,40 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		// Sync banked_starts table from pitcher_2 entries
+		var bankedInputs []store.BankedStartInput
+		for _, e := range entries {
+			if e.p2ID != "" {
+				bankedInputs = append(bankedInputs, store.BankedStartInput{
+					PitcherID: e.p2ID,
+					Day:       dayIndex[e.day],
+					Date:      e.p2Date,
+				})
+			}
+		}
+		if err := store.SyncBankedStarts(db, teamID, leagueID, week, bankedInputs); err != nil {
+			fmt.Printf("ERROR [SubmitRotation]: sync banked starts: %v\n", err)
+		}
+
+		// Process banked start usages
+		bankedUsageJSON := c.PostForm("banked_usage")
+		if bankedUsageJSON != "" {
+			type bankedUsageReq struct {
+				ID  string `json:"id"`
+				Day int    `json:"day"`
+			}
+			var usages []bankedUsageReq
+			if err := json.Unmarshal([]byte(bankedUsageJSON), &usages); err == nil {
+				for _, u := range usages {
+					// Compute date for the target day from the week identifier
+					targetDate := computeDateForDay(week, u.Day)
+					if err := store.UseBankedStart(db, u.ID, week, u.Day, targetDate); err != nil {
+						fmt.Printf("ERROR [SubmitRotation]: use banked start %s: %v\n", u.ID, err)
+					}
+				}
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "Rotation saved successfully"})
 	}
 }
@@ -418,6 +484,43 @@ func GetTeamPitchersHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, pitchers)
+	}
+}
+
+// computeDateForDay returns the ISO date string for a given day index (0=Mon) within a week identifier.
+func computeDateForDay(weekStr string, dayIdx int) string {
+	y, w := weekFromString(weekStr)
+	// Jan 4 is always in ISO week 1
+	jan4 := time.Date(y, 1, 4, 0, 0, 0, 0, time.UTC)
+	offset := int(time.Monday - jan4.Weekday())
+	if jan4.Weekday() == time.Sunday {
+		offset = -6
+	}
+	week1Monday := jan4.AddDate(0, 0, offset)
+	targetDate := week1Monday.AddDate(0, 0, (w-1)*7+dayIdx)
+	return targetDate.Format("2006-01-02")
+}
+
+// GetBankedStartsHandler returns available banked starts for a team+week as JSON.
+func GetBankedStartsHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		teamID := c.Query("team_id")
+		week := c.Query("week")
+		if teamID == "" || week == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "team_id and week are required"})
+			return
+		}
+		prevWeek, _ := adjacentWeeks(week)
+		starts, err := store.GetAvailableBankedStarts(db, teamID, week, prevWeek)
+		if err != nil {
+			fmt.Printf("ERROR [GetBankedStarts]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+		if starts == nil {
+			starts = []store.BankedStartRecord{}
+		}
+		c.JSON(http.StatusOK, starts)
 	}
 }
 

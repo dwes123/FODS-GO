@@ -362,6 +362,63 @@ func GetPlayerPointsSummary(db *pgxpool.Pool, playerIDs []string, startDate, end
 	return result, nil
 }
 
+// GetPitcherPointsForDates returns fantasy points for specific players on specific dates.
+// Returns map[playerID]map["YYYY-MM-DD"]float64.
+func GetPitcherPointsForDates(db *pgxpool.Pool, playerIDs []string, dates []string) (map[string]map[string]float64, error) {
+	ctx := context.Background()
+	result := make(map[string]map[string]float64)
+	if len(playerIDs) == 0 || len(dates) == 0 {
+		return result, nil
+	}
+
+	args := make([]interface{}, 0, len(playerIDs)+len(dates))
+	pidPlaceholders := ""
+	for i, id := range playerIDs {
+		if i > 0 {
+			pidPlaceholders += ","
+		}
+		pidPlaceholders += fmt.Sprintf("$%d", i+1)
+		args = append(args, id)
+	}
+	datePlaceholders := ""
+	offset := len(playerIDs)
+	for i, d := range dates {
+		if i > 0 {
+			datePlaceholders += ","
+		}
+		datePlaceholders += fmt.Sprintf("$%d", offset+i+1)
+		args = append(args, d)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT player_id, game_date, SUM(fantasy_points) AS total_points
+		FROM daily_player_stats
+		WHERE player_id IN (%s) AND game_date IN (%s)
+		GROUP BY player_id, game_date
+	`, pidPlaceholders, datePlaceholders)
+
+	rows, err := db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var pid string
+		var gameDate time.Time
+		var pts float64
+		if err := rows.Scan(&pid, &gameDate, &pts); err != nil {
+			continue
+		}
+		dateStr := gameDate.Format("2006-01-02")
+		if result[pid] == nil {
+			result[pid] = make(map[string]float64)
+		}
+		result[pid][dateStr] = pts
+	}
+	return result, nil
+}
+
 // IsDateProcessed checks if a date has already been processed for a stat type.
 func IsDateProcessed(db *pgxpool.Pool, date, statType string) bool {
 	ctx := context.Background()
