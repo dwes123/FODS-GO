@@ -50,7 +50,7 @@
     <!-- Available Banked Starts -->
     <div id="banked-section" style="display:none;margin-top:20px;">
         <h3>Available Banked Starts</h3>
-        <p class="note">Assign a banked start to a day to add those points. Each banked start can only be used once.</p>
+        <p class="note">These are starts you've banked by setting a "Banked Pitcher" above. Assign one to a later day to add those points to that day. Each banked start can only be used once.</p>
         <div id="banked-list"></div>
     </div>
 
@@ -270,11 +270,15 @@ async function submitRotation() {
         if (res.ok) {
             status.textContent = 'Rotation saved!';
             status.style.color = 'green';
-            // Reload banked starts to reflect usage
-            const bankedRes = await fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`);
-            bankedStarts = await bankedRes.json();
-            bankedUsages = [];
-            renderBankedStarts();
+            // Reload banked starts to reflect new banked pitchers
+            try {
+                const bankedRes = await fetch(`/api/team/banked-starts?team_id=${teamID}&week={{.SelectedWeek}}`);
+                if (bankedRes.ok) {
+                    bankedStarts = await bankedRes.json();
+                    bankedUsages = [];
+                    renderBankedStarts();
+                }
+            } catch (e) { console.warn('Failed to reload banked starts:', e); }
         } else {
             status.textContent = 'Error: ' + json.error;
             status.style.color = 'red';
