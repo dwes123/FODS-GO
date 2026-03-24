@@ -91,7 +91,7 @@ Multi-step reasoning:
 - For pending player add requests, use get_pending_player_requests. To approve/reject, use process_player_request.
 - For team option questions, use get_players_with_options.
 - For active bid questions (current bids, open auctions), use get_pending_bids.
-- For rotation submission status, use get_rotation_status.
+- For rotation submission status, use get_rotation_status. To clear a team's rotation, use clear_team_rotation.
 - For finding teams without owners, use get_unassigned_teams.
 - To create a new player, use create_player. To remove a team owner, use remove_team_owner.
 - For Fantrax sync queue, use get_fantrax_queue.
@@ -799,6 +799,24 @@ func getAgentTools() []*genai.Tool {
 					},
 				},
 				{
+					Name:        "clear_team_rotation",
+					Description: "Clear/delete all pitching rotation entries for a specific team for a given week. Also removes any associated banked starts for that week.",
+					Parameters: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"team_name": {
+								Type:        genai.TypeString,
+								Description: "Team name (partial match supported)",
+							},
+							"week": {
+								Type:        genai.TypeString,
+								Description: "Week identifier in YYYY-WW format (e.g. 2026-13). Defaults to current week.",
+							},
+						},
+						Required: []string{"team_name"},
+					},
+				},
+				{
 					Name:        "get_unassigned_teams",
 					Description: "Get all teams that currently have no owner assigned. Useful for finding open teams during onboarding.",
 					Parameters: &genai.Schema{
@@ -1272,6 +1290,8 @@ func executeTool(db *pgxpool.Pool, ac *agentCtx, name string, args map[string]in
 		result = toolGetPendingBids(db, ac, args)
 	case "get_rotation_status":
 		result = toolGetRotationStatus(db, ac, args)
+	case "clear_team_rotation":
+		result = toolClearTeamRotation(db, ac, args)
 	case "get_unassigned_teams":
 		result = toolGetUnassignedTeams(db, ac, args)
 	case "remove_team_owner":
@@ -3665,6 +3685,60 @@ func toolGetRotationStatus(db *pgxpool.Pool, ac *agentCtx, args map[string]inter
 		"total_teams":    total,
 		"all_submitted":  submitted >= total,
 		"missing_count":  total - submitted,
+	}
+}
+
+func toolClearTeamRotation(db *pgxpool.Pool, ac *agentCtx, args map[string]interface{}) map[string]interface{} {
+	teamName := getStringArg(args, "team_name")
+	if teamName == "" {
+		return map[string]interface{}{"error": "team_name is required"}
+	}
+
+	week := getStringArg(args, "week")
+	if week == "" {
+		y, w := time.Now().ISOWeek()
+		week = fmt.Sprintf("%d-%02d", y, w)
+	}
+
+	ctx := context.Background()
+
+	// Find team by name, filtered by commissioner's leagues
+	var teamID, fullName, leagueID string
+	err := db.QueryRow(ctx,
+		`SELECT t.id, t.name, t.league_id::TEXT FROM teams t
+		 WHERE t.name ILIKE $1 AND t.league_id = ANY($2)
+		 LIMIT 1`, "%"+teamName+"%", ac.LeagueIDs).Scan(&teamID, &fullName, &leagueID)
+	if err != nil {
+		return map[string]interface{}{"error": fmt.Sprintf("No team found matching '%s' in your leagues", teamName)}
+	}
+
+	// Delete rotation entries for this team+week
+	tag, err := db.Exec(ctx,
+		`DELETE FROM rotations WHERE team_id = $1 AND week_identifier = $2`,
+		teamID, week)
+	if err != nil {
+		fmt.Printf("ERROR [AgentTool:clear_team_rotation]: %v\n", err)
+		return map[string]interface{}{"error": "Failed to clear rotation"}
+	}
+	rotationsDeleted := tag.RowsAffected()
+
+	// Clear associated unused banked starts for this team+week
+	tag2, _ := db.Exec(ctx,
+		`DELETE FROM banked_starts WHERE team_id = $1 AND banked_week = $2 AND used_week IS NULL`,
+		teamID, week)
+	bankedDeleted := tag2.RowsAffected()
+
+	// Also clear any banked starts that were used in this week for this team
+	db.Exec(ctx,
+		`UPDATE banked_starts SET used_week = NULL, used_day = NULL, used_date = NULL
+		 WHERE team_id = $1 AND used_week = $2`, teamID, week)
+
+	return map[string]interface{}{
+		"success":            true,
+		"team":               fullName,
+		"week":               week,
+		"rotations_cleared":  rotationsDeleted,
+		"banked_starts_cleared": bankedDeleted,
 	}
 }
 
