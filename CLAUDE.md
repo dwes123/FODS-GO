@@ -84,7 +84,7 @@ cmd/                     — Data sync tools (import_teams, sync_users_bulk, syn
 ## Key Business Logic
 
 - **Bid multipliers:** 1yr=2.0, 2yr=1.8, 3yr=1.6, 4yr=1.4, 5yr=1.2; points = `(years × AAV × multiplier) / 1,000,000`
-- **Bid validation:** 1-5 years, $1M AAV min, 1.0 bid point min
+- **Bid validation:** 1-5 years, $760K AAV min, 1.0 bid point min
 - **IFA/MiLB bid increment:** Minimum bid = lesser of 2x current bid or current + $100K; full balance always accepted
 - **Extension pricing (WAR-based):** SP=3.3755, RP=5.0131, Hitter=2.8354 with decay; blocks players with >1 ARB year
 - **Trade retention:** Date-based (10/25/50%) auto-applied, then optional per-player 50% on remainder; `trade_items.retain_salary`

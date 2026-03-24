@@ -230,9 +230,9 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// AAV minimum: $1,000,000
-		if aav < 1000000 {
-			c.String(http.StatusBadRequest, "Minimum AAV is $1,000,000.")
+		// AAV minimum: $760,000
+		if aav < 760000 {
+			c.String(http.StatusBadRequest, "Minimum AAV is $760,000.")
 			return
 		}
 
