@@ -491,14 +491,16 @@ func SwapPitcherPositionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		if position != "SP" && position != "RP" && position != "P" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Only pitchers (SP, RP, P) can use position swap"})
+		if position != "SP" && position != "RP" && position != "P" && position != "SP,RP" && position != "RP,SP" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Only pitchers (SP, RP, P, SP/RP) can use position swap"})
 			return
 		}
 
+		isDualEligible := position == "P" || position == "SP,RP" || position == "RP,SP"
+
 		var newPosition string
-		if position == "P" {
-			// "P" players must specify target via target_position
+		if isDualEligible {
+			// Dual-eligible players must specify target via target_position
 			if req.TargetPosition != "SP" && req.TargetPosition != "RP" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Must specify SP or RP as target position"})
 				return
@@ -512,8 +514,8 @@ func SwapPitcherPositionHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 		}
 
-		// Check 14-day cooldown via roster_moves_log JSONB (skip for "P" — first assignment, not a swap)
-		if position != "P" {
+		// Check 14-day cooldown via roster_moves_log JSONB (skip for dual-eligible — no cooldown)
+		if !isDualEligible {
 			var lastSwapDate *time.Time
 			err = db.QueryRow(ctx, `
 				SELECT MAX((elem->>'date')::date)

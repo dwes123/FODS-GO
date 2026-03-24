@@ -21,9 +21,9 @@
     </div>
 
     {{if .IsOwner}}
-        {{if or (eq .Player.Position "SP") (eq .Player.Position "RP") (eq .Player.Position "P")}}
+        {{if or (eq .Player.Position "SP") (eq .Player.Position "RP") (eq .Player.Position "P") (eq .Player.Position "SP,RP") (eq .Player.Position "RP,SP")}}
         <div class="position-swap-card">
-            {{if eq .Player.Position "P"}}
+            {{if or (eq .Player.Position "P") (eq .Player.Position "SP,RP") (eq .Player.Position "RP,SP")}}
                 <span class="swap-label">Assign Position:</span>
                 <button class="button button-swap" onclick="swapPosition('SP')">Assign SP</button>
                 <button class="button button-swap" onclick="swapPosition('RP')">Assign RP</button>
