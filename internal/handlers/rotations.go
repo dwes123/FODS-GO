@@ -436,7 +436,7 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// Sync banked_starts table from pitcher_2 entries
+		// Sync banked_starts table from pitcher_2 entries + extra banked pitchers
 		var bankedInputs []store.BankedStartInput
 		for _, e := range entries {
 			if e.p2ID != "" {
@@ -445,6 +445,27 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 					Day:       dayIndex[e.day],
 					Date:      e.p2Date,
 				})
+			}
+		}
+		// Process extra banked pitchers (beyond the first per day)
+		extraBankedJSON := c.PostForm("extra_banked")
+		if extraBankedJSON != "" {
+			type extraBankedReq struct {
+				Day       string `json:"day"`
+				PitcherID string `json:"pitcher_id"`
+				Date      string `json:"date"`
+			}
+			var extras []extraBankedReq
+			if err := json.Unmarshal([]byte(extraBankedJSON), &extras); err == nil {
+				for _, eb := range extras {
+					if di, ok := dayIndex[eb.Day]; ok && eb.PitcherID != "" {
+						bankedInputs = append(bankedInputs, store.BankedStartInput{
+							PitcherID: eb.PitcherID,
+							Day:       di,
+							Date:      eb.Date,
+						})
+					}
+				}
 			}
 		}
 		if err := store.SyncBankedStarts(db, teamID, leagueID, week, bankedInputs); err != nil {

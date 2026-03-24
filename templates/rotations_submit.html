@@ -36,12 +36,15 @@
                     <option value="">-- None --</option>
                 </select>
             </div>
-            <div class="pitcher-slot banked-slot">
-                <label>Banked Pitcher:</label>
-                <select class="p2-select pitcher-select" name="{{.}}_p2_id">
-                    <option value="">-- None --</option>
-                </select>
+            <div class="banked-pitchers-container" data-day="{{.}}">
+                <div class="pitcher-slot banked-slot">
+                    <label>Banked Pitcher:</label>
+                    <select class="p2-select pitcher-select" name="{{.}}_p2_id">
+                        <option value="">-- None --</option>
+                    </select>
+                </div>
             </div>
+            <button type="button" class="add-banked-btn" onclick="addBankedSlot('{{.}}')" title="Add another banked pitcher">+</button>
             <div class="banked-applied" data-day="{{.}}"></div>
         </div>
         {{end}}
@@ -108,6 +111,31 @@ document.querySelectorAll('.day-column').forEach(col => {
     }
 });
 
+let bankedSlotCount = {}; // day -> count of extra banked slots
+
+function addBankedSlot(day) {
+    if (!bankedSlotCount[day]) bankedSlotCount[day] = 1;
+    bankedSlotCount[day]++;
+    const idx = bankedSlotCount[day];
+    const container = document.querySelector(`.banked-pitchers-container[data-day="${day}"]`);
+    const slot = document.createElement('div');
+    slot.className = 'pitcher-slot banked-slot extra-banked';
+    slot.innerHTML = `<label>Banked ${idx}:</label>
+        <select class="pitcher-select extra-banked-select" data-day="${day}">
+            <option value="">-- None --</option>
+        </select>
+        <button type="button" class="remove-banked-btn" onclick="this.parentElement.remove()" title="Remove">&times;</button>`;
+    // Populate with pitchers
+    const sel = slot.querySelector('select');
+    pitchers.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.first_name} ${p.last_name} (${p.position})`;
+        sel.appendChild(opt);
+    });
+    container.appendChild(slot);
+}
+
 async function loadTeamData() {
     const teamID = document.getElementById('team_select').value;
     if (!teamID) {
@@ -118,6 +146,9 @@ async function loadTeamData() {
     document.getElementById('loading').style.display = 'block';
     document.getElementById('rotation_form').style.display = 'none';
     bankedUsages = [];
+    bankedSlotCount = {};
+    // Remove any extra banked slots from previous load
+    document.querySelectorAll('.extra-banked').forEach(el => el.remove());
 
     try {
         // Load pitchers and rotation (required), banked starts (optional)
@@ -304,13 +335,23 @@ async function submitRotation() {
     formData.append('team_id', teamID);
     formData.append('week', '{{.SelectedWeek}}');
 
+    const extraBanked = []; // {day, pitcher_id, date}
     dayNames.forEach(day => {
         const col = document.querySelector(`.day-column[data-day="${day}"]`);
         formData.append(day + '_p1_id', col.querySelector('.p1-select').value);
         formData.append(day + '_p1_date', col.querySelector('.p1-date').value);
         formData.append(day + '_p2_id', col.querySelector('.p2-select').value);
         formData.append(day + '_p2_date', col.querySelector('.p2-date').value);
+        // Collect extra banked pitchers for this day
+        col.querySelectorAll('.extra-banked-select').forEach(sel => {
+            if (sel.value) {
+                extraBanked.push({ day: day, pitcher_id: sel.value, date: col.querySelector('.p1-date').value });
+            }
+        });
     });
+    if (extraBanked.length > 0) {
+        formData.append('extra_banked', JSON.stringify(extraBanked));
+    }
 
     // Include banked usage
     if (bankedUsages.length > 0) {
@@ -351,7 +392,11 @@ async function submitRotation() {
     .pitcher-slot { margin-bottom: 12px; }
     .pitcher-slot label { display: block; font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; color: #555; }
     .pitcher-slot select { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
-    .banked-slot { background: var(--banked-bg, #f0f7ff); padding: 8px; border-radius: 6px; border: 1px dashed #bcd; }
+    .banked-slot { background: var(--banked-bg, #f0f7ff); padding: 8px; border-radius: 6px; border: 1px dashed #bcd; position: relative; }
+    .extra-banked { margin-top: 6px; }
+    .add-banked-btn { display: block; width: 100%; margin-top: 4px; padding: 2px; font-size: 1rem; font-weight: bold; color: var(--fod-blue-primary); background: transparent; border: 1px dashed var(--fod-blue-primary); border-radius: 4px; cursor: pointer; opacity: 0.6; }
+    .add-banked-btn:hover { opacity: 1; background: #f0f7ff; }
+    .remove-banked-btn { position: absolute; top: 4px; right: 4px; background: none; border: none; color: #c00; font-size: 1.1rem; cursor: pointer; padding: 0 4px; line-height: 1; }
     .banked-applied { margin-top: 6px; }
     .banked-badge { background: #fff3e0; border: 1px solid #E87426; border-radius: 4px; padding: 4px 6px; font-size: 0.75rem; font-weight: 600; color: #E87426; margin-top: 4px; }
     .banked-assigned { background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem; }
