@@ -59,7 +59,6 @@
 
     <div id="submit-area" style="margin-top:20px;display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
         <button type="button" class="button button-primary" onclick="submitRotation()">Save Rotation</button>
-        <button type="button" class="button button-autofill" onclick="autoFillRotation()">Auto-Fill from MLB</button>
         <button type="button" class="button button-danger" onclick="clearRotation()">Clear Week</button>
         <span id="submit-status" style="margin-left:5px;"></span>
     </div>
@@ -329,40 +328,6 @@ function removeBankedUsage(id) {
     renderBankedStarts();
 }
 
-async function autoFillRotation() {
-    const teamID = document.getElementById('team_select').value;
-    if (!teamID) { alert('Select a team first'); return; }
-    if (!confirm('Auto-fill rotation from MLB probable pitchers? This will clear and replace your current rotation for this week.')) return;
-
-    const formData = new FormData();
-    formData.append('team_id', teamID);
-    formData.append('week', '{{.SelectedWeek}}');
-
-    const status = document.getElementById('submit-status');
-    status.textContent = 'Fetching MLB probables...';
-    status.style.color = '#666';
-
-    try {
-        const res = await fetch('/rotations/auto-fill', { method: 'POST', body: formData });
-        const json = await res.json();
-        if (res.ok) {
-            let msg = 'Rotation auto-filled!';
-            if (json.auto_used && json.auto_used.length > 0) {
-                msg += ' (' + json.auto_used.length + ' banked start(s) auto-used on empty days)';
-            }
-            status.textContent = msg;
-            status.style.color = 'green';
-            await loadTeamData();
-        } else {
-            status.textContent = 'Error: ' + json.error;
-            status.style.color = 'red';
-        }
-    } catch (e) {
-        status.textContent = 'Request failed';
-        status.style.color = 'red';
-    }
-}
-
 async function clearRotation() {
     const teamID = document.getElementById('team_select').value;
     if (!teamID) { alert('Select a team first'); return; }
@@ -471,8 +436,6 @@ async function submitRotation() {
     #banked-section { background: var(--card-bg, #fff); border: 1px solid var(--border-color, #ddd); border-radius: 8px; padding: 16px; }
     #banked-section h3 { margin-top: 0; color: var(--fod-blue-primary); }
     #banked-section .note { font-size: 0.85rem; color: #666; margin-bottom: 12px; }
-    .button-autofill { background: #2E6DA4; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; }
-    .button-autofill:hover { background: #245a8a; }
     #submit-status { font-weight: bold; }
 
     @media (max-width: 1200px) { .rotation-week-grid { grid-template-columns: repeat(4, 1fr); } }
