@@ -103,7 +103,14 @@ func RotationsDashboardHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		submissions, _ := store.GetWeeklyRotations(db, leagueID, selectedWeek)
-		leagues, _ := store.GetLeaguesWithTeams(db)
+		allLeagues, _ := store.GetLeaguesWithTeams(db)
+		// Filter out AAA (doesn't use pitching rotations)
+		var leagues []store.League
+		for _, l := range allLeagues {
+			if l.ID != "22222222-2222-2222-2222-222222222222" {
+				leagues = append(leagues, l)
+			}
+		}
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
 
 		totalTeams, _ := store.GetLeagueTeamCount(db, leagueID)
@@ -182,7 +189,14 @@ func RotationsSubmitPageHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := c.MustGet("user").(*store.User)
 
-		myTeams, _ := store.GetManagedTeams(db, user.ID)
+		allTeams, _ := store.GetManagedTeams(db, user.ID)
+		// Filter out AAA teams (AAA doesn't use pitching rotations)
+		var myTeams []store.TeamDetail
+		for _, t := range allTeams {
+			if t.LeagueID != "22222222-2222-2222-2222-222222222222" {
+				myTeams = append(myTeams, t)
+			}
+		}
 		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
 
 		year, week := time.Now().ISOWeek()
