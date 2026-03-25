@@ -36,6 +36,24 @@ type pitcher struct {
 	Name     string
 	Position string
 	MlbID    int
+	Rank     int // Lower = better. 0 = unranked (goes last)
+}
+
+// Starter rankings — lower number = higher priority. Best available always starts.
+var spRankings = map[string]int{
+	"Paul Skenes":     1,
+	"Ryan Pepiot":     2,
+	"Shota Imanaga":   3,
+	"Nathan Eovaldi":  4,
+	"Drew Rasmussen":  5,
+	"Casey Mize":      6,
+}
+
+func pitcherRank(name string) int {
+	if r, ok := spRankings[name]; ok {
+		return r
+	}
+	return 99 // Unranked pitchers go last
 }
 
 func main() {
@@ -92,12 +110,17 @@ func main() {
 	for rows.Next() {
 		var p pitcher
 		rows.Scan(&p.ID, &p.Name, &p.Position, &p.MlbID)
+		p.Rank = pitcherRank(p.Name)
 		pitchers = append(pitchers, p)
 		mlbIDMap[p.MlbID] = p
 	}
 	fmt.Printf("Found %d pitchers with MLB IDs\n", len(pitchers))
 	for _, p := range pitchers {
-		fmt.Printf("  %s (%s) - MLB ID: %d\n", p.Name, p.Position, p.MlbID)
+		rankStr := "unranked"
+		if p.Rank < 99 {
+			rankStr = fmt.Sprintf("#%d", p.Rank)
+		}
+		fmt.Printf("  %s (%s) - MLB ID: %d - Rank: %s\n", p.Name, p.Position, p.MlbID, rankStr)
 	}
 
 	loc, _ := time.LoadLocation("America/Los_Angeles")
@@ -213,14 +236,9 @@ func fillWeek(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, userID 
 				}
 			}
 		}
-		// Sort SPs first
+		// Sort by rank (best ranked pitcher starts)
 		sort.Slice(days[i].starters, func(a, b int) bool {
-			iSP := days[i].starters[a].Position == "SP"
-			jSP := days[i].starters[b].Position == "SP"
-			if iSP != jSP {
-				return iSP
-			}
-			return days[i].starters[a].Name < days[i].starters[b].Name
+			return days[i].starters[a].Rank < days[i].starters[b].Rank
 		})
 	}
 
@@ -232,6 +250,7 @@ func fillWeek(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, userID 
 		pitcherID string
 		name      string
 		fromDay   int
+		rank      int
 	}
 	var bankedPool []bankedEntry
 
@@ -250,34 +269,39 @@ func fillWeek(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, userID 
 		// Rest = banked
 		for _, p := range d.starters[1:] {
 			insertBankedStart(ctx, pool, teamID, leagueID, week, i, p.ID, d.date)
-			bankedPool = append(bankedPool, bankedEntry{p.ID, p.Name, i})
-			fmt.Printf("  %s (%s): %s (banked)\n", dayNames[i], d.date, p.Name)
+			bankedPool = append(bankedPool, bankedEntry{p.ID, p.Name, i, p.Rank})
+			fmt.Printf("  %s (%s): %s (banked, rank #%d)\n", dayNames[i], d.date, p.Name, p.Rank)
 		}
 	}
 
-	// Auto-use banked starts on empty days
+	// Auto-use banked starts on empty days (best ranked first)
 	for i := 0; i < 7; i++ {
 		if days[i].starters != nil && len(days[i].starters) > 0 {
 			continue
 		}
-		// Find first available banked start from an earlier day
+		// Find best-ranked available banked start from an earlier day
+		bestIdx := -1
 		for j := 0; j < len(bankedPool); j++ {
 			if bankedPool[j].fromDay < i {
-				p := bankedPool[j]
-				upsertStarter(ctx, pool, teamID, leagueID, week, i, p.pitcherID, days[i].date)
-				// Mark as used
-				var bsID string
-				pool.QueryRow(ctx,
-					`SELECT id FROM banked_starts WHERE team_id = $1 AND pitcher_id = $2 AND banked_week = $3 AND banked_day = $4 AND used_week IS NULL LIMIT 1`,
-					teamID, p.pitcherID, week, p.fromDay).Scan(&bsID)
-				if bsID != "" {
-					pool.Exec(ctx, `UPDATE banked_starts SET used_week = $1, used_day = $2, used_date = $3 WHERE id = $4`,
-						week, i, days[i].date, bsID)
+				if bestIdx == -1 || bankedPool[j].rank < bankedPool[bestIdx].rank {
+					bestIdx = j
 				}
-				fmt.Printf("  %s (%s): %s (banked start used)\n", dayNames[i], days[i].date, p.name)
-				bankedPool = append(bankedPool[:j], bankedPool[j+1:]...)
-				break
 			}
+		}
+		if bestIdx >= 0 {
+			p := bankedPool[bestIdx]
+			upsertStarter(ctx, pool, teamID, leagueID, week, i, p.pitcherID, days[i].date)
+			// Mark as used
+			var bsID string
+			pool.QueryRow(ctx,
+				`SELECT id FROM banked_starts WHERE team_id = $1 AND pitcher_id = $2 AND banked_week = $3 AND banked_day = $4 AND used_week IS NULL LIMIT 1`,
+				teamID, p.pitcherID, week, p.fromDay).Scan(&bsID)
+			if bsID != "" {
+				pool.Exec(ctx, `UPDATE banked_starts SET used_week = $1, used_day = $2, used_date = $3 WHERE id = $4`,
+					week, i, days[i].date, bsID)
+			}
+			fmt.Printf("  %s (%s): %s (banked start used, rank #%d)\n", dayNames[i], days[i].date, p.name, p.rank)
+			bankedPool = append(bankedPool[:bestIdx], bankedPool[bestIdx+1:]...)
 		}
 	}
 
@@ -308,14 +332,9 @@ func checkDay(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, userID 
 		}
 	}
 
-	// Sort SPs first
+	// Sort by rank (best ranked starts)
 	sort.Slice(todayPitchers, func(a, b int) bool {
-		iSP := todayPitchers[a].Position == "SP"
-		jSP := todayPitchers[b].Position == "SP"
-		if iSP != jSP {
-			return iSP
-		}
-		return todayPitchers[a].Name < todayPitchers[b].Name
+		return todayPitchers[a].Rank < todayPitchers[b].Rank
 	})
 
 	// Check current rotation for today
