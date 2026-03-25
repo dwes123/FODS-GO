@@ -25,12 +25,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const (
-	mlbLeagueID = "11111111-1111-1111-1111-111111111111"
-	teamName    = "Colorado Rockies"
-	myUserID    = "" // Filled at runtime from DB
-)
-
 type pitcher struct {
 	ID       string
 	Name     string
@@ -39,21 +33,47 @@ type pitcher struct {
 	Rank     int // Lower = better. 0 = unranked (goes last)
 }
 
-// Starter rankings — lower number = higher priority. Best available always starts.
-var spRankings = map[string]int{
-	"Paul Skenes":     1,
-	"Ryan Pepiot":     2,
-	"Shota Imanaga":   3,
-	"Nathan Eovaldi":  4,
-	"Drew Rasmussen":  5,
-	"Casey Mize":      6,
+type teamConfig struct {
+	TeamName   string
+	LeagueID   string
+	Rankings   map[string]int
+	SPOnly     bool // If true, only include SP positions (not RP)
 }
 
-func pitcherRank(name string) int {
-	if r, ok := spRankings[name]; ok {
+// Teams to auto-fill
+var teams = []teamConfig{
+	{
+		TeamName: "Colorado Rockies",
+		LeagueID: "11111111-1111-1111-1111-111111111111", // MLB
+		Rankings: map[string]int{
+			"Paul Skenes":    1,
+			"Ryan Pepiot":    2,
+			"Shota Imanaga":  3,
+			"Nathan Eovaldi": 4,
+			"Drew Rasmussen": 5,
+			"Casey Mize":     6,
+		},
+		SPOnly: false, // Include RP too
+	},
+	{
+		TeamName: "Montgomery Biscuits",
+		LeagueID: "33333333-3333-3333-3333-333333333333", // AA
+		Rankings: map[string]int{
+			"MacKenzie Gore": 1,
+			"Eury Perez":     2,
+			"Zack Littell":   3,
+			"Dean Kremer":    4,
+			"Erick Fedde":    5,
+		},
+		SPOnly: true, // SPs only
+	},
+}
+
+func pitcherRank(name string, rankings map[string]int) int {
+	if r, ok := rankings[name]; ok {
 		return r
 	}
-	return 99 // Unranked pitchers go last
+	return 99
 }
 
 func main() {
@@ -76,63 +96,80 @@ func main() {
 	}
 	fmt.Println("Connected to production DB")
 
-	// Get team ID
 	ctx := context.Background()
-	var teamID string
-	err = pool.QueryRow(ctx,
-		`SELECT id FROM teams WHERE name = $1 AND league_id = $2`, teamName, mlbLeagueID).Scan(&teamID)
-	if err != nil {
-		log.Fatalf("Team not found: %v", err)
-	}
-	fmt.Printf("Team: %s (%s)\n", teamName, teamID)
-
-	// Get owner user ID (for audit log)
-	var userID string
-	pool.QueryRow(ctx,
-		`SELECT user_id FROM team_owners WHERE team_id = $1 LIMIT 1`, teamID).Scan(&userID)
-
-	// Get team's pitchers on 26-man with mlb_id
-	rows, err := pool.Query(ctx, `
-		SELECT id, first_name || ' ' || last_name, position, COALESCE(mlb_id, 0)
-		FROM players
-		WHERE team_id = $1 AND status_26_man = TRUE
-		  AND position IN ('SP', 'RP', 'P', 'SP,RP', 'RP,SP')
-		  AND COALESCE(mlb_id, 0) > 0
-		ORDER BY position, last_name
-	`, teamID)
-	if err != nil {
-		log.Fatalf("Failed to load roster: %v", err)
-	}
-	defer rows.Close()
-
-	var pitchers []pitcher
-	mlbIDMap := make(map[int]pitcher)
-	for rows.Next() {
-		var p pitcher
-		rows.Scan(&p.ID, &p.Name, &p.Position, &p.MlbID)
-		p.Rank = pitcherRank(p.Name)
-		pitchers = append(pitchers, p)
-		mlbIDMap[p.MlbID] = p
-	}
-	fmt.Printf("Found %d pitchers with MLB IDs\n", len(pitchers))
-	for _, p := range pitchers {
-		rankStr := "unranked"
-		if p.Rank < 99 {
-			rankStr = fmt.Sprintf("#%d", p.Rank)
-		}
-		fmt.Printf("  %s (%s) - MLB ID: %d - Rank: %s\n", p.Name, p.Position, p.MlbID, rankStr)
-	}
-
 	loc, _ := time.LoadLocation("America/Los_Angeles")
 	now := time.Now().In(loc)
 
-	switch *mode {
-	case "weekly":
-		fillWeek(ctx, pool, teamID, mlbLeagueID, userID, mlbIDMap, now)
-	case "daily":
-		checkDay(ctx, pool, teamID, mlbLeagueID, userID, mlbIDMap, now)
-	default:
-		log.Fatalf("Unknown mode: %s (use weekly or daily)", *mode)
+	for _, tc := range teams {
+		fmt.Printf("\n========================================\n")
+		fmt.Printf("Processing: %s (%s)\n", tc.TeamName, tc.LeagueID)
+		fmt.Printf("========================================\n")
+
+		// Get team ID
+		var teamID string
+		err = pool.QueryRow(ctx,
+			`SELECT id FROM teams WHERE name = $1 AND league_id = $2`, tc.TeamName, tc.LeagueID).Scan(&teamID)
+		if err != nil {
+			fmt.Printf("ERROR: Team '%s' not found in league %s: %v\n", tc.TeamName, tc.LeagueID, err)
+			continue
+		}
+
+		// Get owner user ID (for audit log)
+		var userID string
+		pool.QueryRow(ctx,
+			`SELECT user_id FROM team_owners WHERE team_id = $1 LIMIT 1`, teamID).Scan(&userID)
+
+		// Build position filter
+		posFilter := "('SP', 'RP', 'P', 'SP,RP', 'RP,SP')"
+		if tc.SPOnly {
+			posFilter = "('SP', 'SP,RP', 'RP,SP')"
+		}
+
+		// Get team's pitchers on 26-man with mlb_id
+		rows, err := pool.Query(ctx, fmt.Sprintf(`
+			SELECT id, first_name || ' ' || last_name, position, COALESCE(mlb_id, 0)
+			FROM players
+			WHERE team_id = $1 AND status_26_man = TRUE
+			  AND position IN %s
+			  AND COALESCE(mlb_id, 0) > 0
+			ORDER BY position, last_name
+		`, posFilter), teamID)
+		if err != nil {
+			fmt.Printf("ERROR: Failed to load roster: %v\n", err)
+			continue
+		}
+
+		var pitchers []pitcher
+		mlbIDMap := make(map[int]pitcher)
+		for rows.Next() {
+			var p pitcher
+			rows.Scan(&p.ID, &p.Name, &p.Position, &p.MlbID)
+			p.Rank = pitcherRank(p.Name, tc.Rankings)
+			pitchers = append(pitchers, p)
+			mlbIDMap[p.MlbID] = p
+		}
+		rows.Close()
+
+		fmt.Printf("Found %d pitchers with MLB IDs\n", len(pitchers))
+		for _, p := range pitchers {
+			rankStr := "unranked"
+			if p.Rank < 99 {
+				rankStr = fmt.Sprintf("#%d", p.Rank)
+			}
+			fmt.Printf("  %s (%s) - MLB ID: %d - Rank: %s\n", p.Name, p.Position, p.MlbID, rankStr)
+		}
+
+		if len(pitchers) == 0 {
+			fmt.Println("No pitchers found, skipping")
+			continue
+		}
+
+		switch *mode {
+		case "weekly":
+			fillWeek(ctx, pool, teamID, tc.LeagueID, userID, mlbIDMap, tc.Rankings, now)
+		case "daily":
+			checkDay(ctx, pool, teamID, tc.LeagueID, userID, mlbIDMap, now)
+		}
 	}
 }
 
@@ -207,7 +244,7 @@ func fetchProbables(startDate, endDate string) map[string][]int {
 	return result
 }
 
-func fillWeek(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, userID string, mlbIDMap map[int]pitcher, now time.Time) {
+func fillWeek(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, userID string, mlbIDMap map[int]pitcher, rankings map[string]int, now time.Time) {
 	week := getWeekIdentifier(now)
 	monday, dates := getWeekDates(now)
 	_ = monday
@@ -331,7 +368,7 @@ func fillWeek(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, userID 
 		for coRows.Next() {
 			var co carryoverEntry
 			coRows.Scan(&co.bsID, &co.pitcherID, &co.name)
-			co.rank = pitcherRank(co.name)
+			co.rank = pitcherRank(co.name, rankings)
 			carryover = append(carryover, co)
 		}
 		coRows.Close()
