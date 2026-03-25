@@ -473,6 +473,43 @@ func GetAvailableBankedStarts(db *pgxpool.Pool, teamID, currentWeek, prevWeek st
 	return results, nil
 }
 
+// GetBankedStartsByDay returns all banked starts for a league+week, keyed by teamID then day index.
+// Includes both used and unused banked starts for dashboard display.
+func GetBankedStartsByDay(db *pgxpool.Pool, leagueID, week string) (map[string]map[int][]UsedBankedDisplay, error) {
+	ctx := context.Background()
+	rows, err := db.Query(ctx, `
+		SELECT bs.team_id::TEXT,
+		       bs.pitcher_id::TEXT,
+		       p.first_name || ' ' || p.last_name AS pitcher_name,
+		       bs.banked_day
+		FROM banked_starts bs
+		JOIN players p ON bs.pitcher_id = p.id
+		WHERE bs.league_id = $1 AND bs.banked_week = $2
+		ORDER BY bs.banked_day
+	`, leagueID, week)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]map[int][]UsedBankedDisplay)
+	for rows.Next() {
+		var teamID, pitcherID, name string
+		var day int
+		if err := rows.Scan(&teamID, &pitcherID, &name, &day); err != nil {
+			continue
+		}
+		if result[teamID] == nil {
+			result[teamID] = make(map[int][]UsedBankedDisplay)
+		}
+		result[teamID][day] = append(result[teamID][day], UsedBankedDisplay{
+			PitcherID:   pitcherID,
+			PitcherName: name,
+		})
+	}
+	return result, nil
+}
+
 // populateBankedStartPoints fills in fantasy_points from daily_player_stats for banked starts with NULL points.
 func populateBankedStartPoints(db *pgxpool.Pool, bankedStartIDs []string) {
 	ctx := context.Background()

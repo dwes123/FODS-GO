@@ -42,6 +42,7 @@
             {{$days := .Days}}
             {{$pts := .PointsMap}}
             {{$banked := .UsedBanked}}
+            {{$allBanked := .AllBanked}}
             {{$updated := .LastUpdated}}
             {{range $teamName, $teamDays := .Submissions}}
             <tr>
@@ -62,11 +63,21 @@
                                     {{if ge $p1pts 0.0}}<span class="pts">{{printf "%.1f" $p1pts}}</span>{{end}}
                                 </div>
                                 {{end}}
-                                {{if $entry.Pitcher2Name}}
+                                {{if and $allBanked $entry.TeamID}}
+                                    {{$teamAllBanked := index $allBanked $entry.TeamID}}
+                                    {{if $teamAllBanked}}
+                                        {{$dayAllBanked := index $teamAllBanked $dayIdx}}
+                                        {{if $dayAllBanked}}
+                                            {{range $dayAllBanked}}
+                                            <div class="pitcher-row banked-row">
+                                                <span class="pitcher-name-banked">{{.PitcherName}}</span>
+                                            </div>
+                                            {{end}}
+                                        {{end}}
+                                    {{end}}
+                                {{else if $entry.Pitcher2Name}}
                                 <div class="pitcher-row banked-row">
                                     <span class="pitcher-name-banked">{{$entry.Pitcher2Name}}</span>
-                                    {{$p2pts := getPoints $pts $entry.Pitcher2ID $entry.Pitcher2Date}}
-                                    {{if ge $p2pts 0.0}}<span class="pts-banked">{{printf "%.1f" $p2pts}}</span>{{end}}
                                 </div>
                                 {{end}}
                             </div>
