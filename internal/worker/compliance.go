@@ -94,6 +94,9 @@ func checkComplianceIfNeeded(ctx context.Context, db *pgxpool.Pool) {
 	}
 
 	fmt.Printf("Compliance Worker: Found %d violations (%s)\n", len(report.Violations), now.Format("2006-01-02"))
+	for _, v := range report.Violations {
+		fmt.Printf("  VIOLATION: [%s] %s — %s\n", v.LeagueName, v.TeamName, v.Issue)
+	}
 
 	// Group violations by league for Slack notifications
 	byLeague := make(map[string][]ComplianceViolation)
