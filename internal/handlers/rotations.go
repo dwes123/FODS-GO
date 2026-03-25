@@ -468,43 +468,8 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// Sync banked_starts table from pitcher_2 entries + extra banked pitchers
-		var bankedInputs []store.BankedStartInput
-		for _, e := range entries {
-			if e.p2ID != "" {
-				bankedInputs = append(bankedInputs, store.BankedStartInput{
-					PitcherID: e.p2ID,
-					Day:       dayIndex[e.day],
-					Date:      e.p2Date,
-				})
-			}
-		}
-		// Process extra banked pitchers (beyond the first per day)
-		extraBankedJSON := c.PostForm("extra_banked")
-		if extraBankedJSON != "" {
-			type extraBankedReq struct {
-				Day       string `json:"day"`
-				PitcherID string `json:"pitcher_id"`
-				Date      string `json:"date"`
-			}
-			var extras []extraBankedReq
-			if err := json.Unmarshal([]byte(extraBankedJSON), &extras); err == nil {
-				for _, eb := range extras {
-					if di, ok := dayIndex[eb.Day]; ok && eb.PitcherID != "" {
-						bankedInputs = append(bankedInputs, store.BankedStartInput{
-							PitcherID: eb.PitcherID,
-							Day:       di,
-							Date:      eb.Date,
-						})
-					}
-				}
-			}
-		}
-		if err := store.SyncBankedStarts(db, teamID, leagueID, week, bankedInputs); err != nil {
-			fmt.Printf("ERROR [SubmitRotation]: sync banked starts: %v\n", err)
-		}
-
-		// Process banked start usages — slot the banked pitcher as active starter on the target day
+		// Process banked start usages FIRST (before sync, which can change IDs)
+		// Slot the banked pitcher as active starter on the target day
 		bankedUsageJSON := c.PostForm("banked_usage")
 		if bankedUsageJSON != "" {
 			type bankedUsageReq struct {
@@ -554,6 +519,42 @@ func SubmitRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 					store.UpsertRotationStarter(db, teamID, leagueID, usedWeek, u.Day, pitcherID, targetDate)
 				}
 			}
+		}
+
+		// Now sync banked_starts table from pitcher_2 entries + extra banked pitchers
+		// This runs AFTER usage processing since it can replace IDs
+		var bankedInputs []store.BankedStartInput
+		for _, e := range entries {
+			if e.p2ID != "" {
+				bankedInputs = append(bankedInputs, store.BankedStartInput{
+					PitcherID: e.p2ID,
+					Day:       dayIndex[e.day],
+					Date:      e.p2Date,
+				})
+			}
+		}
+		extraBankedJSON := c.PostForm("extra_banked")
+		if extraBankedJSON != "" {
+			type extraBankedReq struct {
+				Day       string `json:"day"`
+				PitcherID string `json:"pitcher_id"`
+				Date      string `json:"date"`
+			}
+			var extras []extraBankedReq
+			if err := json.Unmarshal([]byte(extraBankedJSON), &extras); err == nil {
+				for _, eb := range extras {
+					if di, ok := dayIndex[eb.Day]; ok && eb.PitcherID != "" {
+						bankedInputs = append(bankedInputs, store.BankedStartInput{
+							PitcherID: eb.PitcherID,
+							Day:       di,
+							Date:      eb.Date,
+						})
+					}
+				}
+			}
+		}
+		if err := store.SyncBankedStarts(db, teamID, leagueID, week, bankedInputs); err != nil {
+			fmt.Printf("ERROR [SubmitRotation]: sync banked starts: %v\n", err)
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Rotation saved successfully"})
