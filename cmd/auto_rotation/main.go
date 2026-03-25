@@ -171,7 +171,8 @@ func fetchProbables(startDate, endDate string) map[string][]int {
 		Dates []struct {
 			Date  string `json:"date"`
 			Games []struct {
-				Teams struct {
+				GameType string `json:"gameType"` // "R" = regular season, "S" = spring training
+				Teams    struct {
 					Away struct {
 						ProbablePitcher struct {
 							ID int `json:"id"`
@@ -188,10 +189,13 @@ func fetchProbables(startDate, endDate string) map[string][]int {
 	}
 	json.Unmarshal(body, &schedule)
 
-	// date -> []mlbIDs pitching that day
+	// date -> []mlbIDs pitching that day (regular season only)
 	result := make(map[string][]int)
 	for _, d := range schedule.Dates {
 		for _, g := range d.Games {
+			if g.GameType != "R" {
+				continue // Skip spring training, exhibition, etc.
+			}
 			if id := g.Teams.Away.ProbablePitcher.ID; id > 0 {
 				result[d.Date] = append(result[d.Date], id)
 			}
