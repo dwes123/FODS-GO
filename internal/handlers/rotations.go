@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -674,5 +677,275 @@ func GetTeamRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, data)
+	}
+}
+
+// AutoFillRotationHandler fetches MLB probable pitchers and auto-fills a team's rotation for the week.
+func AutoFillRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		teamID := c.PostForm("team_id")
+		week := c.PostForm("week")
+
+		if teamID == "" || week == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "team_id and week are required"})
+			return
+		}
+
+		isOwner, _ := store.IsTeamOwner(db, teamID, user.ID)
+		if !isOwner {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not own this team"})
+			return
+		}
+
+		// Get league ID
+		var leagueID string
+		db.QueryRow(context.Background(), "SELECT league_id::TEXT FROM teams WHERE id = $1", teamID).Scan(&leagueID)
+
+		// Get team's pitchers (SP, RP, P) on 26-man with mlb_id
+		rows, err := db.Query(context.Background(), `
+			SELECT id, first_name, last_name, position, COALESCE(mlb_id, 0)
+			FROM players
+			WHERE team_id = $1 AND status_26_man = TRUE
+			  AND position IN ('SP', 'RP', 'P', 'SP,RP', 'RP,SP')
+			  AND COALESCE(mlb_id, 0) > 0
+			ORDER BY position, last_name
+		`, teamID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load roster"})
+			return
+		}
+		defer rows.Close()
+
+		type rosterPitcher struct {
+			ID       string
+			Name     string
+			Position string
+			MlbID    int
+		}
+		var pitchers []rosterPitcher
+		mlbIDMap := make(map[int]rosterPitcher)
+		for rows.Next() {
+			var p rosterPitcher
+			var firstName, lastName string
+			rows.Scan(&p.ID, &firstName, &lastName, &p.Position, &p.MlbID)
+			p.Name = firstName + " " + lastName
+			pitchers = append(pitchers, p)
+			mlbIDMap[p.MlbID] = p
+		}
+
+		if len(pitchers) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No pitchers with MLB IDs found on 26-man roster"})
+			return
+		}
+
+		// Compute the dates for this week (Mon-Sun)
+		y, w := weekFromString(week)
+		jan4 := time.Date(y, 1, 4, 0, 0, 0, 0, time.UTC)
+		offset := int(time.Monday - jan4.Weekday())
+		if jan4.Weekday() == time.Sunday {
+			offset = -6
+		}
+		week1Monday := jan4.AddDate(0, 0, offset)
+		monday := week1Monday.AddDate(0, 0, (w-1)*7)
+		sunday := monday.AddDate(0, 0, 6)
+		startDate := monday.Format("2006-01-02")
+		endDate := sunday.Format("2006-01-02")
+
+		// Fetch MLB schedule with probable pitchers
+		schedURL := fmt.Sprintf("https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=%s&endDate=%s&hydrate=probablePitcher", startDate, endDate)
+		client := &http.Client{Timeout: 15 * time.Second}
+		resp, err := client.Get(schedURL)
+		if err != nil {
+			fmt.Printf("ERROR [AutoFillRotation]: MLB API fetch: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch MLB schedule"})
+			return
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+
+		var schedule struct {
+			Dates []struct {
+				Date  string `json:"date"`
+				Games []struct {
+					Teams struct {
+						Away struct {
+							ProbablePitcher struct {
+								ID       int    `json:"id"`
+								FullName string `json:"fullName"`
+							} `json:"probablePitcher"`
+						} `json:"away"`
+						Home struct {
+							ProbablePitcher struct {
+								ID       int    `json:"id"`
+								FullName string `json:"fullName"`
+							} `json:"probablePitcher"`
+						} `json:"home"`
+					} `json:"teams"`
+				} `json:"games"`
+			} `json:"dates"`
+		}
+		json.Unmarshal(body, &schedule)
+
+		// Build: date -> []rosterPitcher (pitchers from our roster who are probable that day)
+		type dayAssignment struct {
+			Date     string
+			DayIdx   int
+			Pitchers []rosterPitcher
+		}
+		dayMap := make(map[string]*dayAssignment)
+		dayNames := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+
+		for i := 0; i < 7; i++ {
+			d := monday.AddDate(0, 0, i)
+			ds := d.Format("2006-01-02")
+			dayMap[ds] = &dayAssignment{Date: ds, DayIdx: i}
+		}
+
+		for _, d := range schedule.Dates {
+			for _, g := range d.Games {
+				for _, mlbID := range []int{g.Teams.Away.ProbablePitcher.ID, g.Teams.Home.ProbablePitcher.ID} {
+					if mlbID == 0 {
+						continue
+					}
+					if p, ok := mlbIDMap[mlbID]; ok {
+						if da, ok := dayMap[d.Date]; ok {
+							da.Pitchers = append(da.Pitchers, p)
+						}
+					}
+				}
+			}
+		}
+
+		// Sort days
+		var sortedDays []*dayAssignment
+		for i := 0; i < 7; i++ {
+			d := monday.AddDate(0, 0, i)
+			ds := d.Format("2006-01-02")
+			sortedDays = append(sortedDays, dayMap[ds])
+		}
+
+		// Assign rotations: first pitcher = active starter, rest = banked
+		// Track banked starts for days with no starter
+		type resultEntry struct {
+			Day     string `json:"day"`
+			DayIdx  int    `json:"day_idx"`
+			Date    string `json:"date"`
+			P1ID    string `json:"p1_id"`
+			P1Name  string `json:"p1_name"`
+			Banked  []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"banked"`
+		}
+		var results []resultEntry
+		var bankedPool []struct {
+			PitcherID string
+			Name      string
+			FromDay   int
+			FromDate  string
+		}
+
+		for _, da := range sortedDays {
+			entry := resultEntry{
+				Day:    dayNames[da.DayIdx],
+				DayIdx: da.DayIdx,
+				Date:   da.Date,
+			}
+			if len(da.Pitchers) > 0 {
+				// Sort SPs first
+				sort.Slice(da.Pitchers, func(i, j int) bool {
+					iSP := da.Pitchers[i].Position == "SP"
+					jSP := da.Pitchers[j].Position == "SP"
+					if iSP != jSP {
+						return iSP
+					}
+					return da.Pitchers[i].Name < da.Pitchers[j].Name
+				})
+				entry.P1ID = da.Pitchers[0].ID
+				entry.P1Name = da.Pitchers[0].Name
+				// Rest are banked
+				for _, p := range da.Pitchers[1:] {
+					entry.Banked = append(entry.Banked, struct {
+						ID   string `json:"id"`
+						Name string `json:"name"`
+					}{p.ID, p.Name})
+					bankedPool = append(bankedPool, struct {
+						PitcherID string
+						Name      string
+						FromDay   int
+						FromDate  string
+					}{p.ID, p.Name, da.DayIdx, da.Date})
+				}
+			}
+			results = append(results, entry)
+		}
+
+		// Auto-use banked starts on empty days
+		var autoUsed []struct {
+			PitcherID string `json:"pitcher_id"`
+			Name      string `json:"name"`
+			FromDay   int    `json:"from_day"`
+			ToDay     int    `json:"to_day"`
+			ToDate    string `json:"to_date"`
+		}
+		for i := range results {
+			if results[i].P1ID == "" && len(bankedPool) > 0 {
+				// Use first available banked start from an earlier day
+				for j := 0; j < len(bankedPool); j++ {
+					if bankedPool[j].FromDay < results[i].DayIdx {
+						results[i].P1ID = bankedPool[j].PitcherID
+						results[i].P1Name = bankedPool[j].Name + " (banked)"
+						autoUsed = append(autoUsed, struct {
+							PitcherID string `json:"pitcher_id"`
+							Name      string `json:"name"`
+							FromDay   int    `json:"from_day"`
+							ToDay     int    `json:"to_day"`
+							ToDate    string `json:"to_date"`
+						}{bankedPool[j].PitcherID, bankedPool[j].Name, bankedPool[j].FromDay, results[i].DayIdx, results[i].Date})
+						bankedPool = append(bankedPool[:j], bankedPool[j+1:]...)
+						break
+					}
+				}
+			}
+		}
+
+		// Now save: clear existing rotation, then save new entries + banked starts
+		store.ClearTeamRotation(db, teamID, leagueID, user.ID, week)
+
+		var bankedInputs []store.BankedStartInput
+		for _, r := range results {
+			dayIdx := r.DayIdx
+			if r.P1ID != "" {
+				// Clean up "(banked)" suffix for DB
+				store.UpsertRotationStarter(db, teamID, leagueID, week, dayIdx, strings.Replace(r.P1ID, " (banked)", "", 1), r.Date)
+			}
+			for _, b := range r.Banked {
+				bankedInputs = append(bankedInputs, store.BankedStartInput{
+					PitcherID: b.ID,
+					Day:       dayIdx,
+					Date:      r.Date,
+				})
+			}
+		}
+		store.SyncBankedStarts(db, teamID, leagueID, week, bankedInputs)
+
+		// Process auto-used banked starts
+		for _, au := range autoUsed {
+			// Find the banked_start record and mark as used
+			var bsID string
+			db.QueryRow(context.Background(),
+				`SELECT id FROM banked_starts WHERE team_id = $1 AND pitcher_id = $2 AND banked_week = $3 AND banked_day = $4 AND used_week IS NULL LIMIT 1`,
+				teamID, au.PitcherID, week, au.FromDay).Scan(&bsID)
+			if bsID != "" {
+				store.UseBankedStart(db, bsID, week, au.ToDay, au.ToDate)
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":   "Rotation auto-filled from MLB probables",
+			"results":   results,
+			"auto_used": autoUsed,
+		})
 	}
 }
