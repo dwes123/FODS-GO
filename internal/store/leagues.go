@@ -46,12 +46,11 @@ func GetLeaguesWithTeams(db *pgxpool.Pool) ([]League, error) {
 
 	for i := range leagues {
 		teamRows, err := db.Query(context.Background(),
-			`SELECT id, name, owner_name FROM teams WHERE league_id = $1 ORDER BY name`,
+			`SELECT id, name, COALESCE(owner_name, '') FROM teams WHERE league_id = $1 ORDER BY name`,
 			leagues[i].ID)
 		if err != nil {
 			return nil, err
 		}
-		defer teamRows.Close()
 
 		for teamRows.Next() {
 			var t Team
@@ -60,6 +59,7 @@ func GetLeaguesWithTeams(db *pgxpool.Pool) ([]League, error) {
 			}
 			leagues[i].Teams = append(leagues[i].Teams, t)
 		}
+		teamRows.Close()
 	}
 
 	return leagues, nil
