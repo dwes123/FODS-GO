@@ -400,11 +400,17 @@ func SyncBankedStarts(db *pgxpool.Pool, teamID, leagueID, week string, entries [
 	}
 
 	// Upsert current entries
+	// Rule: one pitcher can only have one unused banked start at a time.
+	// Delete any existing unused banked start for the same pitcher (any week) before inserting.
 	for _, e := range entries {
+		tx.Exec(ctx, `
+			DELETE FROM banked_starts
+			WHERE team_id = $1 AND pitcher_id = $2 AND used_week IS NULL
+		`, teamID, e.PitcherID)
+
 		_, err = tx.Exec(ctx, `
 			INSERT INTO banked_starts (team_id, league_id, pitcher_id, banked_week, banked_day, banked_date)
 			VALUES ($1, $2, $3, $4, $5, $6)
-			ON CONFLICT (team_id, pitcher_id, banked_week, banked_day) DO NOTHING
 		`, teamID, leagueID, e.PitcherID, week, e.Day, e.Date)
 		if err != nil {
 			return err

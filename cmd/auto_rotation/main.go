@@ -462,6 +462,13 @@ func upsertStarter(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, we
 }
 
 func insertBankedStart(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, week string, day int, pitcherID, date string) {
+	// One pitcher can only have one unused banked start at a time.
+	// Delete any existing unused banked start for this pitcher before inserting.
+	pool.Exec(ctx, `
+		DELETE FROM banked_starts
+		WHERE team_id = $1 AND pitcher_id = $2 AND used_week IS NULL
+	`, teamID, pitcherID)
+
 	pool.Exec(ctx, `
 		INSERT INTO banked_starts (team_id, league_id, pitcher_id, banked_week, banked_day, banked_date)
 		VALUES ($1, $2, $3, $4, $5, $6)
