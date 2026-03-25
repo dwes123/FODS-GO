@@ -57,9 +57,10 @@
         <div id="banked-list"></div>
     </div>
 
-    <div id="submit-area" style="margin-top:20px;">
+    <div id="submit-area" style="margin-top:20px;display:flex;gap:15px;align-items:center;">
         <button type="button" class="button button-primary" onclick="submitRotation()">Save Rotation</button>
-        <span id="submit-status" style="margin-left:15px;"></span>
+        <button type="button" class="button button-danger" onclick="clearRotation()">Clear Week</button>
+        <span id="submit-status" style="margin-left:5px;"></span>
     </div>
 </div>
 
@@ -325,6 +326,36 @@ function assignBankedStart(id, val) {
 function removeBankedUsage(id) {
     bankedUsages = bankedUsages.filter(u => u.id !== id);
     renderBankedStarts();
+}
+
+async function clearRotation() {
+    const teamID = document.getElementById('team_select').value;
+    if (!teamID) { alert('Select a team first'); return; }
+    if (!confirm('Are you sure you want to clear all rotation entries and banked starts for this week? This action is logged.')) return;
+
+    const formData = new FormData();
+    formData.append('team_id', teamID);
+    formData.append('week', '{{.SelectedWeek}}');
+
+    const status = document.getElementById('submit-status');
+    status.textContent = 'Clearing...';
+    status.style.color = '#666';
+
+    try {
+        const res = await fetch('/rotations/clear', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (res.ok) {
+            status.textContent = 'Rotation cleared!';
+            status.style.color = 'green';
+            await loadTeamData();
+        } else {
+            status.textContent = 'Error: ' + json.error;
+            status.style.color = 'red';
+        }
+    } catch (e) {
+        status.textContent = 'Request failed';
+        status.style.color = 'red';
+    }
 }
 
 async function submitRotation() {

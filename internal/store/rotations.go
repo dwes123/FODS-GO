@@ -253,6 +253,90 @@ func IsPlayerOn26Man(db *pgxpool.Pool, playerID, teamID string) (bool, error) {
 	return exists, err
 }
 
+// ClearTeamRotation clears a team's rotation and banked starts for a week, logging everything for audit.
+func ClearTeamRotation(db *pgxpool.Pool, teamID, leagueID, userID, week string) error {
+	ctx := context.Background()
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Snapshot rotation entries before deleting
+	rotRows, err := tx.Query(ctx, `
+		SELECT day_of_week, COALESCE(pitcher_1_id::TEXT, ''), COALESCE(pitcher_2_id::TEXT, ''),
+		       COALESCE(pitcher_1_date::TEXT, ''), COALESCE(pitcher_2_date::TEXT, '')
+		FROM rotations WHERE team_id = $1 AND week_identifier = $2`, teamID, week)
+	if err != nil {
+		return err
+	}
+	type rotSnapshot struct {
+		Day    int    `json:"day"`
+		P1ID   string `json:"p1_id,omitempty"`
+		P2ID   string `json:"p2_id,omitempty"`
+		P1Date string `json:"p1_date,omitempty"`
+		P2Date string `json:"p2_date,omitempty"`
+	}
+	var rotSnaps []rotSnapshot
+	for rotRows.Next() {
+		var r rotSnapshot
+		rotRows.Scan(&r.Day, &r.P1ID, &r.P2ID, &r.P1Date, &r.P2Date)
+		rotSnaps = append(rotSnaps, r)
+	}
+	rotRows.Close()
+
+	// Snapshot banked starts before clearing
+	bsRows, err := tx.Query(ctx, `
+		SELECT pitcher_id::TEXT, banked_week, banked_day, banked_date::TEXT,
+		       COALESCE(used_week, ''), COALESCE(used_day::TEXT, ''), COALESCE(used_date::TEXT, ''),
+		       COALESCE(fantasy_points, 0)
+		FROM banked_starts WHERE team_id = $1 AND (banked_week = $2 OR used_week = $2)`, teamID, week)
+	if err != nil {
+		return err
+	}
+	type bsSnapshot struct {
+		PitcherID string  `json:"pitcher_id"`
+		BankedWeek string `json:"banked_week"`
+		BankedDay  int    `json:"banked_day"`
+		BankedDate string `json:"banked_date"`
+		UsedWeek   string `json:"used_week,omitempty"`
+		UsedDay    string `json:"used_day,omitempty"`
+		UsedDate   string `json:"used_date,omitempty"`
+		Points     float64 `json:"points"`
+	}
+	var bsSnaps []bsSnapshot
+	for bsRows.Next() {
+		var b bsSnapshot
+		bsRows.Scan(&b.PitcherID, &b.BankedWeek, &b.BankedDay, &b.BankedDate,
+			&b.UsedWeek, &b.UsedDay, &b.UsedDate, &b.Points)
+		bsSnaps = append(bsSnaps, b)
+	}
+	bsRows.Close()
+
+	// Delete rotations
+	tx.Exec(ctx, `DELETE FROM rotations WHERE team_id = $1 AND week_identifier = $2`, teamID, week)
+
+	// Delete unused banked starts for this week
+	tx.Exec(ctx, `DELETE FROM banked_starts WHERE team_id = $1 AND banked_week = $2 AND used_week IS NULL`, teamID, week)
+
+	// Clear used banked starts that were used in this week
+	tx.Exec(ctx, `UPDATE banked_starts SET used_week = NULL, used_day = NULL, used_date = NULL
+		WHERE team_id = $1 AND used_week = $2`, teamID, week)
+
+	// Write audit log
+	rotJSON, _ := json.Marshal(rotSnaps)
+	bsJSON, _ := json.Marshal(bsSnaps)
+	_, err = tx.Exec(ctx, `
+		INSERT INTO rotation_clear_log (team_id, league_id, user_id, week_identifier, cleared_rotations, cleared_banked_starts)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, teamID, leagueID, userID, week, rotJSON, bsJSON)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 // --- Banked Starts ---
 
 type BankedStartInput struct {

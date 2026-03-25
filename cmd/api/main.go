@@ -164,6 +164,7 @@ func main() {
 		authorized.GET("/rotations", handlers.RotationsDashboardHandler(database))
 		authorized.GET("/rotations/submit", handlers.RotationsSubmitPageHandler(database))
 		authorized.POST("/rotations/save", handlers.SubmitRotationHandler(database))
+		authorized.POST("/rotations/clear", handlers.ClearRotationHandler(database))
 		authorized.GET("/api/team/pitchers", handlers.GetTeamPitchersHandler(database))
 		authorized.GET("/api/team/rotation", handlers.GetTeamRotationHandler(database))
 		authorized.GET("/api/team/banked-starts", handlers.GetBankedStartsHandler(database))

@@ -597,6 +597,53 @@ func GetBankedStartsHandler(db *pgxpool.Pool) gin.HandlerFunc {
 }
 
 // GetTeamRotationHandler returns existing rotation data for a team+week as JSON
+// ClearRotationHandler allows a user to clear their own team's rotation for the current or next week.
+func ClearRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		teamID := c.PostForm("team_id")
+		week := c.PostForm("week")
+
+		if teamID == "" || week == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "team_id and week are required"})
+			return
+		}
+
+		// Verify ownership
+		isOwner, _ := store.IsTeamOwner(db, teamID, user.ID)
+		if !isOwner {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not own this team"})
+			return
+		}
+
+		// Only allow clearing current week or next week
+		y, w := time.Now().ISOWeek()
+		currentWeek := fmt.Sprintf("%d-%02d", y, w)
+		_, nextWeek := adjacentWeeks(currentWeek)
+		if week != currentWeek && week != nextWeek {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "You can only clear rotations for the current or next week"})
+			return
+		}
+
+		// Get league ID
+		var leagueID string
+		err := db.QueryRow(c, "SELECT league_id::TEXT FROM teams WHERE id = $1", teamID).Scan(&leagueID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid team"})
+			return
+		}
+
+		err = store.ClearTeamRotation(db, teamID, leagueID, user.ID, week)
+		if err != nil {
+			fmt.Printf("ERROR [ClearRotation]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear rotation"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Rotation cleared successfully"})
+	}
+}
+
 func GetTeamRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		teamID := c.Query("team_id")
