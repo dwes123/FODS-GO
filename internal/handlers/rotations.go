@@ -609,28 +609,40 @@ func ClearRotationHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// Verify ownership
-		isOwner, _ := store.IsTeamOwner(db, teamID, user.ID)
-		if !isOwner {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You do not own this team"})
-			return
-		}
-
-		// Only allow clearing current week or next week
-		y, w := time.Now().ISOWeek()
-		currentWeek := fmt.Sprintf("%d-%02d", y, w)
-		_, nextWeek := adjacentWeeks(currentWeek)
-		if week != currentWeek && week != nextWeek {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "You can only clear rotations for the current or next week"})
-			return
-		}
-
-		// Get league ID
+		// Get league ID for the team
 		var leagueID string
 		err := db.QueryRow(c, "SELECT league_id::TEXT FROM teams WHERE id = $1", teamID).Scan(&leagueID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid team"})
 			return
+		}
+
+		// Check if user is commissioner for this league or global admin
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		isCommish := user.Role == "admin"
+		for _, l := range adminLeagues {
+			if l == leagueID {
+				isCommish = true
+				break
+			}
+		}
+
+		// Verify ownership (or commissioner access)
+		isOwner, _ := store.IsTeamOwner(db, teamID, user.ID)
+		if !isOwner && !isCommish {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not own this team"})
+			return
+		}
+
+		// Commissioners can clear any week; owners limited to current or next week
+		if !isCommish {
+			y, w := time.Now().ISOWeek()
+			currentWeek := fmt.Sprintf("%d-%02d", y, w)
+			_, nextWeek := adjacentWeeks(currentWeek)
+			if week != currentWeek && week != nextWeek {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "You can only clear rotations for the current or next week"})
+				return
+			}
 		}
 
 		err = store.ClearTeamRotation(db, teamID, leagueID, user.ID, week)
