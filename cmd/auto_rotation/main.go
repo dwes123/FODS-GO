@@ -274,7 +274,7 @@ func fillWeek(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, userID 
 		}
 	}
 
-	// Auto-use banked starts on empty days (best ranked first)
+	// Auto-use banked starts on empty days (best ranked first) — same-week banked starts
 	for i := 0; i < 7; i++ {
 		if days[i].starters != nil && len(days[i].starters) > 0 {
 			continue
@@ -302,6 +302,63 @@ func fillWeek(ctx context.Context, pool *pgxpool.Pool, teamID, leagueID, userID 
 			}
 			fmt.Printf("  %s (%s): %s (banked start used, rank #%d)\n", dayNames[i], days[i].date, p.name, p.rank)
 			bankedPool = append(bankedPool[:bestIdx], bankedPool[bestIdx+1:]...)
+		}
+	}
+
+	// Check for carryover banked starts from previous week
+	prevMonday := monday.AddDate(0, 0, -7)
+	prevWeek := getWeekIdentifier(prevMonday)
+
+	type carryoverEntry struct {
+		bsID      string
+		pitcherID string
+		name      string
+		rank      int
+	}
+	var carryover []carryoverEntry
+	coRows, err := pool.Query(ctx, `
+		SELECT bs.id, bs.pitcher_id::TEXT, p.first_name || ' ' || p.last_name
+		FROM banked_starts bs
+		JOIN players p ON bs.pitcher_id = p.id
+		WHERE bs.team_id = $1 AND bs.banked_week = $2 AND bs.used_week IS NULL
+		ORDER BY bs.banked_day
+	`, teamID, prevWeek)
+	if err == nil {
+		for coRows.Next() {
+			var co carryoverEntry
+			coRows.Scan(&co.bsID, &co.pitcherID, &co.name)
+			co.rank = pitcherRank(co.name)
+			carryover = append(carryover, co)
+		}
+		coRows.Close()
+	}
+
+	if len(carryover) > 0 {
+		fmt.Printf("\n  Carryover from previous week (%s): %d banked start(s)\n", prevWeek, len(carryover))
+		// Sort by rank
+		sort.Slice(carryover, func(a, b int) bool {
+			return carryover[a].rank < carryover[b].rank
+		})
+
+		for i := 0; i < 7; i++ {
+			// Skip days that already have a starter
+			var hasStarter bool
+			pool.QueryRow(ctx,
+				`SELECT EXISTS(SELECT 1 FROM rotations WHERE team_id = $1 AND week_identifier = $2 AND day_of_week = $3 AND pitcher_1_id IS NOT NULL)`,
+				teamID, week, i).Scan(&hasStarter)
+			if hasStarter {
+				continue
+			}
+			if len(carryover) == 0 {
+				break
+			}
+			// Use best-ranked carryover
+			co := carryover[0]
+			carryover = carryover[1:]
+			upsertStarter(ctx, pool, teamID, leagueID, week, i, co.pitcherID, days[i].date)
+			pool.Exec(ctx, `UPDATE banked_starts SET used_week = $1, used_day = $2, used_date = $3 WHERE id = $4`,
+				week, i, days[i].date, co.bsID)
+			fmt.Printf("  %s (%s): %s (carryover from prev week, rank #%d)\n", dayNames[i], days[i].date, co.name, co.rank)
 		}
 	}
 
