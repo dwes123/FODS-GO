@@ -30,3 +30,10 @@ web/.next/
 
 # MCP config (contains credentials)
 .mcp.json
+
+# Local auto-rotation script (private)
+cmd/auto_rotation/
+auto-rotation-weekly.ps1
+auto-rotation-daily.ps1
+setup-auto-rotation-tasks.ps1
+auto_rotation_log.txt
