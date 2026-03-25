@@ -42,9 +42,13 @@
             {{$days := .Days}}
             {{$pts := .PointsMap}}
             {{$banked := .UsedBanked}}
+            {{$updated := .LastUpdated}}
             {{range $teamName, $teamDays := .Submissions}}
             <tr>
-                <td><strong>{{$teamName}}</strong></td>
+                <td>
+                    <strong>{{$teamName}}</strong>
+                    {{if $updated}}{{$ts := index $updated $teamName}}{{if not $ts.IsZero}}<br><small class="last-updated">Updated: {{$ts.Format "Jan 2 3:04 PM"}}</small>{{end}}{{end}}
+                </td>
                 {{range $dayIdx, $day := $days}}
                     <td>
                         {{$entry := index $teamDays $day}}
@@ -97,6 +101,7 @@
     .pts-used { font-weight: bold; color: #E87426; font-size: 0.75rem; }
     .time { color: #999; font-size: 0.7rem; }
     .empty { color: #ccc; }
+    .last-updated { color: #999; font-size: 0.7rem; font-style: italic; white-space: nowrap; }
     .compact td, .compact th { padding: 8px !important; }
 </style>
 {{end}}

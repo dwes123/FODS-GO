@@ -139,6 +139,16 @@ func RotationsDashboardHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		// Get used banked starts for this week
 		usedBanked, _ := store.GetUsedBankedStartsForWeek(db, leagueID, selectedWeek)
 
+		// Compute last updated timestamp per team
+		lastUpdated := make(map[string]time.Time)
+		for teamName, teamDays := range submissions {
+			for _, entry := range teamDays {
+				if entry.UpdatedAt.After(lastUpdated[teamName]) {
+					lastUpdated[teamName] = entry.UpdatedAt
+				}
+			}
+		}
+
 		RenderTemplate(c, "rotations.html", gin.H{
 			"User":           user,
 			"Submissions":    submissions,
@@ -156,6 +166,7 @@ func RotationsDashboardHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"IsCommish":      len(adminLeagues) > 0,
 			"PointsMap":      pointsMap,
 			"UsedBanked":     usedBanked,
+			"LastUpdated":    lastUpdated,
 		})
 	}
 }
