@@ -35,7 +35,8 @@
         <thead>
             <tr>
                 <th>Team</th>
-                {{range .Days}}<th style="text-transform:capitalize;">{{.}}</th>{{end}}
+                {{$dayDates := .DayDates}}
+                {{range $i, $day := .Days}}<th style="text-transform:capitalize;">{{$day}}<br><small>{{index $dayDates $i}}</small></th>{{end}}
             </tr>
         </thead>
         <tbody>
@@ -58,9 +59,16 @@
                                 {{if $entry.Pitcher1Name}}
                                 <div class="pitcher-row">
                                     <span class="pitcher-name">{{$entry.Pitcher1Name}}</span>
-                                    {{if isBankedStarter $banked $entry.TeamID $dayIdx $entry.Pitcher1ID}}<span class="banked-tag">BANKED</span>{{end}}
-                                    {{$p1pts := getPoints $pts $entry.Pitcher1ID $entry.Pitcher1Date}}
-                                    {{if ge $p1pts 0.0}}<span class="pts">{{printf "%.1f" $p1pts}}</span>{{end}}
+                                    {{$isBanked := isBankedStarter $banked $entry.TeamID $dayIdx $entry.Pitcher1ID}}
+                                    {{if $isBanked}}<span class="banked-tag">BANKED</span>{{end}}
+                                    {{if $isBanked}}
+                                        {{$bdate := getBankedDate $banked $entry.TeamID $dayIdx $entry.Pitcher1ID}}
+                                        {{$bpts := getPoints $pts $entry.Pitcher1ID $bdate}}
+                                        {{if gt $bpts -999.0}}<span class="pts">{{printf "%.2f" $bpts}}</span>{{end}}
+                                    {{else}}
+                                        {{$p1pts := getPoints $pts $entry.Pitcher1ID $entry.Pitcher1Date}}
+                                        {{if gt $p1pts -999.0}}<span class="pts">{{printf "%.2f" $p1pts}}</span>{{end}}
+                                    {{end}}
                                 </div>
                                 {{end}}
                                 {{if and $allBanked $entry.TeamID}}
@@ -78,6 +86,8 @@
                                 {{else if $entry.Pitcher2Name}}
                                 <div class="pitcher-row banked-row">
                                     <span class="pitcher-name-banked">{{$entry.Pitcher2Name}}</span>
+                                    {{$p2pts := getPoints $pts $entry.Pitcher2ID $entry.Pitcher2Date}}
+                                    {{if gt $p2pts -999.0}}<span class="pts-banked">{{printf "%.2f" $p2pts}}</span>{{end}}
                                 </div>
                                 {{end}}
                             </div>

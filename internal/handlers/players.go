@@ -144,6 +144,83 @@ func PlayerProfileHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+func AdminDeletePlayerHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		playerID := c.Param("id")
+
+		ctx := context.Background()
+
+		// Fetch player info and league for access check
+		var firstName, lastName, position, leagueID, teamName string
+		err := db.QueryRow(ctx,
+			`SELECT p.first_name, p.last_name, COALESCE(p.position, ''),
+			        COALESCE(p.league_id::TEXT, ''), COALESCE(t.name, 'Free Agent')
+			 FROM players p
+			 LEFT JOIN teams t ON p.team_id = t.id
+			 WHERE p.id = $1`, playerID).Scan(&firstName, &lastName, &position, &leagueID, &teamName)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Player not found"})
+			return
+		}
+
+		// Verify commissioner access to this league
+		adminLeagues, _ := store.GetAdminLeagues(db, user.ID)
+		hasAccess := user.Role == "admin"
+		for _, lid := range adminLeagues {
+			if lid == leagueID {
+				hasAccess = true
+				break
+			}
+		}
+		if !hasAccess {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You are not a commissioner for this league"})
+			return
+		}
+
+		playerName := firstName + " " + lastName
+
+		// Delete in transaction — clean up all FK references
+		tx, err := db.Begin(ctx)
+		if err != nil {
+			fmt.Printf("ERROR [AdminDeletePlayer]: begin tx: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete player"})
+			return
+		}
+		defer tx.Rollback(ctx)
+
+		tx.Exec(ctx, "DELETE FROM dead_cap_penalties WHERE player_id = $1", playerID)
+		tx.Exec(ctx, "DELETE FROM trade_items WHERE player_id = $1", playerID)
+		tx.Exec(ctx, "DELETE FROM pending_actions WHERE player_id = $1", playerID)
+		tx.Exec(ctx, "DELETE FROM daily_player_stats WHERE player_id = $1", playerID)
+		tx.Exec(ctx, "DELETE FROM banked_starts WHERE pitcher_id = $1", playerID)
+		tx.Exec(ctx, "UPDATE rotations SET pitcher_1_id = NULL WHERE pitcher_1_id = $1", playerID)
+		tx.Exec(ctx, "UPDATE rotations SET pitcher_2_id = NULL WHERE pitcher_2_id = $1", playerID)
+
+		tag, err := tx.Exec(ctx, "DELETE FROM players WHERE id = $1", playerID)
+		if err != nil {
+			fmt.Printf("ERROR [AdminDeletePlayer]: delete: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete player"})
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Player not found or already deleted"})
+			return
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			fmt.Printf("ERROR [AdminDeletePlayer]: commit: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete player"})
+			return
+		}
+
+		fmt.Printf("ADMIN ACTION: %s deleted player %s (%s) [%s, %s, %s]\n", user.Username, playerName, playerID, position, teamName, leagueID)
+		c.JSON(http.StatusOK, gin.H{
+			"message": fmt.Sprintf("Deleted %s (%s) from %s", playerName, position, teamName),
+		})
+	}
+}
+
 func TradeBlockHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := c.MustGet("user").(*store.User)

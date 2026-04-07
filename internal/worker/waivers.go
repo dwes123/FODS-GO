@@ -52,10 +52,11 @@ func processExpiredWaivers(db *pgxpool.Pool) {
 
 		var winningTeamID string
 		err = db.QueryRow(ctx, `
-			SELECT team_id FROM waiver_claims
-			WHERE player_id = $1 AND status = 'pending'
-			ORDER BY created_at ASC LIMIT 1
-		`, pID).Scan(&winningTeamID)
+			SELECT wc.team_id FROM waiver_claims wc
+			JOIN teams t ON wc.team_id = t.id
+			WHERE wc.player_id = $1 AND wc.status = 'pending' AND t.league_id = $2
+			ORDER BY wc.created_at ASC LIMIT 1
+		`, pID, lID).Scan(&winningTeamID)
 
 		tx, err := db.Begin(ctx)
 		if err != nil {

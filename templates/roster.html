@@ -390,6 +390,9 @@ async function saveDepthOrder() {
                                 {{if $isOwner}}
                                     {{if .StatusIL}}
                                         <button class="button" onclick="movePlayer('activate', '{{.ID}}', '{{$teamID}}')">Activate</button>
+                                        {{if or (eq .StatusIL "10-Day IL") (eq .StatusIL "15-Day IL")}}
+                                            <button class="button button-secondary" onclick="movePlayer('il-60', '{{.ID}}', '{{$teamID}}')" title="Move to 60-Day IL">60-Day</button>
+                                        {{end}}
                                     {{else}}
                                         {{if .Status40Man}}
                                             {{if not .Status26Man}}

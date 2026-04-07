@@ -85,6 +85,24 @@ func weekDateRange(weekStr string) (string, string) {
 	return monday.Format("Jan 2"), sunday.Format("Jan 2")
 }
 
+// weekDayDates returns formatted date strings (e.g. "3/23") for Mon-Sun of the given week.
+func weekDayDates(weekStr string) []string {
+	y, w := weekFromString(weekStr)
+	jan4 := time.Date(y, 1, 4, 0, 0, 0, 0, time.UTC)
+	offset := int(time.Monday - jan4.Weekday())
+	if jan4.Weekday() == time.Sunday {
+		offset = -6
+	}
+	week1Monday := jan4.AddDate(0, 0, offset)
+	monday := week1Monday.AddDate(0, 0, (w-1)*7)
+	dates := make([]string, 7)
+	for i := 0; i < 7; i++ {
+		d := monday.AddDate(0, 0, i)
+		dates[i] = fmt.Sprintf("%d/%d", int(d.Month()), d.Day())
+	}
+	return dates
+}
+
 func RotationsDashboardHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := c.MustGet("user").(*store.User)
@@ -144,10 +162,26 @@ func RotationsDashboardHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				}
 			}
 		}
-		pointsMap, _ := store.GetPitcherPointsForDates(db, pitcherIDs, dates)
-
 		// Get used banked starts for this week
 		usedBanked, _ := store.GetUsedBankedStartsForWeek(db, leagueID, selectedWeek)
+
+		// Include banked pitcher IDs and dates in the points lookup
+		for _, teamDays := range usedBanked {
+			for _, dayEntries := range teamDays {
+				for _, e := range dayEntries {
+					if e.PitcherID != "" && !pidSet[e.PitcherID] {
+						pitcherIDs = append(pitcherIDs, e.PitcherID)
+						pidSet[e.PitcherID] = true
+					}
+					if e.BankedDate != "" && !dateSet[e.BankedDate] {
+						dates = append(dates, e.BankedDate)
+						dateSet[e.BankedDate] = true
+					}
+				}
+			}
+		}
+
+		pointsMap, _ := store.GetPitcherPointsForDates(db, pitcherIDs, dates)
 
 		// Get all banked starts by day for display (shows extra banked pitchers beyond pitcher_2)
 		allBanked, _ := store.GetBankedStartsByDay(db, leagueID, selectedWeek)
@@ -176,6 +210,7 @@ func RotationsDashboardHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			"TotalTeams":     totalTeams,
 			"SubmittedTeams": submittedTeams,
 			"Days":           []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"},
+			"DayDates":       weekDayDates(selectedWeek),
 			"IsCommish":      len(adminLeagues) > 0,
 			"PointsMap":      pointsMap,
 			"UsedBanked":     usedBanked,

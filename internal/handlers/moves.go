@@ -373,6 +373,50 @@ func ActivateFromILHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+func MoveToSixtyDayILHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req MoveRequest
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		user := c.MustGet("user").(*store.User)
+		isOwner, _ := store.IsTeamOwner(db, req.TeamID, user.ID)
+		if !isOwner {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not own this team"})
+			return
+		}
+
+		// Verify player is currently on 10-Day or 15-Day IL
+		var currentIL string
+		db.QueryRow(context.Background(),
+			`SELECT COALESCE(status_il, '') FROM players WHERE id = $1 AND team_id = $2`,
+			req.PlayerID, req.TeamID).Scan(&currentIL)
+
+		if currentIL != "10-Day IL" && currentIL != "15-Day IL" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Player must be on 10-Day or 15-Day IL to move to 60-Day IL"})
+			return
+		}
+
+		// Update to 60-Day IL without changing il_start_date
+		_, err := db.Exec(context.Background(),
+			`UPDATE players SET status_il = '60-Day IL', status_40_man = FALSE
+			WHERE id = $1 AND team_id = $2`,
+			req.PlayerID, req.TeamID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+
+		store.AppendRosterMove(db, req.PlayerID, req.TeamID, "Moved to 60-Day IL")
+		pName, tName, lID := getPlayerAndTeamName(db, req.PlayerID, req.TeamID)
+		store.LogActivity(db, lID, req.TeamID, "Roster Move", fmt.Sprintf("%s moved %s to 60-Day IL", tName, pName))
+		c.JSON(http.StatusOK, gin.H{"message": "Player moved to 60-Day IL"})
+	}
+}
+
 type DFARequest struct {
 	MoveRequest
 	ClearAction string `json:"dfa_clear_action"` // "release" or "minors"

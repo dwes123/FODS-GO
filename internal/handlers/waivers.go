@@ -92,20 +92,22 @@ func ClaimWaiverHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		playerID := c.PostForm("player_id")
 		user := c.MustGet("user").(*store.User)
 
+		// Get the player's league first
+		var playerLeagueID, faStatus string
+		db.QueryRow(context.Background(),
+			"SELECT COALESCE(league_id::TEXT, ''), fa_status FROM players WHERE id = $1", playerID).Scan(&playerLeagueID, &faStatus)
+
+		// Find the user's team in the SAME league as the player
 		var teamID, leagueID, teamName string
 		err := db.QueryRow(context.Background(),
-			`SELECT t.id, t.league_id, t.name FROM teams t
+			`SELECT t.id, t.league_id::TEXT, t.name FROM teams t
 			 JOIN team_owners town ON t.id = town.team_id
-			 WHERE town.user_id = $1 LIMIT 1`, user.ID).Scan(&teamID, &leagueID, &teamName)
-		
+			 WHERE town.user_id = $1 AND t.league_id = $2 LIMIT 1`, user.ID, playerLeagueID).Scan(&teamID, &leagueID, &teamName)
+
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "You do not manage a team."})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "You do not manage a team in this league."})
 			return
 		}
-
-		// Check if player is actually on waivers
-		var faStatus string
-		db.QueryRow(context.Background(), "SELECT fa_status FROM players WHERE id = $1", playerID).Scan(&faStatus)
 		if faStatus != "on waivers" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Player is not on waivers."})
 			return

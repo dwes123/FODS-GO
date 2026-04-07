@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dwes123/fantasy-baseball-go/internal/notification"
 	"github.com/dwes123/fantasy-baseball-go/internal/store"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -98,18 +97,18 @@ func checkComplianceIfNeeded(ctx context.Context, db *pgxpool.Pool) {
 		fmt.Printf("  VIOLATION: [%s] %s — %s\n", v.LeagueName, v.TeamName, v.Issue)
 	}
 
-	// Group violations by league for Slack notifications
-	byLeague := make(map[string][]ComplianceViolation)
-	for _, v := range report.Violations {
-		byLeague[v.LeagueID] = append(byLeague[v.LeagueID], v)
-	}
-
-	for leagueID, violations := range byLeague {
-		msg := formatComplianceSlackMessage(violations)
-		if err := notification.SendSlackNotification(db, leagueID, "transactions", msg); err != nil {
-			fmt.Printf("Compliance Worker: Slack error for %s: %v\n", leagueNames[leagueID], err)
-		}
-	}
+	// Slack notifications disabled — compliance checks are reporting incorrect violations
+	// TODO: re-enable once compliance logic is fixed
+	// byLeague := make(map[string][]ComplianceViolation)
+	// for _, v := range report.Violations {
+	// 	byLeague[v.LeagueID] = append(byLeague[v.LeagueID], v)
+	// }
+	// for leagueID, violations := range byLeague {
+	// 	msg := formatComplianceSlackMessage(violations)
+	// 	if err := notification.SendSlackNotification(db, leagueID, "transactions", msg); err != nil {
+	// 		fmt.Printf("Compliance Worker: Slack error for %s: %v\n", leagueNames[leagueID], err)
+	// 	}
+	// }
 }
 
 // RunComplianceCheck checks all teams across all leagues for roster violations.

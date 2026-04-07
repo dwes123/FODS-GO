@@ -100,6 +100,7 @@ function formatDateISO(d) {
 }
 
 const weekDates = computeWeekDates('{{.SelectedWeek}}');
+const nextWeekDates = computeWeekDates('{{.NextWeek}}');
 
 document.querySelectorAll('.day-column').forEach(col => {
     const day = col.dataset.day;
@@ -191,7 +192,40 @@ async function loadTeamData() {
     }
 
     // Load banked starts completely outside the main try/catch
-    loadBankedStarts(teamID);
+    await loadBankedStarts(teamID);
+    restoreExtraBankedSlots();
+}
+
+function restoreExtraBankedSlots() {
+    const currentWeek = '{{.SelectedWeek}}';
+    // Group current-week banked starts by day index
+    const bankedByDay = {};
+    bankedStarts.forEach(bs => {
+        if (bs.banked_week !== currentWeek) return;
+        const dayIdx = bs.banked_day;
+        if (!bankedByDay[dayIdx]) bankedByDay[dayIdx] = [];
+        bankedByDay[dayIdx].push(bs);
+    });
+
+    dayNames.forEach((day, idx) => {
+        const dayBanked = bankedByDay[idx];
+        if (!dayBanked || dayBanked.length === 0) return;
+
+        const col = document.querySelector(`.day-column[data-day="${day}"]`);
+        if (!col) return;
+
+        const p2Val = col.querySelector('.p2-select').value;
+        // Any banked starts beyond the one already shown as p2
+        const extras = dayBanked.filter(bs => bs.pitcher_id !== p2Val);
+
+        extras.forEach(bs => {
+            addBankedSlot(day);
+            const container = col.querySelector('.banked-pitchers-container');
+            const selects = container.querySelectorAll('.extra-banked-select');
+            const lastSelect = selects[selects.length - 1];
+            if (lastSelect) lastSelect.value = bs.pitcher_id;
+        });
+    });
 }
 
 let usedBankedStarts = []; // Already-used banked starts
@@ -268,29 +302,35 @@ function renderBankedStarts() {
             html += `<span class="banked-assigned">${usedInfo}</span> `;
             html += `<button class="button button-small button-danger" onclick="removeBankedUsage('${bs.id}')">Remove</button>`;
         } else {
-            // Build next 8 days starting from the day after the banked date
-            // Only show days that don't already have an active starter
+            // Show empty days in current week + next week as options
             const bankedDate = new Date(bs.banked_date + 'T12:00:00');
             html += `<select onchange="assignBankedStart('${bs.id}', this.value)" style="font-size:0.85rem;">`;
             html += '<option value="">-- Select Day --</option>';
             let hasOptions = false;
-            for (let i = 1; i <= 8; i++) {
-                const targetDate = new Date(bankedDate);
-                targetDate.setDate(bankedDate.getDate() + i);
-                const dayOfWeek = (targetDate.getDay() + 6) % 7; // Convert Sun=0 to Mon=0
-                const dayName = dayNames[dayOfWeek];
-                // Check if this day already has an active starter in the form
+            // Current week days
+            dayNames.forEach((dayName, dayOfWeek) => {
+                const targetDate = weekDates[dayName];
+                if (!targetDate || targetDate <= bankedDate) return;
                 const col = document.querySelector(`.day-column[data-day="${dayName}"]`);
                 if (col) {
                     const p1Val = col.querySelector('.p1-select').value;
-                    if (p1Val) continue; // Skip days with a starter already set
+                    if (p1Val) return;
                 }
                 const label = targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                 const isoDate = formatDateISO(targetDate);
                 html += `<option value="${dayOfWeek}|${isoDate}">${label}</option>`;
                 hasOptions = true;
-            }
-            if (!hasOptions) html += '<option value="" disabled>No empty days available</option>';
+            });
+            // Next week days (for end-of-week banked starts)
+            dayNames.forEach((dayName, dayOfWeek) => {
+                const targetDate = nextWeekDates[dayName];
+                if (!targetDate || targetDate <= bankedDate) return;
+                const label = targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' (next wk)';
+                const isoDate = formatDateISO(targetDate);
+                html += `<option value="${dayOfWeek}|${isoDate}">${label}</option>`;
+                hasOptions = true;
+            });
+            if (!hasOptions) html += '<option value="" disabled>No available days</option>';
             html += '</select>';
         }
 

@@ -391,10 +391,11 @@ func GetPitcherPointsForDates(db *pgxpool.Pool, playerIDs []string, dates []stri
 	}
 
 	query := fmt.Sprintf(`
-		SELECT player_id, game_date, SUM(fantasy_points) AS total_points
-		FROM daily_player_stats
-		WHERE player_id IN (%s) AND game_date IN (%s)
-		GROUP BY player_id, game_date
+		SELECT p.id, dps.game_date, SUM(dps.fantasy_points) AS total_points
+		FROM daily_player_stats dps
+		JOIN players p ON p.mlb_id::text = dps.mlb_id
+		WHERE p.id IN (%s) AND dps.game_date IN (%s)
+		GROUP BY p.id, dps.game_date
 	`, pidPlaceholders, datePlaceholders)
 
 	rows, err := db.Query(ctx, query, args...)

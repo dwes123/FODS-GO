@@ -181,7 +181,7 @@ func ProcessAction(db *pgxpool.Pool, actionID, status string) error {
 			contractCol := fmt.Sprintf("contract_%d", *year)
 			_, err = tx.Exec(ctx, fmt.Sprintf("UPDATE players SET %s = $1 WHERE id = $2", contractCol), fmt.Sprintf("%.2f", *amount), *pID)
 			if err != nil { return err }
-		} else if aType == "EXTENSION" && pID != nil {
+		} else if (aType == "EXTENSION" || aType == "REAL_LIFE_EXTENSION") && pID != nil {
 			// Try new format with option_years metadata first
 			var extData struct {
 				Salaries    map[string]float64 `json:"salaries"`

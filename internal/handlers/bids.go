@@ -12,6 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// bidDuration returns 24 hours during the season (Mar 15 – Oct 15) and 48 hours in the offseason.
+func bidDuration() time.Duration {
+	now := time.Now()
+	month := now.Month()
+	day := now.Day()
+	// Offseason: Oct 15 – Mar 15
+	if month > time.October || (month == time.October && day >= 15) ||
+		month < time.March || (month == time.March && day < 15) {
+		return 48 * time.Hour
+	}
+	return 24 * time.Hour
+}
+
 func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		playerID := c.PostForm("player_id")
@@ -115,7 +128,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 
 			// Submit MiLB bid
-			endTime := time.Now().Add(48 * time.Hour)
+			endTime := time.Now().Add(bidDuration())
 			_, err = db.Exec(context.Background(), `
 				UPDATE players SET
 					fa_status = 'pending_bid',
@@ -196,7 +209,7 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 			}
 
 			// Submit IFA bid
-			endTime := time.Now().Add(48 * time.Hour)
+			endTime := time.Now().Add(bidDuration())
 			_, err = db.Exec(context.Background(), `
 				UPDATE players SET
 					fa_status = 'pending_bid',
@@ -224,9 +237,18 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		// --- STANDARD FREE AGENT BIDDING ---
 
-		// Contract year cap: 1-5 years only
-		if years < 1 || years > 5 {
-			c.String(http.StatusBadRequest, "Contract length must be between 1 and 5 years.")
+		// Contract year cap: 1-5 years (offseason), 1 year only (in season)
+		maxYears := 5
+		if bidDuration() == 24*time.Hour {
+			// In season — only 1-year deals
+			maxYears = 1
+		}
+		if years < 1 || years > maxYears {
+			if maxYears == 1 {
+				c.String(http.StatusBadRequest, "During the season, free agents can only be signed to 1-year deals.")
+			} else {
+				c.String(http.StatusBadRequest, "Contract length must be between 1 and 5 years.")
+			}
 			return
 		}
 
@@ -261,18 +283,20 @@ func SubmitBidHandler(db *pgxpool.Pool) gin.HandlerFunc {
 
 		// Check Current Bid
 		var currentPoints float64
-		var currentStatus, playerName string
+		var currentStatus, currentBidType, playerName string
 		err = db.QueryRow(context.Background(),
-			"SELECT COALESCE(pending_bid_amount, 0), fa_status, first_name || ' ' || last_name FROM players WHERE id = $1",
-			playerID).Scan(&currentPoints, &currentStatus, &playerName)
+			"SELECT COALESCE(pending_bid_amount, 0), fa_status, COALESCE(bid_type, 'standard'), first_name || ' ' || last_name FROM players WHERE id = $1",
+			playerID).Scan(&currentPoints, &currentStatus, &currentBidType, &playerName)
 
-		if currentStatus == "pending_bid" && bidPoints < currentPoints+1 {
+		// MLB standard bid always overrides MiLB/IFA bids (different currency);
+		// only compare points when the existing bid is also a standard bid
+		if currentStatus == "pending_bid" && currentBidType == "standard" && bidPoints < currentPoints+1 {
 			c.String(http.StatusBadRequest, "Bid too low. Must beat current bid by at least 1 point.")
 			return
 		}
 
 		// Update Player with New Bid
-		endTime := time.Now().Add(48 * time.Hour)
+		endTime := time.Now().Add(bidDuration())
 
 		_, err = db.Exec(context.Background(), `
 			UPDATE players SET

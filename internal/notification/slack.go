@@ -20,8 +20,13 @@ func SendSlackNotification(db *pgxpool.Pool, leagueID, notifyType, message strin
 	var token, channelID string
 
 	column := "slack_channel_transactions"
-	if notifyType == "trade_block" {
+	switch notifyType {
+	case "trade_block":
 		column = "slack_channel_trade_block"
+	case "completed_trades":
+		column = "slack_channel_completed_trades"
+	case "stat_alerts":
+		column = "slack_channel_stat_alerts"
 	}
 
 	query := fmt.Sprintf("SELECT slack_bot_token, %s FROM league_integrations WHERE league_id = $1", column)

@@ -114,6 +114,47 @@
                 </form>
             </div>
 
+            {{$hasEligible := false}}
+            {{range $year, $val := .Player.Contracts}}
+                {{if or (eq $val "TC") (hasPrefix $val "ARB")}}{{$hasEligible = true}}{{end}}
+            {{end}}
+            {{if $hasEligible}}
+            <div class="tool-section">
+                <h3>Real-Life Extension</h3>
+                <p class="note">Submit a contract extension that mirrors a real-life deal. Replaces TC/ARB years. Requires commissioner approval.</p>
+                <form id="realLifeExtForm">
+                    <input type="hidden" name="player_id" value="{{.Player.ID}}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Guaranteed Years:</label>
+                            <select name="years" id="rle_years">
+                                {{range seq 1 10}}<option value="{{.}}">{{.}}</option>{{end}}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>AAV ($):</label>
+                            <input type="number" name="aav" id="rle_aav" min="760000" step="10000" placeholder="1000000" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Team Option Years:</label>
+                            <select name="option_years" id="rle_options">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes (optional):</label>
+                        <input type="text" name="notes" placeholder="e.g. Mirrors real-life extension signed 4/3/2026" style="width:100%;">
+                    </div>
+                    <div id="rle_preview" style="margin:10px 0; font-size:0.9rem; color:#666;"></div>
+                    <button type="button" class="button button-primary" onclick="submitRealLifeExtension()">Submit for Approval</button>
+                </form>
+            </div>
+            {{end}}
+
             <div class="tool-section">
                 <h3>Contract Restructure</h3>
                 <p class="note">Move up to 50% of salary from one year to another.</p>
@@ -311,6 +352,13 @@
                 {{end}}
             </tbody>
         </table>
+    </div>
+    {{end}}
+
+    {{if .IsCommish}}
+    <div class="commish-tools">
+        <h3>Commissioner Tools</h3>
+        <button class="button button-danger" onclick="deletePlayer()">Delete Player</button>
     </div>
     {{end}}
 
@@ -512,6 +560,35 @@ async function submitRestructure() {
     }
 }
 
+// --- REAL-LIFE EXTENSION ---
+async function submitRealLifeExtension() {
+    const form = document.getElementById('realLifeExtForm');
+    const formData = new FormData(form);
+    const years = parseInt(formData.get('years'));
+    const aav = parseFloat(formData.get('aav'));
+    if (!aav || aav <= 0) { alert('Please enter an AAV.'); return; }
+
+    const optYrs = parseInt(formData.get('option_years') || '0');
+    const total = years + optYrs;
+    let msg = `Submit ${years}-year extension at $${aav.toLocaleString()} AAV`;
+    if (optYrs > 0) msg += ` + ${optYrs} team option year(s)`;
+    msg += `?\n\nTotal years: ${total}\nThis will be sent to the commissioner for approval.`;
+    if (!confirm(msg)) return;
+
+    try {
+        const res = await fetch('/real-life-extension', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (res.ok) {
+            alert(json.message);
+            location.reload();
+        } else {
+            alert("Error: " + json.error);
+        }
+    } catch (e) {
+        alert("Request failed");
+    }
+}
+
 // --- MiLB CONTRACT TYPE TOGGLE ---
 function toggleContractType(type) {
     var majorForm = document.getElementById('major-bid-form');
@@ -526,6 +603,24 @@ function toggleContractType(type) {
         majorForm.style.display = '';
         if (milbForm) milbForm.style.display = 'none';
         document.querySelector('.contract-type-major').classList.add('active');
+    }
+}
+
+// --- DELETE PLAYER (Commissioner) ---
+async function deletePlayer() {
+    if (!confirm('Are you sure you want to permanently delete {{.Player.FirstName}} {{.Player.LastName}}? This cannot be undone.')) return;
+    if (!confirm('FINAL WARNING: This will remove the player and all associated data (stats, bids, rotations). Continue?')) return;
+    try {
+        const res = await fetch('/admin/player/{{.Player.ID}}/delete', { method: 'POST' });
+        const json = await res.json();
+        if (res.ok) {
+            alert(json.message);
+            window.location.href = '/roster';
+        } else {
+            alert('Error: ' + json.error);
+        }
+    } catch (e) {
+        alert('Request failed');
     }
 }
 
@@ -592,6 +687,10 @@ if (document.getElementById('bid_years')) {
     .button-swap { background: #6f42c1; color: white; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; }
     .button-swap:hover { background: #5a32a3; }
     .swap-note { font-size: 0.8rem; color: #666; font-style: italic; }
+    .commish-tools { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
+    .commish-tools h3 { color: #c0392b; margin-bottom: 10px; }
+    .button-danger { background: #c0392b; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .button-danger:hover { background: #a93226; }
     .milb-note { font-size: 0.9em; color: #155724; margin-bottom: 10px; }
     .button-milb { background: #28a745; border-color: #28a745; color: white; }
     .button-milb:hover { background: #218838; }

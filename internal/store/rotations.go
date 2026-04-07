@@ -399,18 +399,13 @@ func SyncBankedStarts(db *pgxpool.Pool, teamID, leagueID, week string, entries [
 		tx.Exec(ctx, `DELETE FROM banked_starts WHERE id = $1`, id)
 	}
 
-	// Upsert current entries
-	// Rule: one pitcher can only have one unused banked start at a time.
-	// Delete any existing unused banked start for the same pitcher (any week) before inserting.
+	// Upsert current entries — a pitcher can have multiple banked starts on different days
 	for _, e := range entries {
-		tx.Exec(ctx, `
-			DELETE FROM banked_starts
-			WHERE team_id = $1 AND pitcher_id = $2 AND used_week IS NULL
-		`, teamID, e.PitcherID)
-
 		_, err = tx.Exec(ctx, `
 			INSERT INTO banked_starts (team_id, league_id, pitcher_id, banked_week, banked_day, banked_date)
 			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (team_id, pitcher_id, banked_week, banked_day) DO UPDATE SET
+				banked_date = EXCLUDED.banked_date
 		`, teamID, leagueID, e.PitcherID, week, e.Day, e.Date)
 		if err != nil {
 			return err
@@ -523,10 +518,12 @@ func populateBankedStartPoints(db *pgxpool.Pool, bankedStartIDs []string) {
 		}
 
 		var pts float64
+		dateStr := bankedDate.Format("2006-01-02")
 		err = db.QueryRow(ctx,
-			`SELECT COALESCE(SUM(fantasy_points), 0) FROM daily_player_stats
-			 WHERE player_id = $1 AND game_date = $2`,
-			pitcherID, bankedDate.Format("2006-01-02")).Scan(&pts)
+			`SELECT COALESCE(SUM(dps.fantasy_points), 0) FROM daily_player_stats dps
+			 JOIN players p ON p.mlb_id::text = dps.mlb_id
+			 WHERE p.id = $1 AND dps.game_date = $2`,
+			pitcherID, dateStr).Scan(&pts)
 		if err != nil {
 			continue
 		}
@@ -534,8 +531,10 @@ func populateBankedStartPoints(db *pgxpool.Pool, bankedStartIDs []string) {
 		// Only set points if the date has been processed (stats exist)
 		var count int
 		db.QueryRow(ctx,
-			`SELECT COUNT(*) FROM daily_player_stats WHERE player_id = $1 AND game_date = $2`,
-			pitcherID, bankedDate.Format("2006-01-02")).Scan(&count)
+			`SELECT COUNT(*) FROM daily_player_stats dps
+			 JOIN players p ON p.mlb_id::text = dps.mlb_id
+			 WHERE p.id = $1 AND dps.game_date = $2`,
+			pitcherID, dateStr).Scan(&count)
 		if count > 0 {
 			db.Exec(ctx, `UPDATE banked_starts SET fantasy_points = $1 WHERE id = $2`, pts, id)
 		}
@@ -591,9 +590,9 @@ func GetUsedBankedStartsForTeam(db *pgxpool.Pool, teamID, currentWeek, prevWeek 
 		JOIN players p ON bs.pitcher_id = p.id
 		WHERE bs.team_id = $1
 		  AND bs.used_week IS NOT NULL
-		  AND bs.banked_week IN ($2, $3)
+		  AND bs.used_week = $2
 		ORDER BY bs.used_day
-	`, teamID, currentWeek, prevWeek)
+	`, teamID, currentWeek)
 	if err != nil {
 		return nil, err
 	}
@@ -636,6 +635,7 @@ type UsedBankedDisplay struct {
 	PitcherName string
 	Points      float64
 	HasPoints   bool
+	BankedDate  string // date the pitcher actually pitched (for points lookup)
 }
 
 // GetUsedBankedStartsForWeek returns used banked starts for a league+week, keyed by team_id then day index.
@@ -647,7 +647,8 @@ func GetUsedBankedStartsForWeek(db *pgxpool.Pool, leagueID, week string) (map[st
 		       p.first_name || ' ' || p.last_name AS pitcher_name,
 		       bs.used_day,
 		       COALESCE(bs.fantasy_points, 0),
-		       bs.fantasy_points IS NOT NULL AS has_points
+		       bs.fantasy_points IS NOT NULL AS has_points,
+		       COALESCE(bs.banked_date::TEXT, '')
 		FROM banked_starts bs
 		JOIN players p ON bs.pitcher_id = p.id
 		WHERE bs.league_id = $1 AND bs.used_week = $2
@@ -663,7 +664,7 @@ func GetUsedBankedStartsForWeek(db *pgxpool.Pool, leagueID, week string) (map[st
 		var teamID string
 		var d UsedBankedDisplay
 		var usedDay int
-		if err := rows.Scan(&teamID, &d.PitcherID, &d.PitcherName, &usedDay, &d.Points, &d.HasPoints); err != nil {
+		if err := rows.Scan(&teamID, &d.PitcherID, &d.PitcherName, &usedDay, &d.Points, &d.HasPoints, &d.BankedDate); err != nil {
 			continue
 		}
 		if result[teamID] == nil {

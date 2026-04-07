@@ -318,16 +318,31 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 			}
 			return false
 		},
+		"getBankedDate": func(bankedMap map[string]map[int][]store.UsedBankedDisplay, teamID string, dayIdx int, pitcherID string) string {
+			if bankedMap == nil || teamID == "" || pitcherID == "" {
+				return ""
+			}
+			if teamDays, ok := bankedMap[teamID]; ok {
+				if dayEntries, ok := teamDays[dayIdx]; ok {
+					for _, e := range dayEntries {
+						if e.PitcherID == pitcherID {
+							return e.BankedDate
+						}
+					}
+				}
+			}
+			return ""
+		},
 		"getPoints": func(ptsMap map[string]map[string]float64, playerID, date string) float64 {
 			if ptsMap == nil || playerID == "" || date == "" {
-				return -1
+				return -999
 			}
 			if inner, ok := ptsMap[playerID]; ok {
 				if pts, ok := inner[date]; ok {
 					return pts
 				}
 			}
-			return -1
+			return -999
 		},
 		"formatMoney": func(v interface{}) string {
 			p := message.NewPrinter(language.English)

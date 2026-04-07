@@ -145,29 +145,33 @@ func checkGameForHRs(db *pgxpool.Pool, gamePk int, seenPlays map[string]bool) {
 		}
 		seenPlays[playKey] = true
 
+		// Check DB to avoid re-notifying after restart
+		var exists bool
+		db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM hr_notifications WHERE play_key = $1)`, playKey).Scan(&exists)
+		if exists {
+			continue
+		}
+
 		mlbID := play.MatchUp.Batter.ID
 		playerName := play.MatchUp.Batter.FullName
 
-		// Check if this player is rostered in any league
-		rows, err := db.Query(ctx, `
-			SELECT p.league_id, t.name
+		// Check if this player is rostered in MLB league only
+		mlbLeagueID := "11111111-1111-1111-1111-111111111111"
+		var teamName string
+		err := db.QueryRow(ctx, `
+			SELECT t.name
 			FROM players p
 			JOIN teams t ON p.team_id = t.id
-			WHERE p.mlb_id = $1 AND p.team_id IS NOT NULL
-		`, mlbID)
+			WHERE p.mlb_id = $1 AND p.team_id IS NOT NULL AND p.league_id = $2
+		`, mlbID, mlbLeagueID).Scan(&teamName)
 		if err != nil {
 			continue
 		}
 
-		for rows.Next() {
-			var leagueID, teamName string
-			if err := rows.Scan(&leagueID, &teamName); err != nil {
-				continue
-			}
+		msg := fmt.Sprintf("⚾ *HOME RUN!* %s (rostered by *%s*) just hit a home run!", playerName, teamName)
+		notification.SendSlackNotification(db, mlbLeagueID, "stat_alerts", msg)
 
-			msg := fmt.Sprintf("⚾ *HOME RUN!* %s (rostered by *%s*) just hit a home run!", playerName, teamName)
-			notification.SendSlackNotification(db, leagueID, "transaction", msg)
-		}
-		rows.Close()
+		// Record notification to prevent duplicates across restarts
+		db.Exec(ctx, `INSERT INTO hr_notifications (play_key, mlb_id, notified_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING`, playKey, mlbID)
 	}
 }

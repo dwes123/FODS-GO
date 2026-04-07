@@ -1,7 +1,7 @@
 # Run Stage
 FROM alpine:3.20
 WORKDIR /root/
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates tzdata
 # We copy the 'server' file we just uploaded via SCP
 COPY server .
 COPY templates ./templates

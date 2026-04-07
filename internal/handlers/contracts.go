@@ -277,3 +277,119 @@ func ProcessRestructureHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Restructure request submitted for commissioner approval."})
 	}
 }
+
+// SubmitRealLifeExtensionHandler handles extension requests that mimic real-life contracts.
+// Only available for players with TC or ARB in their contract. Requires commissioner approval.
+func SubmitRealLifeExtensionHandler(db *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := c.MustGet("user").(*store.User)
+		playerID := c.PostForm("player_id")
+		years, _ := strconv.Atoi(c.PostForm("years"))
+		aav, _ := strconv.ParseFloat(c.PostForm("aav"), 64)
+		optionYears, _ := strconv.Atoi(c.PostForm("option_years"))
+		notes := c.PostForm("notes")
+
+		if years < 1 || years > 10 || aav <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid extension parameters. Years must be 1-10 and AAV must be positive."})
+			return
+		}
+		if optionYears < 0 || optionYears > 3 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Team options must be between 0 and 3."})
+			return
+		}
+
+		player, err := store.GetPlayerByID(db, playerID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Player not found."})
+			return
+		}
+
+		isOwner, _ := store.IsTeamOwner(db, player.TeamID, user.ID)
+		if !isOwner && user.Role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		// Verify player has TC or ARB in their contract
+		now := time.Now()
+		hasEligible := false
+		for yr := now.Year(); yr <= 2040; yr++ {
+			upper := strings.ToUpper(strings.TrimSpace(player.Contracts[yr]))
+			if upper == "TC" || strings.HasPrefix(upper, "ARB") {
+				hasEligible = true
+				break
+			}
+		}
+		if !hasEligible {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Player must have TC or ARB years remaining to be eligible for a real-life extension."})
+			return
+		}
+
+		// Block if player already has a pending or approved real-life extension
+		var existingCount int
+		db.QueryRow(context.Background(),
+			`SELECT COUNT(*) FROM pending_actions WHERE player_id = $1 AND action_type = 'REAL_LIFE_EXTENSION' AND status IN ('PENDING', 'APPROVED')`,
+			playerID).Scan(&existingCount)
+		if existingCount > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "This player already has a pending or approved real-life extension."})
+			return
+		}
+
+		// Find the first TC or ARB year as the extension start
+		startYear := 0
+		for yr := now.Year(); yr <= 2040; yr++ {
+			upper := strings.ToUpper(strings.TrimSpace(player.Contracts[yr]))
+			if upper == "TC" || strings.HasPrefix(upper, "ARB") {
+				startYear = yr
+				break
+			}
+		}
+
+		totalYears := years + optionYears
+		if startYear == 0 || startYear+totalYears-1 > 2040 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Not enough contract years available for this extension length."})
+			return
+		}
+
+		// Build contract data
+		salaries := make(map[string]float64)
+		for i := 0; i < totalYears; i++ {
+			salaries[fmt.Sprintf("%d", startYear+i)] = aav
+		}
+
+		var optionYearsList []int
+		for i := years; i < totalYears; i++ {
+			optionYearsList = append(optionYearsList, startYear+i)
+		}
+
+		type extensionData struct {
+			Salaries    map[string]float64 `json:"salaries"`
+			OptionYears []int              `json:"option_years"`
+		}
+		extData := extensionData{Salaries: salaries, OptionYears: optionYearsList}
+		contractData, _ := json.Marshal(extData)
+
+		endYear := startYear + years - 1
+		summary := fmt.Sprintf("Real-life extension for %s %s: %d years at $%s AAV (years %d-%d)",
+			player.FirstName, player.LastName, years, formatDollar(aav), startYear, endYear)
+		if optionYears > 0 {
+			optEnd := startYear + totalYears - 1
+			summary += fmt.Sprintf(" + %d team option year(s) (%d-%d)", optionYears, endYear+1, optEnd)
+		}
+		if notes != "" {
+			summary += fmt.Sprintf(" | Notes: %s", notes)
+		}
+
+		err = store.CreatePendingAction(db, playerID, player.LeagueID, player.TeamID, "REAL_LIFE_EXTENSION", summary, contractData)
+		if err != nil {
+			fmt.Printf("ERROR [SubmitRealLifeExtension]: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			return
+		}
+
+		store.LogActivity(db, player.LeagueID, player.TeamID, "Roster Move",
+			fmt.Sprintf("%s submitted a real-life extension request for %s %s.", user.Username, player.FirstName, player.LastName))
+
+		c.JSON(http.StatusOK, gin.H{"message": "Real-life extension request submitted for commissioner approval."})
+	}
+}

@@ -94,6 +94,7 @@ func main() {
 		authorized.GET("/player/:id", handlers.PlayerProfileHandler(database))
 		authorized.POST("/bid", handlers.SubmitBidHandler(database))
 		authorized.POST("/extension", handlers.SubmitExtensionHandler(database))
+		authorized.POST("/real-life-extension", handlers.SubmitRealLifeExtensionHandler(database))
 		authorized.POST("/restructure", handlers.ProcessRestructureHandler(database))
 
 		// Standings & Financials
@@ -145,6 +146,7 @@ func main() {
 		authorized.POST("/roster/move/option", handlers.OptionToMinorsHandler(database))
 		authorized.POST("/roster/move/il", handlers.MoveToILHandler(database))
 		authorized.POST("/roster/move/activate", handlers.ActivateFromILHandler(database))
+		authorized.POST("/roster/move/il-60", handlers.MoveToSixtyDayILHandler(database))
 		authorized.POST("/roster/move/dfa", handlers.DFAPlayerHandler(database))
 		authorized.POST("/roster/move/waive", handlers.WaivePlayerHandler(database))
 		authorized.POST("/roster/move/position-swap", handlers.SwapPitcherPositionHandler(database))
@@ -213,6 +215,8 @@ func main() {
 		authorized.POST("/admin/team-owners/create-user", handlers.AdminCreateUserHandler(database))
 		authorized.POST("/admin/team-owners/delete-user", handlers.AdminDeleteUserHandler(database))
 		authorized.POST("/admin/reset-user-password", handlers.AdminResetPasswordHandler(database))
+
+		authorized.POST("/admin/player/:id/delete", handlers.AdminDeletePlayerHandler(database))
 
 		// Player Add Request Approval
 		authorized.GET("/admin/player-requests", handlers.AdminPlayerRequestsHandler(database))
