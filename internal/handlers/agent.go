@@ -2325,7 +2325,7 @@ func toolGetWaiverStatus(db *pgxpool.Pool, ac *agentCtx, args map[string]interfa
 			FROM waiver_claims wc
 			JOIN teams t ON wc.team_id = t.id
 			WHERE wc.player_id = $1 AND wc.status = 'pending'
-			ORDER BY wc.claim_priority ASC`, wp.playerID)
+			ORDER BY t.current_waiver_priority ASC NULLS LAST, wc.created_at ASC`, wp.playerID)
 		if err == nil {
 			var claimingTeams []string
 			for claimRows.Next() {

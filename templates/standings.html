@@ -14,13 +14,18 @@
         </form>
     </div>
 
+    {{if .Error}}
+        <p style="margin-top: 15px; padding: 12px 16px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px;">{{.Error}}</p>
+    {{else}}
     <table class="fantasy-table-base">
         <thead>
             <tr>
                 <th style="width: 80px;">Rank</th>
                 <th>Team</th>
-                <th>Win %</th>
-                <th>GB</th>
+                <th style="text-align: center;">W-L-T</th>
+                <th style="text-align: center;">Win %</th>
+                <th style="text-align: center;">GB</th>
+                <th style="text-align: right;">Points For</th>
             </tr>
         </thead>
         <tbody>
@@ -28,13 +33,14 @@
             <tr>
                 <td style="text-align: center;"><strong>{{.Rank}}</strong></td>
                 <td>{{.TeamName}}</td>
-                <td>{{printf "%.3f" .WinPercentage}}</td>
-                <td>{{.GamesBack}}</td>
+                <td style="text-align: center;">{{.Record}}</td>
+                <td style="text-align: center;">{{printf "%.3f" .WinPercentage}}</td>
+                <td style="text-align: center;">{{if eq .GamesBack 0.0}}&mdash;{{else}}{{printf "%.1f" .GamesBack}}{{end}}</td>
+                <td style="text-align: right;">{{printf "%.2f" .TotalPointsFor}}</td>
             </tr>
-            {{else}}
-            <tr><td colspan="4">No standings data found or league not linked to Fantrax.</td></tr>
             {{end}}
         </tbody>
     </table>
+    {{end}}
 </div>
 {{end}}

@@ -151,7 +151,7 @@ func AdminWaiverAuditHandler(db *pgxpool.Pool) gin.HandlerFunc {
 				FROM waiver_claims wc
 				JOIN teams t ON wc.team_id = t.id
 				WHERE wc.player_id = $1
-				ORDER BY wc.claim_priority ASC
+				ORDER BY t.current_waiver_priority ASC NULLS LAST, wc.created_at ASC
 			`, p.ID)
 			if err != nil {
 				continue

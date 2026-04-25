@@ -37,6 +37,7 @@ func main() {
 	worker.StartStatsWorker(ctx, database)
 	worker.StartMinorLeaguerWorker(ctx, database)
 	worker.StartComplianceWorker(ctx, database)
+	worker.StartWaiverPriorityWorker(ctx, database)
 
 	// 3. Initialize Router
 	r := gin.Default()
