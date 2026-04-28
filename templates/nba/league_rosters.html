@@ -1,0 +1,56 @@
+{{define "title"}}NBA League Rosters{{end}}
+{{define "content"}}
+<h1>NBA League Rosters</h1>
+
+{{if .TotalTeams}}
+    <p style="color: #666; margin-bottom: 1.5rem;">{{.TotalTeams}} teams</p>
+
+    {{range .Conferences}}
+        <h2 style="margin-top: 2rem;">{{.Name}} Conference</h2>
+        {{range .Divisions}}
+            <h3 style="color: #4A4A4A; border-bottom: 1px solid #ddd; padding-bottom: 0.4rem; margin-top: 1.5rem;">{{.Name}} Division</h3>
+            <div class="teams-roster-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1rem;">
+                {{range .Teams}}
+                    <div class="team-roster-card" style="background: white; border-radius: 6px; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                        <div class="team-header" style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 0.5rem; border-bottom: 2px solid #2E6DA4; margin-bottom: 0.75rem;">
+                            <h4 style="margin: 0; color: #2E6DA4;"><a href="/nba/roster/{{.ID}}" style="text-decoration: none; color: inherit;">{{.Name}} <span style="color: #888; font-weight: normal;">({{.Abbreviation}})</span></a></h4>
+                            <span style="font-size: 0.85em; color: #888;">{{len .Roster}} players</span>
+                        </div>
+                        {{if .Roster}}
+                            <table style="width: 100%; font-size: 0.9em;">
+                                <tbody>
+                                    {{range .Roster}}
+                                        <tr>
+                                            <td style="padding: 3px 0;"><a href="/nba/player/{{.ID}}" style="color: #2E6DA4; text-decoration: none;">{{.FirstName}} {{.LastName}}</a></td>
+                                            <td style="text-align: right; color: #888; padding: 3px 0;">{{.Position}}</td>
+                                        </tr>
+                                    {{end}}
+                                </tbody>
+                            </table>
+                        {{else}}
+                            <p style="color: #999; font-style: italic; margin: 0.5rem 0; font-size: 0.9em;">No players</p>
+                        {{end}}
+                    </div>
+                {{end}}
+            </div>
+        {{end}}
+    {{end}}
+
+    {{if .Unassigned}}
+        <h2 style="margin-top: 2rem;">Unassigned Conference</h2>
+        <div class="teams-roster-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1rem;">
+            {{range .Unassigned}}
+                <div class="team-roster-card" style="background: white; border-radius: 6px; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                    <h4 style="margin: 0;"><a href="/nba/roster/{{.ID}}">{{.Name}}</a></h4>
+                    <p style="color: #cf1322; font-size: 0.85em; margin: 0.25rem 0 0;">No conference/division assigned</p>
+                </div>
+            {{end}}
+        </div>
+    {{end}}
+{{else}}
+    <div class="empty-state" style="background: white; padding: 2.5rem; text-align: center; border-radius: 6px; color: #888;">
+        <p style="font-size: 1.1em; color: #4A4A4A;"><strong>No NBA teams have been created yet.</strong></p>
+        <p>Teams will appear here once the league is set up.</p>
+    </div>
+{{end}}
+{{end}}

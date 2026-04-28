@@ -1,0 +1,84 @@
+{{define "title"}}NBA Free Agents{{end}}
+{{define "content"}}
+<h1>NBA Free Agents</h1>
+
+<form method="GET" action="/nba/free-agents" style="background: white; padding: 1rem 1.5rem; border-radius: 6px; margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+    <div>
+        <label style="display: block; font-size: 0.85em; color: #666;">Search</label>
+        <input type="text" name="q" value="{{.Search}}" placeholder="First or last name" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; min-width: 220px;">
+    </div>
+    <div>
+        <label style="display: block; font-size: 0.85em; color: #666;">Position</label>
+        <select name="pos" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">All</option>
+            {{range .Positions}}
+                <option value="{{.}}" {{if eq . $.Pos}}selected{{end}}>{{.}}</option>
+            {{end}}
+        </select>
+    </div>
+    <button type="submit" class="button">Search</button>
+    {{if or .Search .Pos}}
+        <a href="/nba/free-agents" style="margin-left: 0.5rem;">Clear</a>
+    {{end}}
+</form>
+
+{{if .Players}}
+    <p style="color: #666; margin-bottom: 0.5rem;">{{.TotalCount}} free agents</p>
+    <table class="fantasy-table-base">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Pos</th>
+                <th>NBA Team</th>
+                <th>Status</th>
+                <th>2026 Contract</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Players}}
+                <tr>
+                    <td><a href="/nba/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></td>
+                    <td>{{.Position}}</td>
+                    <td>{{.RealLifeTeam}}</td>
+                    <td>
+                        {{if eq .FAStatus "pending_bid"}}
+                            <span style="color: #856404; font-weight: 600;">Pending Bid</span>
+                        {{else if eq .FAStatus "on_waivers"}}
+                            <span style="color: #cf1322; font-weight: 600;">Waivers</span>
+                        {{else if .InjuryStatus}}
+                            <span style="color: #cf1322;">{{.InjuryStatus}}</span>
+                        {{else}}
+                            Available
+                        {{end}}
+                    </td>
+                    <td>{{index .Contracts 2026}}</td>
+                    <td><a href="/nba/player/{{.ID}}" class="button" style="font-size: 0.85em; padding: 4px 10px;">View</a></td>
+                </tr>
+            {{end}}
+        </tbody>
+    </table>
+
+    {{if gt .TotalPages 1}}
+        <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: center;">
+            {{if gt .CurrentPage 1}}
+                <a href="?q={{.Search}}&pos={{.Pos}}&page={{sub .CurrentPage 1}}" class="button">&laquo; Prev</a>
+            {{end}}
+            <span style="padding: 8px 16px;">Page {{.CurrentPage}} of {{.TotalPages}}</span>
+            {{if lt .CurrentPage .TotalPages}}
+                <a href="?q={{.Search}}&pos={{.Pos}}&page={{add .CurrentPage 1}}" class="button">Next &raquo;</a>
+            {{end}}
+        </div>
+    {{end}}
+{{else}}
+    <div class="empty-state" style="background: white; padding: 2.5rem; text-align: center; border-radius: 6px; color: #888;">
+        {{if or .Search .Pos}}
+            <p>No free agents match your filters.</p>
+            <p><a href="/nba/free-agents">Clear filters</a></p>
+        {{else}}
+            <p style="font-size: 1.1em; color: #4A4A4A;"><strong>No NBA players in the database yet.</strong></p>
+            <p>Once player data is imported, free agents will appear here.</p>
+        {{end}}
+    </div>
+{{end}}
+{{end}}

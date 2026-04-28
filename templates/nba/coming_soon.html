@@ -1,0 +1,11 @@
+{{define "title"}}{{.PageTitle}}{{end}}
+{{define "content"}}
+<div style="background: white; padding: 2.5rem; border-radius: 8px; text-align: center; max-width: 700px; margin: 2rem auto;">
+    <h1 style="margin-top: 0;">{{.PageTitle}}</h1>
+    <p style="font-size: 1.05em; color: #666; line-height: 1.6;">{{.Description}}</p>
+    <p style="margin-top: 2rem;">
+        <a href="/nba/home" class="button">&laquo; NBA Home</a>
+        <a href="/nba/free-agents" class="button" style="margin-left: 0.5rem; background: #2E6DA4;">Free Agents</a>
+    </p>
+</div>
+{{end}}

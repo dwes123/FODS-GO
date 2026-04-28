@@ -11,6 +11,7 @@ import (
 
 	"github.com/dwes123/fantasy-baseball-go/internal/db"
 	"github.com/dwes123/fantasy-baseball-go/internal/handlers"
+	nbahandlers "github.com/dwes123/fantasy-baseball-go/internal/handlers/nba"
 	"github.com/dwes123/fantasy-baseball-go/internal/middleware"
 	"github.com/dwes123/fantasy-baseball-go/internal/notification"
 	"github.com/dwes123/fantasy-baseball-go/internal/worker"
@@ -19,9 +20,12 @@ import (
 )
 
 func main() {
-	// 1. Initialize Database
-	database := db.InitDB()
+	// 1. Initialize Databases
+	database := db.InitDB() // baseball / auth (DATABASE_URL → fantasy_db)
 	defer database.Close()
+
+	nbaDB := db.InitFromEnv("DATABASE_URL_NBA") // basketball (DATABASE_URL_NBA → fantasy_basketball_db)
+	defer nbaDB.Close()
 
 	// 1b. Initialize Email Notifications
 	notification.InitEmail()
@@ -226,6 +230,41 @@ func main() {
 		// AI Agent
 		authorized.GET("/admin/agent", handlers.AdminAgentPageHandler(database))
 		authorized.POST("/admin/agent", handlers.AdminAgentChatHandler(database))
+
+		// =========================================================
+		// NBA — basketball fantasy league
+		// Auth shares the baseball DB; data queries use nbaDB.
+		// =========================================================
+		nba := authorized.Group("/nba")
+		{
+			// Slice 1
+			nba.GET("/home", nbahandlers.HomeHandler(database, nbaDB))
+
+			// Slice 2 — read-only player/team pages
+			nba.GET("/free-agents", nbahandlers.FreeAgentHandler(database, nbaDB))
+			nba.GET("/player/:id", nbahandlers.PlayerProfileHandler(database, nbaDB))
+			nba.GET("/roster/:id", nbahandlers.RosterHandler(database, nbaDB))
+			nba.GET("/league/rosters", nbahandlers.LeagueRostersHandler(database, nbaDB))
+			nba.GET("/trade-block", nbahandlers.TradeBlockHandler(database, nbaDB))
+
+			// Stubs for nav links that lead to future slices — avoids dead 404s
+			nba.GET("/standings", nbahandlers.ComingSoonHandler(
+				"NBA Standings", "Standings will appear here once the regular season is underway and games are tracked."))
+			nba.GET("/activity", nbahandlers.ComingSoonHandler(
+				"NBA Activity", "The NBA activity feed will live here. Coming alongside trades and roster moves in Slice 4."))
+			nba.GET("/bids/my-bids", nbahandlers.ComingSoonHandler(
+				"My NBA Bids", "Free-agent bidding lands in Slice 3, after bid mechanics are finalized."))
+			nba.GET("/bids/pending", nbahandlers.ComingSoonHandler(
+				"NBA Pending Bids", "Free-agent bidding lands in Slice 3, after bid mechanics are finalized."))
+			nba.GET("/trades", nbahandlers.ComingSoonHandler(
+				"NBA Trade Center", "Trade proposals and counter-offers ship in Slice 4."))
+			nba.GET("/waivers", nbahandlers.ComingSoonHandler(
+				"NBA Waiver Wire", "The waiver wire ships in Slice 4 alongside trades."))
+		}
+
+		// NBA AI commissioner agent — placeholder until Slice 5
+		authorized.GET("/admin/nba-agent", nbahandlers.ComingSoonHandler(
+			"NBA Commissioner Agent", "The NBA-side AI commissioner agent ships in Slice 5."))
 	}
 
 	// --- API ROUTES ---

@@ -10,25 +10,29 @@ import (
 )
 
 func InitDB() *pgxpool.Pool {
-	dsn := os.Getenv("DATABASE_URL")
+	return InitFromEnv("DATABASE_URL")
+}
+
+func InitFromEnv(envVar string) *pgxpool.Pool {
+	dsn := os.Getenv(envVar)
 	if dsn == "" {
-		log.Fatal("DATABASE_URL environment variable is required")
+		log.Fatalf("%s environment variable is required", envVar)
 	}
 
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		log.Fatalf("Unable to parse DATABASE_URL: %v", err)
+		log.Fatalf("Unable to parse %s: %v", envVar, err)
 	}
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
-		log.Fatalf("Unable to connect to database: %v", err)
+		log.Fatalf("Unable to connect to database (%s): %v", envVar, err)
 	}
 
 	if err := pool.Ping(context.Background()); err != nil {
-		log.Fatalf("Database ping failed: %v", err)
+		log.Fatalf("Database ping failed (%s): %v", envVar, err)
 	}
 
-	fmt.Println("Connected to Database")
+	fmt.Printf("Connected to Database (%s)\n", envVar)
 	return pool
 }

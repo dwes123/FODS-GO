@@ -1,0 +1,37 @@
+{{define "title"}}NBA Trade Block{{end}}
+{{define "content"}}
+<h1>NBA Trade Block</h1>
+
+{{if .Groups}}
+    <p style="color: #666; margin-bottom: 1rem;">{{.Total}} players currently on the trade block</p>
+    {{range .Groups}}
+        <div class="trade-block-team" style="background: white; padding: 1rem 1.5rem; border-radius: 6px; margin-bottom: 1rem;">
+            <h2 style="margin-top: 0;">{{.TeamName}}</h2>
+            <table class="fantasy-table-base">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Pos</th>
+                        <th>NBA Team</th>
+                        <th>2026 Contract</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Players}}
+                        <tr>
+                            <td><a href="/nba/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></td>
+                            <td>{{.Position}}</td>
+                            <td>{{.RealLifeTeam}}</td>
+                            <td>{{index .Contracts 2026}}</td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    {{end}}
+{{else}}
+    <div class="empty-state" style="background: white; padding: 2.5rem; text-align: center; border-radius: 6px; color: #888;">
+        <p>No players currently on the trade block.</p>
+    </div>
+{{end}}
+{{end}}

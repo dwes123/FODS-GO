@@ -1,0 +1,35 @@
+{{define "title"}}NBA Home{{end}}
+{{define "content"}}
+<div class="welcome-banner" style="background: linear-gradient(135deg, #2E6DA4 0%, #1a4a7a 100%); color: white; padding: 2.5rem 2rem; border-radius: 8px; margin-bottom: 2rem;">
+    <h1 style="color: white; margin-top: 0; border: none;">NBA League — Coming Soon</h1>
+    <p style="font-size: 1.1rem; max-width: 700px; line-height: 1.6;">
+        The NBA fantasy league is being built out. Player import, free agency, trades, and the AI commissioner agent
+        will arrive in upcoming releases. You are logged in and your account works on both the baseball and basketball
+        sides of the platform.
+    </p>
+    {{if .User}}
+        <p style="margin-top: 1.5rem; color: #cce4f7;">
+            Hello, <strong style="color: white;">{{.User.Username}}</strong> — you're connected to the NBA app.
+        </p>
+    {{end}}
+</div>
+
+<div class="home-section" style="background: white; padding: 1.5rem 2rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+    <h2>What's coming</h2>
+    <ul style="line-height: 1.9;">
+        <li><strong>Slice 2:</strong> Player and team data imported from stats.nba.com — browse free agents, view rosters and player profiles.</li>
+        <li><strong>Slice 3:</strong> Free agent bidding (mechanics TBD).</li>
+        <li><strong>Slice 4:</strong> Trades, waivers, and roster moves.</li>
+        <li><strong>Slice 5:</strong> AI commissioner agent at <code>/admin/nba-agent</code>.</li>
+        <li><strong>Slice 6:</strong> Automatic stats and injury sync from NBA.</li>
+        <li><strong>Slice 7:</strong> Unified <code>/home</code> showing all your teams across both sports.</li>
+    </ul>
+</div>
+
+<div class="home-section" style="background: white; padding: 1.5rem 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+    <h2>Switch back</h2>
+    <p>
+        <a href="/home" class="button">Go to Baseball Home</a>
+    </p>
+</div>
+{{end}}

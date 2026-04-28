@@ -1,0 +1,76 @@
+{{define "title"}}{{.Player.FirstName}} {{.Player.LastName}}{{end}}
+{{define "content"}}
+<div class="player-profile" style="background: white; padding: 1.5rem 2rem; border-radius: 8px; margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="margin: 0;">{{.Player.FirstName}} {{.Player.LastName}}</h1>
+            <p style="color: #666; margin: 0.5rem 0;">
+                <span class="pos-tag" style="background: #2E6DA4; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600;">{{.Player.Position}}</span>
+                {{if .Player.RealLifeTeam}}<span style="margin-left: 0.5rem;">{{.Player.RealLifeTeam}}</span>{{end}}
+                {{if .Player.JerseyNumber}}<span style="margin-left: 0.5rem;">#{{.Player.JerseyNumber}}</span>{{end}}
+                {{if .Player.OnTwoWay}}<span style="margin-left: 0.5rem; background: #FFD700; color: #4A4A4A; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">Two-Way</span>{{end}}
+                {{if .Player.OnTradeBlock}}<span style="margin-left: 0.5rem; background: #E87426; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">Trade Block</span>{{end}}
+                {{if .Player.InjuryStatus}}<span style="margin-left: 0.5rem; color: #cf1322;">{{.Player.InjuryStatus}}</span>{{end}}
+            </p>
+        </div>
+        <div style="text-align: right;">
+            {{if .Player.TeamName}}
+                <p style="margin: 0; color: #666;">Owned by</p>
+                <p style="margin: 0; font-size: 1.1em;"><strong>{{.Player.TeamName}}</strong></p>
+                {{if .TeamIDStr}}<a href="/nba/roster/{{.TeamIDStr}}">View Roster &rsaquo;</a>{{end}}
+            {{else}}
+                <p style="margin: 0; color: #888; font-style: italic;">Free Agent</p>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+    <div class="meta-card" style="background: white; padding: 1.5rem; border-radius: 8px;">
+        <h2>Bio</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            {{if .Player.Age}}<tr><td style="color: #666; padding: 6px 0;">Age</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.Age}}</td></tr>{{end}}
+            {{if .Player.HeightInches}}<tr><td style="color: #666; padding: 6px 0;">Height</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.HeightInches}}"</td></tr>{{end}}
+            {{if .Player.WeightLbs}}<tr><td style="color: #666; padding: 6px 0;">Weight</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.WeightLbs}} lbs</td></tr>{{end}}
+            {{if .Player.College}}<tr><td style="color: #666; padding: 6px 0;">College</td><td style="text-align: right; padding: 6px 0;">{{.Player.College}}</td></tr>{{end}}
+            {{if .Player.DraftYear}}<tr><td style="color: #666; padding: 6px 0;">Draft</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.DraftYear}} #{{deref .Player.DraftPick}}</td></tr>{{end}}
+            {{if .Player.NBAID}}<tr><td style="color: #666; padding: 6px 0;">NBA ID</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.NBAID}}</td></tr>{{end}}
+        </table>
+    </div>
+
+    <div class="meta-card" style="background: white; padding: 1.5rem; border-radius: 8px;">
+        <h2>Contracts</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            {{$annotations := .Player.Annotations}}
+            {{range .ContractYears}}
+                {{$y := .}}
+                {{$val := index $.Player.Contracts $y}}
+                {{if $val}}
+                    <tr>
+                        <td style="color: #666; padding: 4px 0;">{{$y}}</td>
+                        <td style="text-align: right; padding: 4px 0;">
+                            {{$val}}
+                            {{if $annotations}}
+                                {{$ann := index $annotations (printf "%d" $y)}}
+                                {{if $ann}}
+                                    {{range $ann}}
+                                        <span style="display: inline-block; margin-left: 4px; background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{.}}</span>
+                                    {{end}}
+                                {{end}}
+                            {{end}}
+                        </td>
+                    </tr>
+                {{end}}
+            {{end}}
+            {{if not .HasContracts}}
+                <tr><td colspan="2" style="color: #888; font-style: italic; padding: 0.5rem 0;">No contracts on record.</td></tr>
+            {{end}}
+        </table>
+    </div>
+</div>
+
+<div style="margin-bottom: 1.5rem;">
+    <a href="/nba/free-agents" class="button" style="background: #6c757d;">&laquo; Back to Free Agents</a>
+    {{if .TeamIDStr}}<a href="/nba/roster/{{.TeamIDStr}}" class="button" style="margin-left: 0.5rem;">View Team Roster</a>{{end}}
+</div>
+{{end}}

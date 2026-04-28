@@ -903,70 +903,115 @@
 </head>
 <body{{if and .User (eq .User.ThemePreference "dark")}} class="dark-mode"{{end}}>
     <header>
-        <a href="/" class="logo">Front Office Dynasty</a>
+        <a href="{{if eq .Sport "nba"}}/nba/home{{else}}/{{end}}" class="logo">Front Office Dynasty{{if eq .Sport "nba"}} <span style="font-size: 0.7em; color: var(--fod-orange-accent);">NBA</span>{{end}}</a>
         <nav>
-            <a href="/home">Home</a>
-            {{if .User}}
-                <div class="nav-dropdown">
-                    <span class="nav-dropdown-label">League &#9662;</span>
-                    <div class="nav-dropdown-menu">
-                        <a href="/league/rosters">Rosters</a>
-                        <a href="/standings">Standings</a>
-                        <a href="/league/financials">Financials</a>
-                        <a href="/league/irl-financials">IRL Financials</a>
-                        <a href="/activity">Activity</a>
-                        <a href="/stats/pitching">Stats</a>
+            {{if eq .Sport "nba"}}
+                {{/* ===== NBA NAV ===== */}}
+                <a href="/nba/home">Home</a>
+                {{if .User}}
+                    <div class="nav-dropdown">
+                        <span class="nav-dropdown-label">League &#9662;</span>
+                        <div class="nav-dropdown-menu">
+                            <a href="/nba/league/rosters">Rosters</a>
+                            <a href="/nba/standings">Standings</a>
+                            <a href="/nba/activity">Activity</a>
+                        </div>
                     </div>
-                </div>
-                <div class="nav-dropdown">
-                    <span class="nav-dropdown-label">Roster &#9662;</span>
-                    <div class="nav-dropdown-menu">
-                        <a href="/rotations">Rotations</a>
-                        <a href="/team-options">Team Options</a>
-                        <a href="/arbitration">Arbitration</a>
-                        <a href="/waivers">Waiver Wire</a>
+                    <div class="nav-dropdown">
+                        <span class="nav-dropdown-label">Free Agency &#9662;</span>
+                        <div class="nav-dropdown-menu">
+                            <a href="/nba/free-agents">Free Agents</a>
+                            <a href="/nba/bids/my-bids">My Bids</a>
+                            <a href="/nba/bids/pending">Pending Bids</a>
+                        </div>
                     </div>
-                </div>
-                <div class="nav-dropdown">
-                    <span class="nav-dropdown-label">Free Agency &#9662;</span>
-                    <div class="nav-dropdown-menu">
-                        <a href="/free-agents">Free Agents</a>
-                        <a href="/bids/my-bids">My Bids</a>
-                        <a href="/bids/pending">Pending Bids</a>
-                        <a href="/bids/history">Bid History</a>
-                        <a href="/bid-calculator">Bid Calc</a>
-                        <a href="/player/request">Request Player</a>
+                    <div class="nav-dropdown">
+                        <span class="nav-dropdown-label">Trades &#9662;</span>
+                        <div class="nav-dropdown-menu">
+                            <a href="/nba/trades">Trade Center</a>
+                            <a href="/nba/trade-block">Trade Block</a>
+                            <a href="/nba/waivers">Waiver Wire</a>
+                        </div>
                     </div>
-                </div>
-                <div class="nav-dropdown">
-                    <span class="nav-dropdown-label">Trades &#9662;</span>
-                    <div class="nav-dropdown-menu">
-                        <a href="/trades">Trade Center</a>
-                        <a href="/trade-block">Trade Block</a>
-                    </div>
-                </div>
-                <div class="nav-dropdown">
-                    <span class="nav-dropdown-label">CBA &#9662;</span>
-                    <div class="nav-dropdown-menu">
-                        <a href="https://docs.google.com/document/d/18xqdfYMs4grgCUE_XuIMtIX3BNDoziqOlROalJKKwHU/edit?usp=sharing" target="_blank">MLB</a>
-                        <a href="https://docs.google.com/document/d/1MFhVEh8_o3HHkygCh7FVF-YxtfXpXqzx6p47JbxlV84/edit?usp=sharing" target="_blank">AAA</a>
-                        <a href="https://docs.google.com/document/d/1fofzOyYYJYLgoyJCN4jSYhY5ykHUWIBMmbGlJYqweSE/edit?usp=sharing" target="_blank">AA</a>
-                        <a href="https://docs.google.com/document/d/1YZXAs2WUqybb2sdSwi4pzFvmhq-Biul8qG9dx97BzzQ/edit?usp=sharing" target="_blank">High-A</a>
-                    </div>
-                </div>
-                <a href="/bug-report">Report Bug</a>
-                {{if or (eq .User.Role "admin") .IsCommish}}
-                    <a href="/admin/" style="color: #d9534f;">Commissioner</a>
+                    <a href="/bug-report">Report Bug</a>
+                    {{if or (eq .User.Role "admin") .IsCommish}}
+                        <a href="/admin/nba-agent" style="color: #d9534f;">Commissioner</a>
+                    {{end}}
+                    <a href="/home" style="margin-left: 20px; color: var(--fod-orange-accent);" title="Switch to Baseball">&#9776; Baseball</a>
+                    <span style="margin-left: 20px; color: #888;">Hello, {{.User.Username}}</span>
+                    <button id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; margin-left: 10px; color: #888; vertical-align: middle; padding: 2px 6px;">{{if eq .User.ThemePreference "dark"}}&#9788;{{else}}&#9790;{{end}}</button>
+                    <a href="/profile">My Profile</a>
+                    <a href="/logout">Logout</a>
+                {{else}}
+                    <a href="/login">Login</a>
                 {{end}}
-                <span style="margin-left: 20px; color: #888;">Hello, {{.User.Username}}</span>
-                <button id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; margin-left: 10px; color: #888; vertical-align: middle; padding: 2px 6px;">{{if eq .User.ThemePreference "dark"}}&#9788;{{else}}&#9790;{{end}}</button>
-                <a href="/profile">My Profile</a>
-                <a href="/logout">Logout</a>
             {{else}}
-                <a href="/league/rosters">Rosters</a>
-                <a href="/free-agents">Free Agents</a>
-                <a href="/standings">Standings</a>
-                <a href="/login">Login</a>
+                {{/* ===== BASEBALL NAV (default) ===== */}}
+                <a href="/home">Home</a>
+                {{if .User}}
+                    <div class="nav-dropdown">
+                        <span class="nav-dropdown-label">League &#9662;</span>
+                        <div class="nav-dropdown-menu">
+                            <a href="/league/rosters">Rosters</a>
+                            <a href="/standings">Standings</a>
+                            <a href="/league/financials">Financials</a>
+                            <a href="/league/irl-financials">IRL Financials</a>
+                            <a href="/activity">Activity</a>
+                            <a href="/stats/pitching">Stats</a>
+                        </div>
+                    </div>
+                    <div class="nav-dropdown">
+                        <span class="nav-dropdown-label">Roster &#9662;</span>
+                        <div class="nav-dropdown-menu">
+                            <a href="/rotations">Rotations</a>
+                            <a href="/team-options">Team Options</a>
+                            <a href="/arbitration">Arbitration</a>
+                            <a href="/waivers">Waiver Wire</a>
+                        </div>
+                    </div>
+                    <div class="nav-dropdown">
+                        <span class="nav-dropdown-label">Free Agency &#9662;</span>
+                        <div class="nav-dropdown-menu">
+                            <a href="/free-agents">Free Agents</a>
+                            <a href="/bids/my-bids">My Bids</a>
+                            <a href="/bids/pending">Pending Bids</a>
+                            <a href="/bids/history">Bid History</a>
+                            <a href="/bid-calculator">Bid Calc</a>
+                            <a href="/player/request">Request Player</a>
+                        </div>
+                    </div>
+                    <div class="nav-dropdown">
+                        <span class="nav-dropdown-label">Trades &#9662;</span>
+                        <div class="nav-dropdown-menu">
+                            <a href="/trades">Trade Center</a>
+                            <a href="/trade-block">Trade Block</a>
+                        </div>
+                    </div>
+                    <a href="/prospects">On the Farm</a>
+                    <div class="nav-dropdown">
+                        <span class="nav-dropdown-label">CBA &#9662;</span>
+                        <div class="nav-dropdown-menu">
+                            <a href="https://docs.google.com/document/d/18xqdfYMs4grgCUE_XuIMtIX3BNDoziqOlROalJKKwHU/edit?usp=sharing" target="_blank">MLB</a>
+                            <a href="https://docs.google.com/document/d/1MFhVEh8_o3HHkygCh7FVF-YxtfXpXqzx6p47JbxlV84/edit?usp=sharing" target="_blank">AAA</a>
+                            <a href="https://docs.google.com/document/d/1fofzOyYYJYLgoyJCN4jSYhY5ykHUWIBMmbGlJYqweSE/edit?usp=sharing" target="_blank">AA</a>
+                            <a href="https://docs.google.com/document/d/1YZXAs2WUqybb2sdSwi4pzFvmhq-Biul8qG9dx97BzzQ/edit?usp=sharing" target="_blank">High-A</a>
+                        </div>
+                    </div>
+                    <a href="/bug-report">Report Bug</a>
+                    {{if or (eq .User.Role "admin") .IsCommish}}
+                        <a href="/admin/" style="color: #d9534f;">Commissioner</a>
+                    {{end}}
+                    <a href="/nba/home" style="margin-left: 20px; color: var(--fod-orange-accent);" title="Switch to Basketball">&#127936; NBA</a>
+                    <span style="margin-left: 20px; color: #888;">Hello, {{.User.Username}}</span>
+                    <button id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark mode" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; margin-left: 10px; color: #888; vertical-align: middle; padding: 2px 6px;">{{if eq .User.ThemePreference "dark"}}&#9788;{{else}}&#9790;{{end}}</button>
+                    <a href="/profile">My Profile</a>
+                    <a href="/logout">Logout</a>
+                {{else}}
+                    <a href="/league/rosters">Rosters</a>
+                    <a href="/free-agents">Free Agents</a>
+                    <a href="/standings">Standings</a>
+                    <a href="/login">Login</a>
+                {{end}}
             {{end}}
         </nav>
     </header>

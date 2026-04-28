@@ -265,10 +265,18 @@ func MarkResetTokenUsed(db *pgxpool.Pool, token string) error {
 	return err
 }
 
+// GetAdminLeagues returns the baseball league IDs where the user is a commissioner.
+// Baseball-only by design — NBA commissioner roles are returned via GetAdminLeaguesForSport.
 func GetAdminLeagues(db *pgxpool.Pool, userID string) ([]string, error) {
+	return GetAdminLeaguesForSport(db, userID, "mlb")
+}
+
+// GetAdminLeaguesForSport returns league IDs where the user is a commissioner for the given sport
+// ('mlb' for baseball, 'nba' for basketball). The sport column was added in migration 035.
+func GetAdminLeaguesForSport(db *pgxpool.Pool, userID, sport string) ([]string, error) {
 	rows, err := db.Query(context.Background(), `
-		SELECT league_id FROM league_roles WHERE user_id = $1 AND role = 'commissioner'
-	`, userID)
+		SELECT league_id FROM league_roles WHERE user_id = $1 AND role = 'commissioner' AND sport = $2
+	`, userID, sport)
 	if err != nil {
 		return nil, err
 	}
