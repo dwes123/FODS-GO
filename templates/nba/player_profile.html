@@ -1,76 +1,150 @@
-{{define "title"}}{{.Player.FirstName}} {{.Player.LastName}}{{end}}
+{{define "title"}}NBA / {{.Player.FirstName}} {{.Player.LastName}}{{end}}
 {{define "content"}}
-<div class="player-profile" style="background: white; padding: 1.5rem 2rem; border-radius: 8px; margin-bottom: 1.5rem;">
-    <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 1rem;">
-        <div>
-            <h1 style="margin: 0;">{{.Player.FirstName}} {{.Player.LastName}}</h1>
-            <p style="color: #666; margin: 0.5rem 0;">
-                <span class="pos-tag" style="background: #2E6DA4; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600;">{{.Player.Position}}</span>
-                {{if .Player.RealLifeTeam}}<span style="margin-left: 0.5rem;">{{.Player.RealLifeTeam}}</span>{{end}}
-                {{if .Player.JerseyNumber}}<span style="margin-left: 0.5rem;">#{{.Player.JerseyNumber}}</span>{{end}}
-                {{if .Player.OnTwoWay}}<span style="margin-left: 0.5rem; background: #FFD700; color: #4A4A4A; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">Two-Way</span>{{end}}
-                {{if .Player.OnTradeBlock}}<span style="margin-left: 0.5rem; background: #E87426; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">Trade Block</span>{{end}}
-                {{if .Player.InjuryStatus}}<span style="margin-left: 0.5rem; color: #cf1322;">{{.Player.InjuryStatus}}</span>{{end}}
+
+<header class="tc-page-header">
+    <div class="tc-page-header__id">MOD/01.A<br><strong>PLAYER INTEL</strong></div>
+    <h1 class="tc-page-header__title">{{.Player.FirstName}} <em>{{.Player.LastName}}</em></h1>
+    <div class="tc-page-header__meta">
+        {{if .Player.OnTradeBlock}}<div><span class="tc-tag tc-tag--amber">TRADE BLOCK</span></div>{{end}}
+        {{if .Player.OnTwoWay}}<div style="margin-top: 4px;"><span class="tc-tag tc-tag--cyan">TWO-WAY</span></div>{{end}}
+        {{if .Player.InjuryStatus}}<div style="margin-top: 4px;"><span class="tc-tag tc-tag--danger">{{.Player.InjuryStatus}}</span></div>{{end}}
+        {{if not (or .Player.OnTradeBlock .Player.OnTwoWay .Player.InjuryStatus)}}
+            <div><span class="tc-status"><span class="tc-pulse-dot"></span>NOMINAL</span></div>
+        {{end}}
+    </div>
+</header>
+
+<div class="tc-stagger" style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 1.5rem;">
+    <div class="tc-panel" style="--i: 0; border: none;">
+        <div class="tc-panel__head"><span>SUBJECT · BIO</span><strong>{{if .Player.NBAID}}NBA-{{deref .Player.NBAID}}{{else}}UNREGISTERED{{end}}</strong></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1.5rem 1.25rem;">
+            <div class="tc-stat">
+                <span class="tc-stat__label">Position</span>
+                <span class="tc-stat__value tc-stat__value--cyan">{{if .Player.Position}}{{.Player.Position}}{{else}}&mdash;{{end}}</span>
+            </div>
+            {{if .Player.Age}}
+            <div class="tc-stat">
+                <span class="tc-stat__label">Age</span>
+                <span class="tc-stat__value">{{deref .Player.Age}}<span class="tc-stat__unit">YR</span></span>
+            </div>
+            {{end}}
+            {{if .Player.HeightInches}}
+            <div class="tc-stat">
+                <span class="tc-stat__label">Height</span>
+                <span class="tc-stat__value">{{deref .Player.HeightInches}}<span class="tc-stat__unit">IN</span></span>
+            </div>
+            {{end}}
+            {{if .Player.WeightLbs}}
+            <div class="tc-stat">
+                <span class="tc-stat__label">Weight</span>
+                <span class="tc-stat__value">{{deref .Player.WeightLbs}}<span class="tc-stat__unit">LB</span></span>
+            </div>
+            {{end}}
+            {{if .Player.RealLifeTeam}}
+            <div class="tc-stat">
+                <span class="tc-stat__label">Real-Life Team</span>
+                <span class="tc-stat__value tc-stat__value--cyan" style="font-size: 1.5rem;">{{.Player.RealLifeTeam}}</span>
+            </div>
+            {{end}}
+            {{if .Player.College}}
+            <div class="tc-stat">
+                <span class="tc-stat__label">College</span>
+                <span class="tc-stat__value" style="font-size: 1.1rem;">{{.Player.College}}</span>
+            </div>
+            {{end}}
+            {{if .Player.DraftYear}}
+            <div class="tc-stat">
+                <span class="tc-stat__label">Draft</span>
+                <span class="tc-stat__value">{{deref .Player.DraftYear}}<span class="tc-stat__unit">#{{deref .Player.DraftPick}}</span></span>
+            </div>
+            {{end}}
+        </div>
+    </div>
+    <div class="tc-panel tc-panel--accent" style="--i: 1; border: none;">
+        <div class="tc-panel__head"><span>OWNERSHIP · STATUS</span><strong>{{if .Player.TeamName}}ROSTERED{{else}}FREE AGENT{{end}}</strong></div>
+        {{if .Player.TeamName}}
+            <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.4rem;">CURRENT FRANCHISE</p>
+            <p class="tc-stat__value tc-stat__value--cyan" style="font-size: 1.6rem; margin-bottom: 1rem;">{{.Player.TeamName}}</p>
+            {{if .TeamIDStr}}
+                <a href="/nba/roster/{{.TeamIDStr}}" class="tc-btn">VIEW ROSTER &rsaquo;</a>
+            {{end}}
+            {{if .IsOwner}}
+                <p style="margin-top: 1rem; font-family: var(--tc-mono); font-size: 0.7rem; color: var(--tc-success); letter-spacing: 0.16em; text-transform: uppercase;">
+                    <span class="tc-pulse-dot"></span> &nbsp;YOU OWN THIS TEAM
+                </p>
+            {{end}}
+        {{else}}
+            <p style="font-family: var(--tc-mono); font-size: 0.7rem; color: var(--tc-amber); letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 1rem;">
+                <span class="tc-pulse-dot tc-pulse-dot--amber"></span> &nbsp;AVAILABLE FOR ACQUISITION
             </p>
-        </div>
-        <div style="text-align: right;">
-            {{if .Player.TeamName}}
-                <p style="margin: 0; color: #666;">Owned by</p>
-                <p style="margin: 0; font-size: 1.1em;"><strong>{{.Player.TeamName}}</strong></p>
-                {{if .TeamIDStr}}<a href="/nba/roster/{{.TeamIDStr}}">View Roster &rsaquo;</a>{{end}}
-            {{else}}
-                <p style="margin: 0; color: #888; font-style: italic;">Free Agent</p>
-            {{end}}
-        </div>
+            <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5;">
+                Bidding mechanics ship in Slice 03. Once live, this panel will surface the live bid window,
+                competing offers, and (for restricted FAs) the 48-hour match clock.
+            </p>
+        {{end}}
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-    <div class="meta-card" style="background: white; padding: 1.5rem; border-radius: 8px;">
-        <h2>Bio</h2>
-        <table style="width: 100%; border-collapse: collapse;">
-            {{if .Player.Age}}<tr><td style="color: #666; padding: 6px 0;">Age</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.Age}}</td></tr>{{end}}
-            {{if .Player.HeightInches}}<tr><td style="color: #666; padding: 6px 0;">Height</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.HeightInches}}"</td></tr>{{end}}
-            {{if .Player.WeightLbs}}<tr><td style="color: #666; padding: 6px 0;">Weight</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.WeightLbs}} lbs</td></tr>{{end}}
-            {{if .Player.College}}<tr><td style="color: #666; padding: 6px 0;">College</td><td style="text-align: right; padding: 6px 0;">{{.Player.College}}</td></tr>{{end}}
-            {{if .Player.DraftYear}}<tr><td style="color: #666; padding: 6px 0;">Draft</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.DraftYear}} #{{deref .Player.DraftPick}}</td></tr>{{end}}
-            {{if .Player.NBAID}}<tr><td style="color: #666; padding: 6px 0;">NBA ID</td><td style="text-align: right; padding: 6px 0;">{{deref .Player.NBAID}}</td></tr>{{end}}
-        </table>
+<section style="margin-bottom: 2rem;">
+    <div class="tc-section-header">
+        <span class="tc-section-header__id">MOD/01.B</span>
+        <span class="tc-section-header__title">Contract Strip · 2026 → 2040</span>
+        <span class="tc-section-header__rule"></span>
+        <span class="tc-section-header__count">{{if .HasContracts}}LIVE DATA{{else}}NO CONTRACT ON RECORD{{end}}</span>
     </div>
 
-    <div class="meta-card" style="background: white; padding: 1.5rem; border-radius: 8px;">
-        <h2>Contracts</h2>
-        <table style="width: 100%; border-collapse: collapse;">
-            {{$annotations := .Player.Annotations}}
-            {{range .ContractYears}}
-                {{$y := .}}
-                {{$val := index $.Player.Contracts $y}}
-                {{if $val}}
-                    <tr>
-                        <td style="color: #666; padding: 4px 0;">{{$y}}</td>
-                        <td style="text-align: right; padding: 4px 0;">
-                            {{$val}}
-                            {{if $annotations}}
-                                {{$ann := index $annotations (printf "%d" $y)}}
-                                {{if $ann}}
-                                    {{range $ann}}
-                                        <span style="display: inline-block; margin-left: 4px; background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 3px; font-size: 0.8em;">{{.}}</span>
-                                    {{end}}
-                                {{end}}
-                            {{end}}
-                        </td>
-                    </tr>
+    <div class="tc-contract-strip">
+        {{$annotations := .Player.Annotations}}
+        {{range .ContractYears}}
+            {{$y := .}}
+            {{$val := index $.Player.Contracts $y}}
+            {{$ann := index $annotations (printf "%d" $y)}}
+            {{$class := "tc-contract-cell"}}
+            {{if $val}}
+                {{if eq $val "Team Option"}}{{$class = "tc-contract-cell tc-contract-cell--option"}}{{end}}
+                {{if eq $val "Player Option"}}{{$class = "tc-contract-cell tc-contract-cell--option"}}{{end}}
+                {{if eq $val "Qualifying Offer"}}{{$class = "tc-contract-cell tc-contract-cell--option"}}{{end}}
+                {{if eq $val "Qualifying Offer Extended"}}{{$class = "tc-contract-cell tc-contract-cell--option"}}{{end}}
+                {{if eq $val "UFA Year"}}{{$class = "tc-contract-cell tc-contract-cell--ufa"}}{{end}}
+                {{if hasPrefix $val "$"}}{{$class = "tc-contract-cell tc-contract-cell--filled"}}{{end}}
+            {{end}}
+            <div class="{{$class}}">
+                <span class="tc-contract-cell__year">'{{printf "%02d" (sub $y 2000)}}</span>
+                <span class="tc-contract-cell__value">{{if $val}}{{$val}}{{else}}&mdash;{{end}}</span>
+                {{if $ann}}<span class="tc-contract-cell__note">{{len $ann}}</span>{{end}}
+            </div>
+        {{end}}
+    </div>
+
+    {{if .HasContracts}}
+        <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; font-family: var(--tc-mono); font-size: 0.7rem; color: var(--tc-text-dim); letter-spacing: 0.14em; text-transform: uppercase;">
+            <span><span style="display: inline-block; width: 10px; height: 10px; background: rgba(0,240,255,0.4); border: 1px solid var(--tc-cyan-soft); vertical-align: middle; margin-right: 4px;"></span>Guaranteed</span>
+            <span><span style="display: inline-block; width: 10px; height: 10px; background: rgba(255,176,0,0.3); border: 1px solid var(--tc-amber); vertical-align: middle; margin-right: 4px;"></span>Option / QO</span>
+            <span><span style="display: inline-block; width: 10px; height: 10px; border: 1px dashed var(--tc-text-faint); vertical-align: middle; margin-right: 4px;"></span>UFA Year</span>
+        </div>
+    {{end}}
+
+    {{if $annotations}}
+        <div style="margin-top: 1.25rem; padding: 0.85rem 1rem; background: rgba(255, 176, 0, 0.04); border-left: 3px solid var(--tc-amber);">
+            <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-amber); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.5rem;">CONTRACT FLAGS</p>
+            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px;">
+                {{range $y, $list := $annotations}}
+                    {{range $list}}
+                        <li style="font-family: var(--tc-mono); font-size: 0.78rem; color: var(--tc-text);">
+                            <span style="color: var(--tc-amber); margin-right: 8px;">▸</span>
+                            <span style="color: var(--tc-text-dim); margin-right: 8px;">{{$y}}</span>
+                            {{.}}
+                        </li>
+                    {{end}}
                 {{end}}
-            {{end}}
-            {{if not .HasContracts}}
-                <tr><td colspan="2" style="color: #888; font-style: italic; padding: 0.5rem 0;">No contracts on record.</td></tr>
-            {{end}}
-        </table>
-    </div>
+            </ul>
+        </div>
+    {{end}}
+</section>
+
+<div style="display: flex; gap: 0.75rem; flex-wrap: wrap; padding-top: 1rem; border-top: 1px solid var(--tc-line);">
+    <a href="/nba/free-agents" class="tc-btn tc-btn--ghost">&laquo; BACK TO SCAN</a>
+    {{if .TeamIDStr}}<a href="/nba/roster/{{.TeamIDStr}}" class="tc-btn">VIEW TEAM ROSTER &rsaquo;</a>{{end}}
 </div>
 
-<div style="margin-bottom: 1.5rem;">
-    <a href="/nba/free-agents" class="button" style="background: #6c757d;">&laquo; Back to Free Agents</a>
-    {{if .TeamIDStr}}<a href="/nba/roster/{{.TeamIDStr}}" class="button" style="margin-left: 0.5rem;">View Team Roster</a>{{end}}
-</div>
 {{end}}

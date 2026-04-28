@@ -1,35 +1,98 @@
-{{define "title"}}NBA Home{{end}}
+{{define "title"}}NBA / HOME{{end}}
 {{define "content"}}
-<div class="welcome-banner" style="background: linear-gradient(135deg, #2E6DA4 0%, #1a4a7a 100%); color: white; padding: 2.5rem 2rem; border-radius: 8px; margin-bottom: 2rem;">
-    <h1 style="color: white; margin-top: 0; border: none;">NBA League — Coming Soon</h1>
-    <p style="font-size: 1.1rem; max-width: 700px; line-height: 1.6;">
-        The NBA fantasy league is being built out. Player import, free agency, trades, and the AI commissioner agent
-        will arrive in upcoming releases. You are logged in and your account works on both the baseball and basketball
-        sides of the platform.
+
+<section class="tc-hero tc-bracket">
+    <span class="tc-bracket-bl"></span><span class="tc-bracket-br"></span>
+    <div class="tc-hero__sweep"></div>
+    <div class="tc-hero__caption">
+        <span class="tc-pulse-dot tc-pulse-dot--cyan"></span>
+        FOD/NBA · TELEMETRY CONSOLE · v0.3 · ONLINE
+    </div>
+    <h1 class="tc-hero__title">FRONT OFFICE<br><em>BASKETBALL</em></h1>
+    <p class="tc-hero__subtitle">
+        Dynasty Association command surface. Player intelligence, free-agent scan, roster ops,
+        and trade market &mdash; all rendered live from a single source of truth. The platform
+        is in early deployment; modules ship in numbered slices.
     </p>
     {{if .User}}
-        <p style="margin-top: 1.5rem; color: #cce4f7;">
-            Hello, <strong style="color: white;">{{.User.Username}}</strong> — you're connected to the NBA app.
+        <p class="tc-hero__subtitle" style="margin-top: 1rem; color: var(--tc-text-dim); font-family: var(--tc-mono); font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase;">
+            User <span style="color: var(--tc-cyan);">/{{.User.Username}}</span> &middot; Auth verified &middot; Cross-sport account
         </p>
     {{end}}
+</section>
+
+<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 2rem;">
+    <div class="tc-panel" style="--i: 0; border: none;">
+        <div class="tc-panel__head"><span>MOD/01 · Player Intel</span><strong>READY</strong></div>
+        <p class="tc-panel__title">Free Agent Scan</p>
+        <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem;">
+            Search the available pool by name and position. Pagination, status flags, and 2026 cap impact
+            visible at a glance.
+        </p>
+        <a href="/nba/free-agents" class="tc-btn tc-btn--primary">OPEN SCAN &rsaquo;</a>
+    </div>
+    <div class="tc-panel" style="--i: 1; border: none;">
+        <div class="tc-panel__head"><span>MOD/02 · Franchise Ops</span><strong>READY</strong></div>
+        <p class="tc-panel__title">League Rosters</p>
+        <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem;">
+            All 30 franchises grouped by conference and division. Click any franchise card to drill
+            into its full roster split.
+        </p>
+        <a href="/nba/league/rosters" class="tc-btn">VIEW LEAGUE &rsaquo;</a>
+    </div>
+    <div class="tc-panel" style="--i: 2; border: none;">
+        <div class="tc-panel__head"><span>MOD/06 · Market Watch</span><strong>READY</strong></div>
+        <p class="tc-panel__title">Trade Block</p>
+        <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem;">
+            Players currently flagged for trade across all 30 franchises. Grouped by team, sortable
+            by salary and position.
+        </p>
+        <a href="/nba/trade-block" class="tc-btn">OPEN MARKET &rsaquo;</a>
+    </div>
 </div>
 
-<div class="home-section" style="background: white; padding: 1.5rem 2rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-    <h2>What's coming</h2>
-    <ul style="line-height: 1.9;">
-        <li><strong>Slice 2:</strong> Player and team data imported from stats.nba.com — browse free agents, view rosters and player profiles.</li>
-        <li><strong>Slice 3:</strong> Free agent bidding (mechanics TBD).</li>
-        <li><strong>Slice 4:</strong> Trades, waivers, and roster moves.</li>
-        <li><strong>Slice 5:</strong> AI commissioner agent at <code>/admin/nba-agent</code>.</li>
-        <li><strong>Slice 6:</strong> Automatic stats and injury sync from NBA.</li>
-        <li><strong>Slice 7:</strong> Unified <code>/home</code> showing all your teams across both sports.</li>
-    </ul>
+<div class="tc-section-header">
+    <span class="tc-section-header__id">MOD/QUEUE</span>
+    <span class="tc-section-header__title">Modules Pending Deployment</span>
+    <span class="tc-section-header__rule"></span>
+    <span class="tc-section-header__count">06 IN QUEUE</span>
 </div>
 
-<div class="home-section" style="background: white; padding: 1.5rem 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-    <h2>Switch back</h2>
-    <p>
-        <a href="/home" class="button">Go to Baseball Home</a>
-    </p>
+<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">
+    <div class="tc-panel" style="--i: 0;">
+        <div class="tc-panel__head"><span>SLICE 03</span><strong style="color: var(--tc-amber);">QUEUED</strong></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Free Agent Bidding</p>
+        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">G-League auction + Agent offer queue. Awaiting CBA-spec sign-off.</p>
+    </div>
+    <div class="tc-panel" style="--i: 1;">
+        <div class="tc-panel__head"><span>SLICE 04</span><strong style="color: var(--tc-amber);">QUEUED</strong></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Trades &amp; Waivers</p>
+        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">Salary matching, retention, sign-and-trade, stretch provision.</p>
+    </div>
+    <div class="tc-panel" style="--i: 2;">
+        <div class="tc-panel__head"><span>SLICE 05</span><strong style="color: var(--tc-amber);">QUEUED</strong></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Commissioner Agent</p>
+        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">NBA-aware Gemini model with cap, exception, and roster tools.</p>
+    </div>
+    <div class="tc-panel" style="--i: 3;">
+        <div class="tc-panel__head"><span>SLICE 06</span><strong style="color: var(--tc-amber);">QUEUED</strong></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Stats &amp; Injury Sync</p>
+        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">Daily game-log + injury-status pull from stats.nba.com.</p>
+    </div>
+    <div class="tc-panel" style="--i: 4;">
+        <div class="tc-panel__head"><span>SLICE 07</span><strong style="color: var(--tc-amber);">QUEUED</strong></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Unified Home</p>
+        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">Cross-sport dashboard merging baseball &amp; basketball teams.</p>
+    </div>
+    <div class="tc-panel" style="--i: 5;">
+        <div class="tc-panel__head"><span>EXT</span><strong style="color: var(--tc-amber);">QUEUED</strong></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Player Data Import</p>
+        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">Importer skeleton wired; awaiting source feed activation.</p>
+    </div>
 </div>
+
+<div class="tc-footer-serial">
+    FOD/NBA <span>·</span> TELEMETRY CONSOLE <span>·</span> SLICE 02 LIVE <span>·</span> {{if .User}}SESSION {{.User.Username}}{{else}}NO SESSION{{end}}
+</div>
+
 {{end}}

@@ -1,37 +1,51 @@
-{{define "title"}}NBA Trade Block{{end}}
+{{define "title"}}NBA / MARKET WATCH{{end}}
 {{define "content"}}
-<h1>NBA Trade Block</h1>
+
+<header class="tc-page-header">
+    <div class="tc-page-header__id">MOD/06<br><strong>MARKET WATCH</strong></div>
+    <h1 class="tc-page-header__title">Trade <em>Block</em></h1>
+    <div class="tc-page-header__meta">
+        <div><span class="tc-pulse-dot tc-pulse-dot--amber"></span>{{if .Total}}MARKET ACTIVE{{else}}NO LISTINGS{{end}}</div>
+        <div style="margin-top: 4px;">{{.Total}} ON BLOCK</div>
+    </div>
+</header>
 
 {{if .Groups}}
-    <p style="color: #666; margin-bottom: 1rem;">{{.Total}} players currently on the trade block</p>
-    {{range .Groups}}
-        <div class="trade-block-team" style="background: white; padding: 1rem 1.5rem; border-radius: 6px; margin-bottom: 1rem;">
-            <h2 style="margin-top: 0;">{{.TeamName}}</h2>
-            <table class="fantasy-table-base">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Pos</th>
-                        <th>NBA Team</th>
-                        <th>2026 Contract</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{range .Players}}
+    <div class="tc-stagger" style="display: grid; gap: 1.25rem;">
+        {{range $i, $g := .Groups}}
+            <section class="tc-panel" style="--i: {{$i}};">
+                <div class="tc-panel__head">
+                    <span>FRANCHISE · {{$g.TeamName}}</span>
+                    <strong>{{len $g.Players}} LISTED</strong>
+                </div>
+                <table class="tc-table">
+                    <thead>
                         <tr>
-                            <td><a href="/nba/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a></td>
-                            <td>{{.Position}}</td>
-                            <td>{{.RealLifeTeam}}</td>
-                            <td>{{index .Contracts 2026}}</td>
+                            <th>Player</th>
+                            <th>Pos</th>
+                            <th>Real-life Tm</th>
+                            <th style="text-align: right;">2026 Cap</th>
                         </tr>
-                    {{end}}
-                </tbody>
-            </table>
-        </div>
-    {{end}}
+                    </thead>
+                    <tbody>
+                        {{range .Players}}
+                            <tr>
+                                <td><a href="/nba/player/{{.ID}}" style="font-family: var(--tc-sans); font-size: 0.95rem; font-weight: 500;">{{.FirstName}} {{.LastName}}</a></td>
+                                <td><span class="tc-tag tc-tag--cyan">{{.Position}}</span></td>
+                                <td style="color: var(--tc-text-mid);">{{if .RealLifeTeam}}{{.RealLifeTeam}}{{else}}&mdash;{{end}}</td>
+                                <td style="text-align: right;">{{if index .Contracts 2026}}{{index .Contracts 2026}}{{else}}<span style="color: var(--tc-text-faint);">&mdash;</span>{{end}}</td>
+                            </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </section>
+        {{end}}
+    </div>
 {{else}}
-    <div class="empty-state" style="background: white; padding: 2.5rem; text-align: center; border-radius: 6px; color: #888;">
-        <p>No players currently on the trade block.</p>
+    <div class="tc-empty">
+        <p><strong>MARKET QUIET.</strong></p>
+        <p>No players currently on the trade block.<span class="tc-cursor"></span></p>
     </div>
 {{end}}
+
 {{end}}

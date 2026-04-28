@@ -41,17 +41,36 @@ func RosterHandler(userDB, nbaDB *pgxpool.Pool) gin.HandlerFunc {
 			}
 		}
 
+		// Pre-compute capacity meter percentages (0-100, clamped). Templates can't divide.
+		pct := func(n, limit int) int {
+			if limit <= 0 {
+				return 0
+			}
+			p := (n * 100) / limit
+			if p > 100 {
+				p = 100
+			}
+			return p
+		}
+		standardPct := pct(len(standard), sport.NBAStandardRosterLimit)
+		twoWayPct := pct(len(twoWay), sport.NBATwoWayLimit)
+		// Inactive has no fixed cap; treat 8 as "a lot" for visual purposes.
+		inactivePct := pct(len(inactive), 8)
+
 		handlers.RenderTemplate(c, "nba/roster.html", gin.H{
-			"Sport":     sport.SportNBA,
-			"User":      user,
-			"IsCommish": len(adminLeagues) > 0 || user.Role == "admin",
-			"IsOwner":   isOwner,
-			"Team":      team,
-			"Standard":  standard,
-			"TwoWay":    twoWay,
-			"Inactive":  inactive,
+			"Sport":         sport.SportNBA,
+			"User":          user,
+			"IsCommish":     len(adminLeagues) > 0 || user.Role == "admin",
+			"IsOwner":       isOwner,
+			"Team":          team,
+			"Standard":      standard,
+			"TwoWay":        twoWay,
+			"Inactive":      inactive,
 			"StandardLimit": sport.NBAStandardRosterLimit,
 			"TwoWayLimit":   sport.NBATwoWayLimit,
+			"StandardPct":   standardPct,
+			"TwoWayPct":     twoWayPct,
+			"InactivePct":   inactivePct,
 		})
 	}
 }

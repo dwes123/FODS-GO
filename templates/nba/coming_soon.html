@@ -1,11 +1,17 @@
-{{define "title"}}{{.PageTitle}}{{end}}
+{{define "title"}}NBA / {{.PageTitle}}{{end}}
 {{define "content"}}
-<div style="background: white; padding: 2.5rem; border-radius: 8px; text-align: center; max-width: 700px; margin: 2rem auto;">
-    <h1 style="margin-top: 0;">{{.PageTitle}}</h1>
-    <p style="font-size: 1.05em; color: #666; line-height: 1.6;">{{.Description}}</p>
-    <p style="margin-top: 2rem;">
-        <a href="/nba/home" class="button">&laquo; NBA Home</a>
-        <a href="/nba/free-agents" class="button" style="margin-left: 0.5rem; background: #2E6DA4;">Free Agents</a>
-    </p>
+
+<div class="tc-pending tc-bracket">
+    <span class="tc-bracket-bl"></span><span class="tc-bracket-br"></span>
+    <p class="tc-pending__id"><span class="tc-pulse-dot tc-pulse-dot--amber"></span>&nbsp; MODULE PENDING DEPLOYMENT</p>
+    <h1 class="tc-pending__title">{{.PageTitle}}</h1>
+    <p class="tc-pending__body">{{.Description}}</p>
+    <p class="tc-pending__progress">// AWAITING SLICE EXECUTION<span class="tc-cursor"></span></p>
+
+    <div style="margin-top: 2.5rem; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+        <a href="/nba/home" class="tc-btn tc-btn--ghost">&laquo; CONSOLE HOME</a>
+        <a href="/nba/free-agents" class="tc-btn tc-btn--primary">FA SCAN &rsaquo;</a>
+    </div>
 </div>
+
 {{end}}
