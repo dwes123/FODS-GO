@@ -1,0 +1,187 @@
+{{define "title"}}NBA / OFFER · {{.Offer.PlayerName}}{{end}}
+{{define "content"}}
+
+<header class="tc-page-header">
+    <div class="tc-page-header__id">MOD/03.B<br><strong>OFFER</strong></div>
+    <h1 class="tc-page-header__title"><em>{{.Offer.PlayerName}}</em></h1>
+    <div class="tc-page-header__meta">
+        <div>{{template "tcOfferStatusTag" .Offer.Status}}</div>
+        {{if .Offer.MatchWindowClosesAt}}<div style="margin-top: 4px;" class="tc-stat__sub">Match closes <span style="color: var(--tc-amber);">{{.Offer.MatchWindowClosesAt.Format "Jan 2 15:04 MST"}}</span></div>{{end}}
+    </div>
+</header>
+
+<div class="tc-stagger" style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 1.5rem;">
+    <div class="tc-panel" style="--i: 0; border: none;">
+        <div class="tc-panel__head"><span>TERMS</span><strong>{{.Offer.ExceptionUsed}}</strong></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem 1.5rem;">
+            <div class="tc-stat">
+                <span class="tc-stat__label">Years</span>
+                <span class="tc-stat__value tc-stat__value--cyan">{{.Offer.Years}}</span>
+            </div>
+            <div class="tc-stat">
+                <span class="tc-stat__label">Starting Salary</span>
+                <span class="tc-stat__value">${{formatMoney .Offer.StartingSalary}}</span>
+            </div>
+            <div class="tc-stat">
+                <span class="tc-stat__label">Raise %</span>
+                <span class="tc-stat__value">{{printf "%.1f" .Offer.RaisePct}}%</span>
+            </div>
+            <div class="tc-stat">
+                <span class="tc-stat__label">AAV</span>
+                <span class="tc-stat__value">${{formatMoney .Offer.AAV}}</span>
+            </div>
+            <div class="tc-stat">
+                <span class="tc-stat__label">Total Value</span>
+                <span class="tc-stat__value tc-stat__value--amber">${{formatMoney .Offer.TotalValue}}</span>
+            </div>
+        </div>
+
+        <h3 style="font-family: var(--tc-mono); font-size: 0.7rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 1.5rem 0 0.5rem;">YEAR-BY-YEAR</h3>
+        <table class="tc-table">
+            <thead><tr><th>Season</th><th style="text-align: right;">Salary</th></tr></thead>
+            <tbody>
+                {{range $i, $sal := .Offer.AnnualSalaries}}
+                    <tr><td>2026-{{add 27 $i}}</td><td style="text-align: right;">${{formatMoney $sal}}</td></tr>
+                {{end}}
+            </tbody>
+        </table>
+
+        {{if .Offer.Notes}}
+            <div style="margin-top: 1rem; padding: 0.75rem 1rem; background: var(--tc-bg-elev); border-left: 3px solid var(--tc-line-bright); font-family: var(--tc-mono); font-size: 0.85rem; color: var(--tc-text);">
+                {{.Offer.Notes}}
+            </div>
+        {{end}}
+    </div>
+
+    <div class="tc-panel" style="--i: 1; border: none;">
+        <div class="tc-panel__head"><span>PARTIES</span></div>
+        <p class="tc-stat__label">Offering Team</p>
+        <p class="tc-stat__value tc-stat__value--cyan" style="font-size: 1.15rem; margin: 0.2rem 0 1rem;">{{.Offer.OfferingTeamName}}</p>
+
+        <p class="tc-stat__label">Player's Agency</p>
+        <p class="tc-stat__value" style="font-size: 1.05rem; margin: 0.2rem 0 1rem;">{{if .Offer.AgencyName}}{{.Offer.AgencyName}}{{else}}<span style="color: var(--tc-text-faint);">unassigned</span>{{end}}</p>
+
+        {{if .Offer.BirdRightsTeamName}}
+            <p class="tc-stat__label">Bird-Rights Team</p>
+            <p class="tc-stat__value" style="font-size: 1.05rem; margin: 0.2rem 0 1rem; color: var(--tc-amber);">{{.Offer.BirdRightsTeamName}}</p>
+            <p class="tc-stat__sub">Has 48 hours to match if agent accepts.</p>
+        {{end}}
+
+        {{if .Parent}}
+            <p class="tc-stat__label" style="margin-top: 1rem;">Counter Of</p>
+            <p style="margin: 0.2rem 0;"><a href="/nba/offers/{{.Parent.ID}}">Original offer</a></p>
+        {{end}}
+    </div>
+</div>
+
+{{/* Action panel — visible only when current user can act on the current state */}}
+{{if .CanAct}}
+<section class="tc-panel" style="margin-bottom: 1.5rem; border-top: 2px solid var(--tc-cyan);">
+    <div class="tc-panel__head"><span>ACTIONS</span><strong>{{.Offer.Status}}</strong></div>
+
+    {{if and .CanAgent (eq .Offer.Status "pending_agent")}}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <form method="POST" action="/nba/offers/{{.Offer.ID}}/agent-accept">
+                <p style="font-family: var(--tc-mono); font-size: 0.7rem; color: var(--tc-text-dim); letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 0.25rem;">Accept</p>
+                <textarea name="notes" placeholder="Optional acceptance notes" rows="2" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
+                <button type="submit" class="tc-btn tc-btn--primary">ACCEPT OFFER &rsaquo;</button>
+            </form>
+            <form method="POST" action="/nba/offers/{{.Offer.ID}}/agent-reject">
+                <p style="font-family: var(--tc-mono); font-size: 0.7rem; color: var(--tc-text-dim); letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 0.25rem;">Reject</p>
+                <textarea name="notes" placeholder="Reason for declining" rows="2" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
+                <button type="submit" class="tc-btn">REJECT OFFER</button>
+            </form>
+        </div>
+
+        <details style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--tc-line);">
+            <summary style="cursor: pointer; font-family: var(--tc-mono); font-size: 0.78rem; color: var(--tc-amber); letter-spacing: 0.14em; text-transform: uppercase;">Counter Offer</summary>
+            <form method="POST" action="/nba/offers/{{.Offer.ID}}/agent-counter" style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                <div class="tc-filter-bar__field"><label class="tc-filter-bar__label">Years</label><input type="number" name="years" min="1" max="5" value="{{.Offer.Years}}" required></div>
+                <div class="tc-filter-bar__field"><label class="tc-filter-bar__label">Starting Salary</label><input type="number" name="starting_salary" min="0" step="1" value="{{.Offer.StartingSalary}}" required></div>
+                <div class="tc-filter-bar__field"><label class="tc-filter-bar__label">Raise %</label><input type="number" name="raise_pct" min="0" max="8" step="0.1" value="{{printf "%.1f" .Offer.RaisePct}}"></div>
+                <div class="tc-filter-bar__field" style="grid-column: span 3;"><label class="tc-filter-bar__label">Exception</label>
+                    <select name="exception_used" required>
+                        <option {{if eq .Offer.ExceptionUsed "Bird Rights"}}selected{{end}}>Bird Rights</option>
+                        <option {{if eq .Offer.ExceptionUsed "Cap Space"}}selected{{end}}>Cap Space</option>
+                        <option {{if eq .Offer.ExceptionUsed "MLE"}}selected{{end}}>MLE</option>
+                        <option {{if eq .Offer.ExceptionUsed "TPMLE"}}selected{{end}}>TPMLE</option>
+                        <option {{if eq .Offer.ExceptionUsed "BAE"}}selected{{end}}>BAE</option>
+                        <option {{if eq .Offer.ExceptionUsed "Min"}}selected{{end}}>Min</option>
+                        <option {{if eq .Offer.ExceptionUsed "Sign-and-Trade"}}selected{{end}}>Sign-and-Trade</option>
+                        <option {{if eq .Offer.ExceptionUsed "Other"}}selected{{end}}>Other</option>
+                    </select>
+                </div>
+                <div class="tc-filter-bar__field" style="grid-column: span 3;"><label class="tc-filter-bar__label">Notes</label><textarea name="notes" rows="2"></textarea></div>
+                <button type="submit" class="tc-btn" style="grid-column: span 3;">SEND COUNTER &rsaquo;</button>
+            </form>
+        </details>
+    {{end}}
+
+    {{if and .CanOffering (eq .Offer.Status "pending_team")}}
+        <p class="tc-stat__sub" style="margin: 0 0 0.75rem;">Agent has counter-offered. Accept new terms or reject.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <form method="POST" action="/nba/offers/{{.Offer.ID}}/team-accept-counter">
+                <textarea name="notes" placeholder="Optional notes" rows="2" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
+                <button type="submit" class="tc-btn tc-btn--primary">ACCEPT COUNTER &rsaquo;</button>
+            </form>
+            <form method="POST" action="/nba/offers/{{.Offer.ID}}/team-reject-counter">
+                <textarea name="notes" placeholder="Reason for declining" rows="2" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
+                <button type="submit" class="tc-btn">REJECT COUNTER</button>
+            </form>
+        </div>
+    {{end}}
+
+    {{if and .CanBirdTeam (eq .Offer.Status "awaiting_match")}}
+        <p class="tc-stat__sub" style="margin: 0 0 0.75rem;">Match these terms to keep the player, or let them walk.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <form method="POST" action="/nba/offers/{{.Offer.ID}}/match">
+                <textarea name="notes" placeholder="Optional match notes" rows="2" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
+                <button type="submit" class="tc-btn tc-btn--primary">MATCH OFFER &rsaquo;</button>
+            </form>
+            <form method="POST" action="/nba/offers/{{.Offer.ID}}/walk">
+                <textarea name="notes" placeholder="Optional walk notes" rows="2" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
+                <button type="submit" class="tc-btn">LET WALK</button>
+            </form>
+        </div>
+    {{end}}
+
+    {{if and .CanOffering (or (eq .Offer.Status "pending_agent") (eq .Offer.Status "pending_team") (eq .Offer.Status "agent_countered") (eq .Offer.Status "awaiting_match"))}}
+        <details style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--tc-line);">
+            <summary style="cursor: pointer; font-family: var(--tc-mono); font-size: 0.78rem; color: var(--tc-text-dim); letter-spacing: 0.14em; text-transform: uppercase;">Withdraw Offer</summary>
+            <form method="POST" action="/nba/offers/{{.Offer.ID}}/withdraw" style="margin-top: 0.75rem;">
+                <textarea name="notes" placeholder="Reason for withdrawal" rows="2" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
+                <button type="submit" class="tc-btn">WITHDRAW</button>
+            </form>
+        </details>
+    {{end}}
+</section>
+{{end}}
+
+{{/* Audit log */}}
+<section class="tc-panel">
+    <div class="tc-panel__head"><span>AUDIT LOG</span><strong>{{len .Events}} EVENTS</strong></div>
+    {{if .Events}}
+    <table class="tc-table">
+        <thead><tr><th style="width: 200px;">When</th><th>Action</th><th>Notes</th></tr></thead>
+        <tbody>
+            {{range .Events}}
+                <tr>
+                    <td>{{.CreatedAt.Format "Jan 2 15:04:05 MST"}}</td>
+                    <td><span class="tc-tag {{if eq .Action "submitted"}}tc-tag--cyan{{else if eq .Action "accepted"}}tc-tag--success{{else if eq .Action "rejected"}}tc-tag--danger{{else if eq .Action "countered"}}tc-tag--amber{{else if eq .Action "matched"}}tc-tag--success{{else if eq .Action "walked"}}tc-tag--amber{{else if eq .Action "finalized"}}tc-tag--success{{else if eq .Action "withdrawn"}}{{else if eq .Action "match_window_expired"}}tc-tag--amber{{end}}">{{.Action}}</span></td>
+                    <td>{{if .Notes}}{{.Notes}}{{else}}<span style="color: var(--tc-text-faint);">—</span>{{end}}</td>
+                </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p class="tc-stat__sub">No events yet.</p>
+    {{end}}
+</section>
+
+<div style="margin-top: 1.5rem;">
+    <a href="/nba/player/{{.Offer.PlayerID}}" class="tc-btn tc-btn--ghost">&laquo; PLAYER PROFILE</a>
+    <a href="/nba/agent" class="tc-btn">AGENT DASHBOARD &rsaquo;</a>
+</div>
+
+{{end}}
+

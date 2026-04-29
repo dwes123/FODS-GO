@@ -1,0 +1,70 @@
+{{define "title"}}NBA / OFFER · {{.Player.FirstName}} {{.Player.LastName}}{{end}}
+{{define "content"}}
+
+<header class="tc-page-header">
+    <div class="tc-page-header__id">MOD/03.A<br><strong>NEW OFFER</strong></div>
+    <h1 class="tc-page-header__title">Offer to <em>{{.Player.FirstName}} {{.Player.LastName}}</em></h1>
+    <div class="tc-page-header__meta">
+        {{if eq .Player.FAClass "Pending"}}<div><span class="tc-tag tc-tag--amber">PENDING FA</span></div>{{end}}
+        {{if eq .Player.FAClass "Free Agent"}}<div><span class="tc-tag tc-tag--success">FREE AGENT</span></div>{{end}}
+    </div>
+</header>
+
+<form method="POST" action="/nba/offers/submit" class="tc-panel" style="max-width: 760px;">
+    <div class="tc-panel__head"><span>OFFER TERMS</span><strong>{{.Player.Position}}</strong></div>
+    <input type="hidden" name="player_id" value="{{.Player.ID}}">
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="tc-filter-bar__field">
+            <label class="tc-filter-bar__label">Offering Team</label>
+            <select name="offering_team_id" required>
+                {{range .OwnedTeams}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+            </select>
+        </div>
+        <div class="tc-filter-bar__field">
+            <label class="tc-filter-bar__label">Exception</label>
+            <select name="exception_used" required>
+                <option value="Bird Rights">Bird Rights</option>
+                <option value="Cap Space">Cap Space</option>
+                <option value="MLE">Mid-Level (MLE)</option>
+                <option value="TPMLE">Tax-Payer MLE (TPMLE)</option>
+                <option value="BAE">Bi-Annual (BAE)</option>
+                <option value="Min">Minimum</option>
+                <option value="Sign-and-Trade">Sign-and-Trade</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div class="tc-filter-bar__field">
+            <label class="tc-filter-bar__label">Years (1–5)</label>
+            <input type="number" name="years" min="1" max="5" value="3" required>
+        </div>
+        <div class="tc-filter-bar__field">
+            <label class="tc-filter-bar__label">Starting Salary ($)</label>
+            <input type="number" name="starting_salary" min="0" step="1" required>
+        </div>
+        <div class="tc-filter-bar__field">
+            <label class="tc-filter-bar__label">Annual Raise %</label>
+            <input type="number" name="raise_pct" min="0" max="8" step="0.1" value="5">
+        </div>
+    </div>
+
+    <div class="tc-filter-bar__field" style="margin-top: 1rem;">
+        <label class="tc-filter-bar__label">Notes (visible to agent)</label>
+        <textarea name="notes" rows="3" style="width: 100%;"></textarea>
+    </div>
+
+    <div style="margin-top: 1.25rem; display: flex; gap: 0.5rem;">
+        <button type="submit" class="tc-btn tc-btn--primary">SEND OFFER &rsaquo;</button>
+        <a href="/nba/player/{{.Player.ID}}" class="tc-btn tc-btn--ghost">CANCEL</a>
+    </div>
+
+    <p style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--tc-line); color: var(--tc-text-dim); font-family: var(--tc-mono); font-size: 0.7rem; line-height: 1.6;">
+        On submit: offer goes to <strong style="color: var(--tc-cyan);">the player's Agency</strong> for review.
+        Agent can accept, reject, or counter. {{if eq .Player.FAClass "Pending"}}<br>
+        Because this player is a Pending FA{{if .Player.TeamName}} (currently rostered to {{.Player.TeamName}}){{end}},
+        if the agent accepts, that team gets a <strong style="color: var(--tc-amber);">48-hour match window</strong>
+        before the player can sign with you.{{end}}
+    </p>
+</form>
+
+{{end}}

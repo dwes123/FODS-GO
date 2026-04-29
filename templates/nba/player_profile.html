@@ -79,9 +79,10 @@
             <p style="font-family: var(--tc-mono); font-size: 0.7rem; color: var(--tc-amber); letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 1rem;">
                 <span class="tc-pulse-dot tc-pulse-dot--amber"></span> &nbsp;AVAILABLE FOR ACQUISITION
             </p>
-            <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5;">
-                Bidding mechanics ship in Slice 03. Once live, this panel will surface the live bid window,
-                competing offers, and (for restricted FAs) the 48-hour match clock.
+            <a href="/nba/offer/new?player={{.Player.ID}}" class="tc-btn tc-btn--primary">SUBMIT OFFER &rsaquo;</a>
+            <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5; margin-top: 1rem;">
+                Offer goes to the player's agency for review.
+                {{if eq .Player.FAClass "Pending"}}If accepted, the bird-rights team has 48 hours to match.{{end}}
             </p>
         {{end}}
     </div>

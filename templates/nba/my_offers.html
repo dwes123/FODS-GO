@@ -1,0 +1,48 @@
+{{define "title"}}NBA / MY OFFERS{{end}}
+{{define "content"}}
+
+<header class="tc-page-header">
+    <div class="tc-page-header__id">MOD/03.D<br><strong>MY OFFERS</strong></div>
+    <h1 class="tc-page-header__title">Outgoing <em>Offers</em></h1>
+    <div class="tc-page-header__meta">
+        <div>{{if .Offers}}{{len .Offers}} TOTAL{{else}}NONE{{end}}</div>
+    </div>
+</header>
+
+{{if .Offers}}
+    <div class="tc-panel" style="padding: 0;">
+        <table class="tc-table">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Status</th>
+                    <th>Years</th>
+                    <th style="text-align: right;">Starting</th>
+                    <th style="text-align: right;">Total</th>
+                    <th>Submitted</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Offers}}
+                    <tr>
+                        <td><a href="/nba/player/{{.PlayerID}}">{{.PlayerName}}</a></td>
+                        <td>{{template "tcOfferStatusTag" .Status}}</td>
+                        <td>{{.Years}}yr</td>
+                        <td style="text-align: right;">${{formatMoney .StartingSalary}}</td>
+                        <td style="text-align: right; color: var(--tc-amber);">${{formatMoney .TotalValue}}</td>
+                        <td style="color: var(--tc-text-dim); font-size: 0.78rem;">{{.SubmittedAt.Format "Jan 2 15:04"}}</td>
+                        <td><a href="/nba/offers/{{.ID}}" class="tc-btn tc-btn--ghost" style="font-size: 0.65rem; padding: 5px 10px;">VIEW &rsaquo;</a></td>
+                    </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+{{else}}
+    <div class="tc-empty">
+        <p>You haven't submitted any offers yet.</p>
+        <p>Browse <a href="/nba/free-agents">Free Agents</a> or visit a player profile to make your first offer.<span class="tc-cursor"></span></p>
+    </div>
+{{end}}
+
+{{end}}

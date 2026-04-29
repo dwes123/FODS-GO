@@ -2037,9 +2037,10 @@
                     <div class="nav-dropdown">
                         <span class="nav-dropdown-label">Free Agency &#9662;</span>
                         <div class="nav-dropdown-menu">
-                            <a href="/nba/free-agents">Free Agents</a>
-                            <a href="/nba/bids/my-bids">My Bids</a>
-                            <a href="/nba/bids/pending">Pending Bids</a>
+                            <a href="/nba/free-agents">Browse FAs</a>
+                            <a href="/nba/my-offers">My Offers</a>
+                            <a href="/nba/match-pending">Match Windows</a>
+                            <a href="/nba/agent">Agent Desk</a>
                         </div>
                     </div>
                     <div class="nav-dropdown">
@@ -2177,4 +2178,18 @@ document.addEventListener('click', function(e) {
 </script>
 </body>
 </html>
+{{end}}
+
+{{/* Shared NBA UI helpers — available to every page since layout.html is always parsed alongside the page template. */}}
+{{define "tcOfferStatusTag"}}
+{{if eq . "pending_agent"}}<span class="tc-tag tc-tag--cyan">PENDING AGENT</span>
+{{else if eq . "pending_team"}}<span class="tc-tag tc-tag--cyan">PENDING TEAM</span>
+{{else if eq . "agent_countered"}}<span class="tc-tag tc-tag--amber">COUNTERED</span>
+{{else if eq . "awaiting_match"}}<span class="tc-tag tc-tag--amber">AWAITING MATCH</span>
+{{else if eq . "agent_rejected"}}<span class="tc-tag tc-tag--danger">REJECTED</span>
+{{else if eq . "matched"}}<span class="tc-tag tc-tag--success">MATCHED</span>
+{{else if eq . "walked"}}<span class="tc-tag">WALKED</span>
+{{else if eq . "finalized"}}<span class="tc-tag tc-tag--success">FINALIZED</span>
+{{else if eq . "withdrawn"}}<span class="tc-tag">WITHDRAWN</span>
+{{else}}<span class="tc-tag">{{.}}</span>{{end}}
 {{end}}

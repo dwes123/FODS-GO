@@ -1,0 +1,57 @@
+{{define "title"}}NBA / AGENT DESK{{end}}
+{{define "content"}}
+
+<header class="tc-page-header">
+    <div class="tc-page-header__id">MOD/03<br><strong>AGENT DESK</strong></div>
+    <h1 class="tc-page-header__title">Agent <em>Desk</em></h1>
+    <div class="tc-page-header__meta">
+        <div>{{if .NotAgent}}<span class="tc-tag">NOT AN AGENT</span>{{else}}<span class="tc-pulse-dot"></span>ACTIVE QUEUE{{end}}</div>
+        {{if .Offers}}<div style="margin-top: 4px;">{{len .Offers}} OPEN</div>{{end}}
+    </div>
+</header>
+
+{{if .NotAgent}}
+    <div class="tc-empty">
+        <p><strong>You're not registered as an agent.</strong></p>
+        <p>The Agent Desk is for members of one of the league's two Sports Agencies (Billy the Kid and The Boys).</p>
+        <p>Reach out to a commissioner if you should be added.<span class="tc-cursor"></span></p>
+    </div>
+{{else if .Offers}}
+    <div class="tc-panel" style="padding: 0;">
+        <table class="tc-table">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>From Team</th>
+                    <th>Status</th>
+                    <th>Years</th>
+                    <th style="text-align: right;">Starting Salary</th>
+                    <th style="text-align: right;">Total</th>
+                    <th>Submitted</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Offers}}
+                    <tr>
+                        <td><a href="/nba/player/{{.PlayerID}}" style="font-family: var(--tc-sans); font-size: 0.95rem; font-weight: 500;">{{.PlayerName}}</a></td>
+                        <td><span style="color: var(--tc-cyan);">{{.OfferingTeamName}}</span></td>
+                        <td>{{template "tcOfferStatusTag" .Status}}</td>
+                        <td>{{.Years}}yr</td>
+                        <td style="text-align: right;">${{formatMoney .StartingSalary}}</td>
+                        <td style="text-align: right; color: var(--tc-amber);">${{formatMoney .TotalValue}}</td>
+                        <td style="color: var(--tc-text-dim); font-size: 0.78rem;">{{.SubmittedAt.Format "Jan 2 15:04"}}</td>
+                        <td><a href="/nba/offers/{{.ID}}" class="tc-btn tc-btn--ghost" style="font-size: 0.65rem; padding: 5px 10px;">REVIEW &rsaquo;</a></td>
+                    </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+{{else}}
+    <div class="tc-empty">
+        <p><strong>No active offers.</strong></p>
+        <p>When teams submit offers to your agency's players, they'll show up here.<span class="tc-cursor"></span></p>
+    </div>
+{{end}}
+
+{{end}}

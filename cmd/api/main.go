@@ -46,6 +46,7 @@ func main() {
 
 	// NBA workers
 	nbaworker.StartFAClassWorker(ctx, nbaDB)
+	nbaworker.StartMatchWindowWorker(ctx, nbaDB)
 
 	// 3. Initialize Router
 	r := gin.Default()
@@ -257,15 +258,27 @@ func main() {
 			nba.GET("/league/rosters", nbahandlers.LeagueRostersHandler(database, nbaDB))
 			nba.GET("/trade-block", nbahandlers.TradeBlockHandler(database, nbaDB))
 
+			// Slice 3 — FA offer flow (agent-mediated UFA/RFA negotiations)
+			nba.GET("/offer/new", nbahandlers.NewOfferFormHandler(database, nbaDB))
+			nba.POST("/offers/submit", nbahandlers.SubmitOfferHandler(database, nbaDB))
+			nba.GET("/offers/:id", nbahandlers.OfferDetailHandler(database, nbaDB))
+			nba.POST("/offers/:id/agent-accept", nbahandlers.AgentAcceptHandler(database, nbaDB))
+			nba.POST("/offers/:id/agent-reject", nbahandlers.AgentRejectHandler(database, nbaDB))
+			nba.POST("/offers/:id/agent-counter", nbahandlers.AgentCounterHandler(database, nbaDB))
+			nba.POST("/offers/:id/team-accept-counter", nbahandlers.TeamAcceptCounterHandler(database, nbaDB))
+			nba.POST("/offers/:id/team-reject-counter", nbahandlers.TeamRejectCounterHandler(database, nbaDB))
+			nba.POST("/offers/:id/match", nbahandlers.MatchHandler(database, nbaDB))
+			nba.POST("/offers/:id/walk", nbahandlers.WalkHandler(database, nbaDB))
+			nba.POST("/offers/:id/withdraw", nbahandlers.WithdrawHandler(database, nbaDB))
+			nba.GET("/agent", nbahandlers.AgentDashboardHandler(database, nbaDB))
+			nba.GET("/match-pending", nbahandlers.MatchPendingHandler(database, nbaDB))
+			nba.GET("/my-offers", nbahandlers.MyOffersHandler(database, nbaDB))
+
 			// Stubs for nav links that lead to future slices — avoids dead 404s
 			nba.GET("/standings", nbahandlers.ComingSoonHandler(
 				"NBA Standings", "Standings will appear here once the regular season is underway and games are tracked."))
 			nba.GET("/activity", nbahandlers.ComingSoonHandler(
 				"NBA Activity", "The NBA activity feed will live here. Coming alongside trades and roster moves in Slice 4."))
-			nba.GET("/bids/my-bids", nbahandlers.ComingSoonHandler(
-				"My NBA Bids", "Free-agent bidding lands in Slice 3, after bid mechanics are finalized."))
-			nba.GET("/bids/pending", nbahandlers.ComingSoonHandler(
-				"NBA Pending Bids", "Free-agent bidding lands in Slice 3, after bid mechanics are finalized."))
 			nba.GET("/trades", nbahandlers.ComingSoonHandler(
 				"NBA Trade Center", "Trade proposals and counter-offers ship in Slice 4."))
 			nba.GET("/waivers", nbahandlers.ComingSoonHandler(

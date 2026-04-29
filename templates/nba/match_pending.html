@@ -1,0 +1,52 @@
+{{define "title"}}NBA / MATCH WINDOWS{{end}}
+{{define "content"}}
+
+<header class="tc-page-header">
+    <div class="tc-page-header__id">MOD/03.C<br><strong>MATCH PENDING</strong></div>
+    <h1 class="tc-page-header__title">Match <em>Windows</em></h1>
+    <div class="tc-page-header__meta">
+        <div>{{if .Offers}}<span class="tc-pulse-dot tc-pulse-dot--amber"></span>{{len .Offers}} OPEN{{else}}NONE OPEN{{end}}</div>
+    </div>
+</header>
+
+{{if .Offers}}
+    <p style="font-family: var(--tc-mono); font-size: 0.8rem; color: var(--tc-text-mid); margin-bottom: 1rem;">
+        Offers from other teams that your agency-represented players have accepted.
+        You have <strong style="color: var(--tc-amber);">48 hours from acceptance</strong> to match the terms (player stays) or let walk.
+    </p>
+    <div class="tc-panel" style="padding: 0;">
+        <table class="tc-table">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Offering Team</th>
+                    <th>Years</th>
+                    <th style="text-align: right;">Starting</th>
+                    <th style="text-align: right;">Total</th>
+                    <th>Closes</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Offers}}
+                    <tr>
+                        <td><a href="/nba/player/{{.PlayerID}}">{{.PlayerName}}</a></td>
+                        <td>{{.OfferingTeamName}}</td>
+                        <td>{{.Years}}yr</td>
+                        <td style="text-align: right;">${{formatMoney .StartingSalary}}</td>
+                        <td style="text-align: right; color: var(--tc-amber);">${{formatMoney .TotalValue}}</td>
+                        <td style="color: var(--tc-amber); font-family: var(--tc-mono);">{{.MatchWindowClosesAt.Format "Jan 2 15:04"}}</td>
+                        <td><a href="/nba/offers/{{.ID}}" class="tc-btn tc-btn--primary" style="font-size: 0.65rem; padding: 5px 10px;">DECIDE &rsaquo;</a></td>
+                    </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+{{else}}
+    <div class="tc-empty">
+        <p>No pending match windows.</p>
+        <p>When another team's offer is accepted by your player's agent, you'll have 48 hours to match here.<span class="tc-cursor"></span></p>
+    </div>
+{{end}}
+
+{{end}}
