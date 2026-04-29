@@ -82,7 +82,7 @@
     {{end}}
 </div>
 
-{{template "tcUnit" dict "Title" "Primary Unit" "ID" "P-15" "Players" .Standard "EmptyMsg" "No primary roster players assigned."}}
+{{template "tcUnit" dict "Title" "Active Roster" "ID" "ACTIVE-15" "Players" .Standard "EmptyMsg" "No active roster players assigned."}}
 {{template "tcUnit" dict "Title" "Two-Way Unit" "ID" "TW-3" "Players" .TwoWay "EmptyMsg" "No two-way contracts active."}}
 {{template "tcUnit" dict "Title" "G-League Unit" "ID" "GL" "Players" .GLeague "EmptyMsg" ""}}
 {{if .Inactive}}{{template "tcUnit" dict "Title" "Inactive / IR" "ID" "IR" "Players" .Inactive "EmptyMsg" ""}}{{end}}
