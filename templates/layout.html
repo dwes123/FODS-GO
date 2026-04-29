@@ -2431,16 +2431,450 @@
             line-height: 1.7;
         }
 
+        /* === Comprehensive baseball-component overrides ===
+           Every existing baseball page uses some combination of the classes
+           below. We override them to inherit the night-stadium palette so the
+           whole baseball side picks up the new look without rewriting templates. */
+
+        /* Cards / surfaces — broad sweep */
         body.mlb-mode .welcome-banner,
         body.mlb-mode .home-section,
         body.mlb-mode .meta-card,
+        body.mlb-mode .team-card,
         body.mlb-mode .team-roster-card,
         body.mlb-mode .league-date-card,
-        body.mlb-mode .waiver-spotlight {
+        body.mlb-mode .waiver-spotlight,
+        body.mlb-mode .highlight-card,
+        body.mlb-mode .calculator-card,
+        body.mlb-mode .bid-section,
+        body.mlb-mode .ifa-bid-section,
+        body.mlb-mode .bid-history-section,
+        body.mlb-mode .moves-log-section,
+        body.mlb-mode .player-profile,
+        body.mlb-mode .player-meta-grid .meta-card,
+        body.mlb-mode .trade-card,
+        body.mlb-mode .trade-block-team,
+        body.mlb-mode .roster-section,
+        body.mlb-mode .tool-section,
+        body.mlb-mode .tool-card,
+        body.mlb-mode .owner-tools,
+        body.mlb-mode .auth-container,
+        body.mlb-mode .claim-form,
+        body.mlb-mode .content-container,
+        body.mlb-mode .card,
+        body.mlb-mode .filter-bar,
+        body.mlb-mode .header-with-filter,
+        body.mlb-mode .filters,
+        body.mlb-mode .table-container,
+        body.mlb-mode .salary-impact,
+        body.mlb-mode .retention-section,
+        body.mlb-mode .multiplier-reference {
+            background: var(--mlb-surface) !important;
+            border: 1px solid var(--mlb-line) !important;
+            color: var(--mlb-text) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        body.mlb-mode .card-header,
+        body.mlb-mode .roster-card-header {
+            background: var(--mlb-surface-2) !important;
+            border-bottom: 1px solid var(--mlb-line) !important;
+            color: var(--mlb-amber) !important;
+        }
+        body.mlb-mode .card-body,
+        body.mlb-mode .roster-card-body { background: var(--mlb-surface) !important; }
+        body.mlb-mode .card-footer,
+        body.mlb-mode .roster-card-footer {
+            background: var(--mlb-surface-2) !important;
+            border-top: 1px solid var(--mlb-line) !important;
+        }
+
+        /* Tables — every baseball table uses .fantasy-table-base */
+        body.mlb-mode .fantasy-table-base {
+            background: var(--mlb-surface) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+            font-family: var(--mlb-mono);
+            border: 1px solid var(--mlb-line);
+        }
+        body.mlb-mode .fantasy-table-base thead {
+            background: var(--mlb-surface-2) !important;
+            color: var(--mlb-amber) !important;
+        }
+        body.mlb-mode .fantasy-table-base th {
+            color: var(--mlb-amber) !important;
+            font-family: var(--mlb-mono) !important;
+            font-size: 0.7rem !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            padding: 10px 12px !important;
+            border-bottom: 1px solid var(--mlb-line) !important;
+        }
+        body.mlb-mode .fantasy-table-base td {
+            padding: 10px 12px !important;
+            border-bottom: 1px solid rgba(42, 63, 82, 0.5) !important;
+            color: var(--mlb-text) !important;
+            font-variant-numeric: tabular-nums;
+        }
+        body.mlb-mode .fantasy-table-base tbody tr:nth-child(odd) { background: rgba(245, 239, 224, 0.018) !important; }
+        body.mlb-mode .fantasy-table-base tbody tr:nth-child(even) { background: var(--mlb-surface) !important; }
+        body.mlb-mode .fantasy-table-base tbody tr:hover { background: rgba(229, 168, 44, 0.06) !important; }
+        body.mlb-mode .fantasy-table-base a { color: var(--mlb-amber) !important; text-decoration: none; }
+        body.mlb-mode .fantasy-table-base a:hover { text-decoration: underline; }
+
+        /* Headings inside cards (overrides existing baseball header styling) */
+        body.mlb-mode .card-header h3,
+        body.mlb-mode .home-section h2,
+        body.mlb-mode .roster-section h2,
+        body.mlb-mode .section-title,
+        body.mlb-mode .team-header {
+            color: var(--mlb-amber) !important;
+            font-family: var(--mlb-display) !important;
+            font-weight: 400 !important;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            border-color: var(--mlb-amber) !important;
+        }
+        body.mlb-mode .section-title {
+            background: var(--mlb-surface-2) !important;
+            border-bottom-color: var(--mlb-line) !important;
+        }
+        body.mlb-mode strong, body.mlb-mode b { color: var(--mlb-text); }
+        body.mlb-mode a { color: var(--mlb-amber); }
+        body.mlb-mode a:hover { color: var(--mlb-amber-soft); }
+        body.mlb-mode hr { border-color: var(--mlb-line) !important; }
+
+        /* Forms */
+        body.mlb-mode input[type="text"],
+        body.mlb-mode input[type="number"],
+        body.mlb-mode input[type="password"],
+        body.mlb-mode input[type="email"],
+        body.mlb-mode input[type="search"],
+        body.mlb-mode input[type="date"],
+        body.mlb-mode select,
+        body.mlb-mode textarea {
+            background: var(--mlb-bg-elev) !important;
+            color: var(--mlb-text) !important;
+            border: 1px solid var(--mlb-line) !important;
+            border-radius: 0 !important;
+            font-family: var(--mlb-mono) !important;
+            font-size: 0.85rem !important;
+            padding: 8px 10px !important;
+        }
+        body.mlb-mode input:focus, body.mlb-mode select:focus, body.mlb-mode textarea:focus {
+            border-color: var(--mlb-amber) !important;
+            box-shadow: 0 0 0 1px var(--mlb-amber), 0 0 14px var(--mlb-amber-glow) !important;
+            outline: none !important;
+        }
+        body.mlb-mode option { background: var(--mlb-bg-elev); color: var(--mlb-text); }
+        body.mlb-mode label { color: var(--mlb-text-mid) !important; }
+
+        /* Buttons */
+        body.mlb-mode .button {
+            background: var(--mlb-amber) !important;
+            color: var(--mlb-bg) !important;
+            font-family: var(--mlb-mono) !important;
+            font-size: 0.78rem !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            border: 1px solid var(--mlb-amber) !important;
+            border-radius: 0 !important;
+            padding: 9px 16px !important;
+            transition: all 160ms ease;
+        }
+        body.mlb-mode .button:hover {
+            background: var(--mlb-amber-soft) !important;
+            color: var(--mlb-bg) !important;
+            box-shadow: 0 0 18px var(--mlb-amber-glow);
+        }
+        body.mlb-mode .button-info {
+            background: transparent !important;
+            color: var(--mlb-text) !important;
+            border-color: var(--mlb-line-bright) !important;
+        }
+        body.mlb-mode .button-info:hover {
+            background: rgba(229, 168, 44, 0.08) !important;
+            color: var(--mlb-amber) !important;
+            border-color: var(--mlb-amber) !important;
+        }
+        body.mlb-mode .button-danger,
+        body.mlb-mode button[style*="background: #d9534f"],
+        body.mlb-mode button[style*="background-color: #d9534f"] {
+            background: var(--mlb-red) !important;
+            color: var(--mlb-text) !important;
+            border-color: var(--mlb-red) !important;
+        }
+        body.mlb-mode .button-danger:hover { background: var(--mlb-red-soft) !important; }
+        body.mlb-mode .button-warning {
+            background: #FFD700 !important;
+            color: var(--mlb-bg) !important;
+        }
+        body.mlb-mode .button-counter { background: #BB86FC !important; color: var(--mlb-bg) !important; }
+        body.mlb-mode .button-secondary,
+        body.mlb-mode button[style*="background: #6c757d"],
+        body.mlb-mode button[style*="background-color: #6c757d"] {
+            background: var(--mlb-surface-2) !important;
+            color: var(--mlb-text) !important;
+            border-color: var(--mlb-line-bright) !important;
+        }
+        body.mlb-mode .button-ifa { background: var(--mlb-amber) !important; color: var(--mlb-bg) !important; }
+        body.mlb-mode .button-small { color: var(--mlb-bg) !important; }
+
+        /* Trade form / bid sections */
+        body.mlb-mode .trade-grid,
+        body.mlb-mode .trade-setup,
+        body.mlb-mode .preview-grid,
+        body.mlb-mode .trade-preview { color: var(--mlb-text) !important; }
+        body.mlb-mode .trade-col,
+        body.mlb-mode .setup-col {
+            background: var(--mlb-surface) !important;
+            border: 1px solid var(--mlb-line) !important;
+        }
+        body.mlb-mode .player-select-list {
+            background: var(--mlb-bg-elev) !important;
+            border-color: var(--mlb-line) !important;
+        }
+        body.mlb-mode .player-row {
+            border-bottom-color: var(--mlb-line) !important;
+            color: var(--mlb-text) !important;
+        }
+        body.mlb-mode .player-row:hover { background: rgba(229, 168, 44, 0.05) !important; }
+        body.mlb-mode .player-row.selected {
+            background: rgba(229, 168, 44, 0.10) !important;
+            border-left: 3px solid var(--mlb-amber) !important;
+        }
+        body.mlb-mode .player-info { color: var(--mlb-text) !important; }
+        body.mlb-mode .pos-tag {
+            background: var(--mlb-surface-2) !important;
+            color: var(--mlb-amber) !important;
+        }
+        body.mlb-mode .contract-preview {
+            background: var(--mlb-bg-elev) !important;
+            color: var(--mlb-text-mid) !important;
+            border-color: var(--mlb-line) !important;
+        }
+        body.mlb-mode .cash-input {
+            background: var(--mlb-bg-elev) !important;
+            color: var(--mlb-text) !important;
+            border-color: var(--mlb-line) !important;
+        }
+        body.mlb-mode .preview-isbp { color: #FFD700 !important; }
+        body.mlb-mode .retention-row { border-bottom-color: var(--mlb-line) !important; }
+        body.mlb-mode .isbp-available { color: #00E676 !important; }
+        body.mlb-mode .trade-header {
+            border-bottom: 1px solid var(--mlb-line) !important;
+            color: var(--mlb-text) !important;
+        }
+        body.mlb-mode .trade-actions { border-top: 1px solid var(--mlb-line) !important; }
+        body.mlb-mode .trade-status { background: var(--mlb-amber) !important; color: var(--mlb-bg) !important; }
+        body.mlb-mode .counter-badge { background: #BB86FC !important; color: var(--mlb-bg) !important; }
+        body.mlb-mode .retain-badge { background: var(--mlb-amber) !important; color: var(--mlb-bg) !important; }
+
+        /* Bid calculator */
+        body.mlb-mode .calc-field {
+            background: var(--mlb-bg-elev) !important;
+            border-color: var(--mlb-line) !important;
+        }
+        body.mlb-mode .calc-results {
+            background: var(--mlb-surface-2) !important;
+            border: 1px solid var(--mlb-line) !important;
+        }
+        body.mlb-mode .result-row { border-bottom-color: var(--mlb-line) !important; color: var(--mlb-text) !important; }
+        body.mlb-mode .result-highlight { color: var(--mlb-amber) !important; }
+        body.mlb-mode .calc-note { color: var(--mlb-text-mid) !important; }
+
+        /* Roster page widgets */
+        body.mlb-mode .roster-counts-bar {
             background: var(--mlb-surface) !important;
             border: 1px solid var(--mlb-line) !important;
             color: var(--mlb-text) !important;
         }
+        body.mlb-mode .roster-count-item { color: var(--mlb-text) !important; }
+        body.mlb-mode .roster-count-label { color: var(--mlb-text-dim) !important; }
+        body.mlb-mode .roster-count-value { color: var(--mlb-amber) !important; }
+        body.mlb-mode .option-year {
+            border-left-color: var(--mlb-amber) !important;
+            background: rgba(229, 168, 44, 0.10) !important;
+        }
+        body.mlb-mode .sortable-ghost { background: var(--mlb-surface-2) !important; opacity: 0.7 !important; }
+        body.mlb-mode .drag-handle { color: var(--mlb-text-dim) !important; }
+        body.mlb-mode .info-hint { color: var(--mlb-text-mid) !important; }
+        body.mlb-mode .action-buttons button,
+        body.mlb-mode .action-buttons a { color: var(--mlb-text) !important; }
+
+        /* Home page */
+        body.mlb-mode .action-btn {
+            background: var(--mlb-bg-elev) !important;
+            border: 1px solid var(--mlb-line) !important;
+            color: var(--mlb-amber) !important;
+        }
+        body.mlb-mode .action-btn:hover {
+            background: var(--mlb-surface-2) !important;
+            border-color: var(--mlb-amber) !important;
+        }
+        body.mlb-mode .activity-item { border-bottom-color: var(--mlb-line) !important; color: var(--mlb-text) !important; }
+        body.mlb-mode .activity-date { color: var(--mlb-text-dim) !important; }
+        body.mlb-mode .view-all { color: var(--mlb-amber) !important; }
+        body.mlb-mode .empty-state, body.mlb-mode .empty-text { color: var(--mlb-text-dim) !important; }
+        body.mlb-mode .date-row { border-bottom-color: var(--mlb-line) !important; }
+        body.mlb-mode .event-date { color: var(--mlb-amber) !important; }
+        body.mlb-mode .event-name { color: var(--mlb-text) !important; }
+        body.mlb-mode .action-links { color: var(--mlb-text) !important; }
+
+        /* Waiver spotlight */
+        body.mlb-mode .waiver-item { border-bottom-color: var(--mlb-line) !important; color: var(--mlb-text) !important; }
+        body.mlb-mode .waiver-pos { color: var(--mlb-amber) !important; }
+        body.mlb-mode .waiver-league { color: var(--mlb-text-dim) !important; }
+        body.mlb-mode .waiver-time { color: #FFD700 !important; }
+        body.mlb-mode .waiver-time.expired { color: var(--mlb-red) !important; }
+
+        /* Badges + status */
+        body.mlb-mode .milb-badge { background: var(--mlb-field) !important; color: var(--mlb-text) !important; }
+        body.mlb-mode .ifa-badge { background: var(--mlb-amber) !important; color: var(--mlb-bg) !important; }
+        body.mlb-mode .ifa-note { color: var(--mlb-amber) !important; }
+        body.mlb-mode .bid-status-banner {
+            background: var(--mlb-surface-2) !important;
+            border: 1px solid var(--mlb-amber) !important;
+            color: var(--mlb-amber) !important;
+        }
+        body.mlb-mode .time-remaining { color: #00E676 !important; }
+        body.mlb-mode .time-expired { color: var(--mlb-red) !important; }
+        body.mlb-mode .bid-link { color: var(--mlb-amber) !important; }
+        body.mlb-mode .notes-cell { color: var(--mlb-text-mid) !important; }
+
+        /* Code / pre — for any debug/raw text */
+        body.mlb-mode code, body.mlb-mode pre {
+            background: var(--mlb-bg-elev) !important;
+            color: #00E676 !important;
+            border: 1px solid var(--mlb-line) !important;
+            font-family: var(--mlb-mono) !important;
+        }
+
+        /* Filter bars / league selectors */
+        body.mlb-mode .league-selector,
+        body.mlb-mode .league-filter,
+        body.mlb-mode .team-selector {
+            background: var(--mlb-bg-elev) !important;
+            color: var(--mlb-text) !important;
+            border-color: var(--mlb-line) !important;
+        }
+        body.mlb-mode .pos-tab {
+            background: var(--mlb-bg-elev) !important;
+            color: var(--mlb-text-mid) !important;
+            border-color: var(--mlb-line) !important;
+        }
+        body.mlb-mode .pos-tab.active { background: var(--mlb-amber) !important; color: var(--mlb-bg) !important; }
+
+        /* Modals */
+        body.mlb-mode .modal { background: rgba(11, 23, 34, 0.85) !important; }
+        body.mlb-mode .modal > div, body.mlb-mode .modal-content {
+            background: var(--mlb-surface) !important;
+            border: 1px solid var(--mlb-line) !important;
+            color: var(--mlb-text) !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* Generic alert banners — sweep inline-style overrides */
+        body.mlb-mode [style*="background: #d4edda"],
+        body.mlb-mode [style*="background-color: #d4edda"],
+        body.mlb-mode [style*="background: #dff0d8"],
+        body.mlb-mode [style*="background-color: #dff0d8"] {
+            background: rgba(0, 230, 118, 0.12) !important;
+            border-color: #00E676 !important;
+            color: #00E676 !important;
+        }
+        body.mlb-mode [style*="background: #fff3cd"],
+        body.mlb-mode [style*="background-color: #fff3cd"],
+        body.mlb-mode [style*="background: #fff8e1"],
+        body.mlb-mode [style*="background-color: #fff8e1"] {
+            background: rgba(229, 168, 44, 0.10) !important;
+            border-color: var(--mlb-amber) !important;
+            color: var(--mlb-amber) !important;
+        }
+        body.mlb-mode [style*="background: #fff0f0"],
+        body.mlb-mode [style*="background-color: #fff0f0"],
+        body.mlb-mode [style*="background: #fff1f0"],
+        body.mlb-mode [style*="background-color: #fff1f0"] {
+            background: rgba(200, 48, 46, 0.10) !important;
+            border-color: var(--mlb-red) !important;
+            color: var(--mlb-red-soft) !important;
+        }
+
+        /* Inline-style backgrounds: white / off-white surfaces */
+        body.mlb-mode [style*="background: white"],
+        body.mlb-mode [style*="background: #fff"],
+        body.mlb-mode [style*="background: #FFFFFF"],
+        body.mlb-mode [style*="background-color: white"],
+        body.mlb-mode [style*="background-color: #fff"],
+        body.mlb-mode [style*="background-color: #FFFFFF"] {
+            background: var(--mlb-surface) !important;
+        }
+        body.mlb-mode [style*="background: #f9f9f9"],
+        body.mlb-mode [style*="background-color: #f9f9f9"],
+        body.mlb-mode [style*="background: #f8f8f8"],
+        body.mlb-mode [style*="background-color: #f8f8f8"],
+        body.mlb-mode [style*="background: #fcfcfc"],
+        body.mlb-mode [style*="background: #f8f9fa"],
+        body.mlb-mode [style*="background-color: #f8f9fa"],
+        body.mlb-mode [style*="background: #f0f0f0"],
+        body.mlb-mode [style*="background-color: #f0f0f0"] {
+            background: var(--mlb-bg-elev) !important;
+        }
+        body.mlb-mode [style*="background: #f0f7ff"],
+        body.mlb-mode [style*="background-color: #f0f7ff"] {
+            background: rgba(229, 168, 44, 0.06) !important;
+        }
+        /* Inline color overrides — hard-coded greys readable on dark */
+        body.mlb-mode [style*="color: #888"],
+        body.mlb-mode [style*="color: #888888"],
+        body.mlb-mode [style*="color: #999"],
+        body.mlb-mode [style*="color: #999999"] {
+            color: var(--mlb-text-mid) !important;
+        }
+        body.mlb-mode [style*="color: #333"],
+        body.mlb-mode [style*="color: #333333"],
+        body.mlb-mode [style*="color: #4A4A4A"],
+        body.mlb-mode [style*="color: #555"],
+        body.mlb-mode [style*="color: #666"],
+        body.mlb-mode [style*="color: #666666"] {
+            color: var(--mlb-text) !important;
+        }
+        body.mlb-mode [style*="color: #155724"],
+        body.mlb-mode [style*="color: #28a745"],
+        body.mlb-mode [style*="color: #3f8600"] { color: #00E676 !important; }
+        body.mlb-mode [style*="color: #856404"],
+        body.mlb-mode [style*="color: #e69c00"] { color: var(--mlb-amber) !important; }
+        body.mlb-mode [style*="color: #cf1322"],
+        body.mlb-mode [style*="color: #d9534f"],
+        body.mlb-mode [style*="color: #dc3545"] { color: var(--mlb-red-soft) !important; }
+        body.mlb-mode [style*="border: 1px solid #ddd"],
+        body.mlb-mode [style*="border: 1px solid #ccc"],
+        body.mlb-mode [style*="border: 1px solid #eee"] { border-color: var(--mlb-line) !important; }
+
+        /* Scrollbar theming */
+        body.mlb-mode ::-webkit-scrollbar { width: 10px; height: 10px; }
+        body.mlb-mode ::-webkit-scrollbar-track { background: var(--mlb-bg); }
+        body.mlb-mode ::-webkit-scrollbar-thumb { background: var(--mlb-line-bright); border-radius: 5px; }
+        body.mlb-mode ::-webkit-scrollbar-thumb:hover { background: var(--mlb-amber); }
+
+        /* Teams grid + roster grid */
+        body.mlb-mode .teams-grid, body.mlb-mode .teams-roster-grid { color: var(--mlb-text) !important; }
+
+        /* Admin grid tool cards */
+        body.mlb-mode .admin-tools-grid .tool-card {
+            background: var(--mlb-surface) !important;
+            border: 1px solid var(--mlb-line) !important;
+        }
+        body.mlb-mode .admin-tools-grid .tool-card[style*="border-top"] {
+            border-top-width: 4px !important;
+            border-top-style: solid !important;
+        }
+
+        /* Compact tables (rotation views etc) */
+        body.mlb-mode .compact td, body.mlb-mode .compact th { color: var(--mlb-text) !important; }
+
+        body.mlb-mode .note { color: var(--mlb-text-mid) !important; }
 
         /* ==========================================================
            PORTAL MODE — sport picker landing
@@ -2511,19 +2945,18 @@
             border: none !important;
         }
     </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 {{if eq .Sport "nba"}}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
-{{else if or (eq .Sport "mlb") (eq .Sport "portal")}}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+{{else}}
+    {{/* Default: load MLB / portal fonts (covers all baseball pages and the picker). */}}
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&family=Saira+Stencil+One&display=swap" rel="stylesheet">
 {{end}}
 </head>
-<body class="{{if and .User (eq .User.ThemePreference "dark")}}dark-mode {{end}}{{if eq .Sport "nba"}}nba-mode{{else if eq .Sport "mlb"}}mlb-mode{{else if eq .Sport "portal"}}portal-mode{{end}}">
+<body class="{{if and .User (eq .User.ThemePreference "dark")}}dark-mode {{end}}{{if eq .Sport "nba"}}nba-mode{{else if eq .Sport "portal"}}portal-mode{{else}}mlb-mode{{end}}">
     {{if eq .Sport "nba"}}<div class="tc-skyline" aria-hidden="true"></div>{{end}}
-    {{if eq .Sport "mlb"}}<div class="mlb-stadium" aria-hidden="true"></div>{{end}}
+    {{if and (ne .Sport "nba") (ne .Sport "portal")}}<div class="mlb-stadium" aria-hidden="true"></div>{{end}}
     <header>
         <a href="{{if eq .Sport "nba"}}/nba/home{{else}}/{{end}}" class="logo">Front Office Dynasty{{if eq .Sport "nba"}} <span style="font-size: 0.7em; color: var(--fod-orange-accent);">NBA</span>{{end}}</a>
         <nav>
