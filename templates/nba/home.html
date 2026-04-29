@@ -1,200 +1,248 @@
 {{define "title"}}NBA / HOME{{end}}
 {{define "content"}}
 
+{{/* ============ HERO ============ */}}
 <section class="tc-hero tc-bracket">
     <span class="tc-bracket-bl"></span><span class="tc-bracket-br"></span>
     <div class="tc-hero__sweep"></div>
     <div class="tc-hero__caption">
         <span class="tc-pulse-dot tc-pulse-dot--cyan"></span>
-        FOD/NBA · TELEMETRY CONSOLE · v0.6 · ONLINE
+        DYNASTY ASSOCIATION · 2026-27 SEASON
     </div>
-    <h1 class="tc-hero__title">FRONT OFFICE<br><em>BASKETBALL</em></h1>
-    <p class="tc-hero__subtitle">
-        Dynasty Association command surface. 30 franchises, 1,599 players, 2 agencies, full
-        contract data and free-agent offer flow &mdash; all live.
-    </p>
     {{if .User}}
-        <p class="tc-hero__subtitle" style="margin-top: 1rem; color: var(--tc-text-dim); font-family: var(--tc-mono); font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase;">
-            User <span style="color: var(--tc-cyan);">/{{.User.Username}}</span> &middot; Auth verified &middot; Cross-sport account
-        </p>
+        <h1 class="tc-hero__title">Welcome,<br><em>{{.User.Username}}</em></h1>
+    {{else}}
+        <h1 class="tc-hero__title">Front Office<br><em>Basketball</em></h1>
     {{end}}
+
+    <div style="display: flex; gap: 2.5rem; flex-wrap: wrap; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255, 199, 44, 0.18);">
+        <div class="tc-stat">
+            <span class="tc-stat__label">Franchises</span>
+            <span class="tc-stat__value tc-stat__value--cyan" style="font-size: 1.6rem;">30</span>
+        </div>
+        <div class="tc-stat">
+            <span class="tc-stat__label">Free Agents</span>
+            <span class="tc-stat__value" style="font-size: 1.6rem;">{{.PoolFAs}}</span>
+        </div>
+        <div class="tc-stat">
+            <span class="tc-stat__label">Pending FAs</span>
+            <span class="tc-stat__value tc-stat__value--amber" style="font-size: 1.6rem;">{{.PoolPending}}</span>
+        </div>
+        {{if .PrimaryTeam}}
+        <div class="tc-stat">
+            <span class="tc-stat__label">Your Franchise</span>
+            <span class="tc-stat__value tc-stat__value--cyan" style="font-size: 1.4rem;">{{.PrimaryTeam.Abbreviation}}</span>
+        </div>
+        {{end}}
+    </div>
 </section>
 
-{{/* ============ LIVE MODULES ============ */}}
+{{/* ============ ACTION REQUIRED (only when user has things to do) ============ */}}
+{{if gt .ActionCount 0}}
 <div class="tc-section-header">
-    <span class="tc-section-header__id">LIVE</span>
-    <span class="tc-section-header__title">Modules Online</span>
+    <span class="tc-section-header__id" style="color: var(--tc-amber); border-color: rgba(255, 128, 36, 0.3); background: rgba(255, 128, 36, 0.06);">ACTION</span>
+    <span class="tc-section-header__title">Action Required</span>
     <span class="tc-section-header__rule"></span>
-    <span class="tc-section-header__count">08 SHIPPED</span>
+    <span class="tc-section-header__count" style="color: var(--tc-amber);">{{.ActionCount}} ITEM{{if ne .ActionCount 1}}S{{end}}</span>
 </div>
 
-<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 2rem;">
-    <div class="tc-panel" style="--i: 0; border: none;">
-        <div class="tc-panel__head"><span>MOD/MT · GM Desk</span><strong>READY</strong></div>
-        <p class="tc-panel__title">My Team</p>
+<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    {{if .PendingAgent}}
+    <div class="tc-panel tc-panel--accent" style="--i: 0;">
+        <div class="tc-panel__head"><span>AGENT QUEUE</span><strong>{{len .PendingAgent}}</strong></div>
         <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem;">
-            Your franchise command center. Cap level, MLE/BAE usage, trade restrictions,
-            multi-year contract grid, capacity meters.
+            Offers from teams to your agency's players are awaiting your decision.
         </p>
-        <a href="/nba/my-team" class="tc-btn tc-btn--primary">OPEN &rsaquo;</a>
+        <ul style="list-style: none; padding: 0; margin: 0 0 1rem; font-family: var(--tc-mono); font-size: 0.85rem;">
+            {{range $i, $o := .PendingAgent}}{{if lt $i 3}}
+                <li style="padding: 4px 0; border-bottom: 1px solid var(--tc-line);">
+                    <a href="/nba/offers/{{$o.ID}}" style="display: flex; justify-content: space-between; gap: 1rem;">
+                        <span>{{$o.PlayerName}}</span>
+                        <span style="color: var(--tc-amber);">${{formatMoney $o.StartingSalary}} × {{$o.Years}}yr</span>
+                    </a>
+                </li>
+            {{end}}{{end}}
+        </ul>
+        <a href="/nba/agent" class="tc-btn tc-btn--primary">REVIEW QUEUE &rsaquo;</a>
     </div>
+    {{end}}
 
-    <div class="tc-panel" style="--i: 1; border: none;">
-        <div class="tc-panel__head"><span>MOD/03 · FA Flow</span><strong>READY</strong></div>
-        <p class="tc-panel__title">Free Agent Offers</p>
+    {{if .OpenMatch}}
+    <div class="tc-panel tc-panel--accent" style="--i: 1;">
+        <div class="tc-panel__head"><span>MATCH WINDOWS</span><strong>{{len .OpenMatch}}</strong></div>
         <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem;">
-            Submit offers to any FA's agent. Accept, reject, or counter. RFAs trigger a 48-hour
-            match window for the bird-rights team.
+            Other teams have offered your bird-rights players. Match within 48 hours or let walk.
         </p>
-        <a href="/nba/free-agents" class="tc-btn tc-btn--primary">BROWSE FAs &rsaquo;</a>
-        <a href="/nba/my-offers" class="tc-btn tc-btn--ghost" style="margin-left: 4px;">MY OFFERS</a>
+        <ul style="list-style: none; padding: 0; margin: 0 0 1rem; font-family: var(--tc-mono); font-size: 0.85rem;">
+            {{range $i, $o := .OpenMatch}}{{if lt $i 3}}
+                <li style="padding: 4px 0; border-bottom: 1px solid var(--tc-line);">
+                    <a href="/nba/offers/{{$o.ID}}" style="display: flex; justify-content: space-between; gap: 1rem;">
+                        <span>{{$o.PlayerName}}</span>
+                        <span style="color: var(--tc-amber);">closes {{$o.MatchWindowClosesAt.Format "Jan 2 15:04"}}</span>
+                    </a>
+                </li>
+            {{end}}{{end}}
+        </ul>
+        <a href="/nba/match-pending" class="tc-btn tc-btn--primary">DECIDE &rsaquo;</a>
     </div>
+    {{end}}
+</div>
+{{end}}
 
-    <div class="tc-panel" style="--i: 2; border: none;">
-        <div class="tc-panel__head"><span>MOD/02 · Franchise Ops</span><strong>READY</strong></div>
-        <p class="tc-panel__title">League Index</p>
-        <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem;">
-            All 30 franchises grouped by conference and division. Compact roster previews with
-            2026 contract values inline.
-        </p>
-        <a href="/nba/league/rosters" class="tc-btn">VIEW LEAGUE &rsaquo;</a>
-    </div>
-
-    <div class="tc-panel" style="--i: 3; border: none;">
-        <div class="tc-panel__head"><span>MOD/03.D · Market Watch</span><strong>READY</strong></div>
-        <p class="tc-panel__title">Trade Block</p>
-        <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem;">
-            Players currently flagged for trade across all 30 franchises, grouped by team.
-        </p>
-        <a href="/nba/trade-block" class="tc-btn">OPEN MARKET &rsaquo;</a>
-    </div>
-
-    <div class="tc-panel" style="--i: 4; border: none;">
-        <div class="tc-panel__head"><span>MOD/03.C · Match Windows</span><strong>READY</strong></div>
-        <p class="tc-panel__title">Match Pending</p>
-        <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem;">
-            Open 48-hour match windows on your bird-rights players. Auto-finalizes if you don't
-            decide in time.
-        </p>
-        <a href="/nba/match-pending" class="tc-btn">CHECK QUEUE &rsaquo;</a>
-    </div>
-
-    <div class="tc-panel" style="--i: 5; border: none;">
-        <div class="tc-panel__head"><span>MOD/03 · Agent Desk</span><strong>READY</strong></div>
-        <p class="tc-panel__title">Agent Desk</p>
-        <p style="color: var(--tc-text-mid); font-size: 0.9rem; line-height: 1.5; margin: 0 0 1rem;">
-            For Billy the Kid Sports Agency &amp; The Boys Sports Agency members. Pending offers,
-            accept/reject/counter actions, audit log.
-        </p>
-        <a href="/nba/agent" class="tc-btn">AGENT DESK &rsaquo;</a>
-    </div>
+{{/* ============ MY TEAM SNAPSHOT (when user owns a team) ============ */}}
+{{if .PrimaryTeam}}
+<div class="tc-section-header">
+    <span class="tc-section-header__id">MY TEAM</span>
+    <span class="tc-section-header__title">{{.PrimaryTeam.Name}}</span>
+    <span class="tc-section-header__rule"></span>
+    <span class="tc-section-header__count">{{.PrimaryTeam.Conference}} · {{.PrimaryTeam.Division}}</span>
 </div>
 
-{{/* ============ RECENTLY SHIPPED ============ */}}
+<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 1.5rem;">
+    <div class="tc-panel" style="--i: 0; border: none; padding: 0.85rem 1rem;">
+        <span class="tc-stat__label">Cap Level</span>
+        <p class="tc-stat__value tc-stat__value--cyan" style="font-size: 1rem; margin-top: 0.4rem;">{{if .PrimaryTeam.CapLevel}}{{.PrimaryTeam.CapLevel}}{{else}}—{{end}}</p>
+    </div>
+    <div class="tc-panel" style="--i: 1; border: none; padding: 0.85rem 1rem;">
+        <span class="tc-stat__label">Soft Cap Space</span>
+        <p class="tc-stat__value" style="font-size: 1.05rem; margin-top: 0.4rem;">${{formatMoney .PrimaryTeam.CapSpace}}</p>
+    </div>
+    <div class="tc-panel" style="--i: 2; border: none; padding: 0.85rem 1rem;">
+        <span class="tc-stat__label">Roster</span>
+        <p class="tc-stat__value" style="font-size: 1.05rem; margin-top: 0.4rem;">{{len .PrimaryRoster}}<span class="tc-stat__unit">PLAYERS</span></p>
+    </div>
+    <div class="tc-panel" style="--i: 3; border: none; padding: 0.85rem 1rem;">
+        <span class="tc-stat__label">G-League Budget</span>
+        <p class="tc-stat__value tc-stat__value--amber" style="font-size: 1.05rem; margin-top: 0.4rem;">${{formatMoney .PrimaryTeam.GLeagueBudget}}</p>
+    </div>
+    <div class="tc-panel" style="--i: 4; border: none; padding: 0.85rem 1rem; display: flex; flex-direction: column; justify-content: center;">
+        <a href="/nba/my-team" class="tc-btn tc-btn--primary" style="text-align: center;">OPEN MY TEAM &rsaquo;</a>
+    </div>
+</div>
+{{end}}
+
+{{/* ============ MY OPEN OFFERS (when user has any) ============ */}}
+{{if .OpenOutgoing}}
 <div class="tc-section-header">
-    <span class="tc-section-header__id">SHIP LOG</span>
-    <span class="tc-section-header__title">Recently Shipped</span>
+    <span class="tc-section-header__id">MY OFFERS</span>
+    <span class="tc-section-header__title">Outgoing — In Flight</span>
     <span class="tc-section-header__rule"></span>
-    <span class="tc-section-header__count">v0.1 → v0.6</span>
+    <span class="tc-section-header__count">{{len .OpenOutgoing}} ACTIVE</span>
 </div>
 
 <div class="tc-panel" style="margin-bottom: 2rem; padding: 0;">
     <table class="tc-table">
         <thead>
             <tr>
-                <th style="width: 110px;">VERSION</th>
-                <th>CHANGE</th>
-                <th style="width: 110px;">STATUS</th>
+                <th>Player</th>
+                <th>Status</th>
+                <th>Years</th>
+                <th style="text-align: right;">Starting</th>
+                <th style="text-align: right;">Total</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.6</td>
-                <td>NBA roles admin (<code>/admin/nba-roles</code>): manage team owners + agency members</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.5</td>
-                <td>Free-agent offer flow with counter-offers + RFA 48hr match window + audit log</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.5</td>
-                <td>Daily <code>fa_class</code> worker — auto-classifies players Owned / Pending / Free Agent</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.4</td>
-                <td>Per-team financial header (Cap Level, MLE/BAE usage, trade restrictions)</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.4</td>
-                <td>Brand palette + city skyline backdrop, fa_class badges, comma-formatted dollars</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.3</td>
-                <td>Player data: 553 rostered players + 1,047 free agents from xlsx + Fantrax CSV</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.3</td>
-                <td>33 team-owner assignments + 2 agency-member assignments wired</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.2</td>
-                <td>My Team page + League Index with conference/division grouping</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.2</td>
-                <td>Read-only player profile, free-agent scan, single-team roster</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
-            <tr>
-                <td style="color: var(--tc-cyan);">v0.1</td>
-                <td>NBA database, /nba/* route group, sport-aware nav</td>
-                <td><span class="tc-tag tc-tag--success">SHIPPED</span></td>
-            </tr>
+            {{range .OpenOutgoing}}
+                <tr>
+                    <td><a href="/nba/player/{{.PlayerID}}">{{.PlayerName}}</a></td>
+                    <td>{{template "tcOfferStatusTag" .Status}}</td>
+                    <td>{{.Years}}yr</td>
+                    <td style="text-align: right;">${{formatMoney .StartingSalary}}</td>
+                    <td style="text-align: right; color: var(--tc-amber);">${{formatMoney .TotalValue}}</td>
+                    <td><a href="/nba/offers/{{.ID}}" class="tc-btn tc-btn--ghost" style="font-size: 0.65rem; padding: 5px 10px;">VIEW &rsaquo;</a></td>
+                </tr>
+            {{end}}
         </tbody>
     </table>
 </div>
+{{end}}
 
-{{/* ============ STILL COMING ============ */}}
+{{/* ============ RECENT LEAGUE ACTIVITY ============ */}}
 <div class="tc-section-header">
-    <span class="tc-section-header__id">QUEUE</span>
-    <span class="tc-section-header__title">Coming Soon</span>
+    <span class="tc-section-header__id">FEED</span>
+    <span class="tc-section-header__title">Recent Activity</span>
     <span class="tc-section-header__rule"></span>
-    <span class="tc-section-header__count">04 IN QUEUE</span>
+    <span class="tc-section-header__count">LEAGUE-WIDE</span>
 </div>
 
-<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">
-    <div class="tc-panel" style="--i: 0;">
-        <div class="tc-panel__head"><span>SLICE 04</span><strong style="color: var(--tc-amber);">DEFERRED</strong></div>
-        <p class="tc-panel__title" style="font-size: 1rem;">Trades &amp; Waivers</p>
-        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">Salary matching, retention, sign-and-trade, stretch provision. Holding until trade window opens (months out).</p>
-    </div>
-    <div class="tc-panel" style="--i: 1;">
-        <div class="tc-panel__head"><span>SLICE 05</span><strong style="color: var(--tc-amber);">QUEUED</strong></div>
-        <p class="tc-panel__title" style="font-size: 1rem;">Commissioner AI Agent</p>
-        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">NBA-aware Gemini model with cap, exception, contract, and roster tools.</p>
-    </div>
-    <div class="tc-panel" style="--i: 2;">
-        <div class="tc-panel__head"><span>SLICE 06</span><strong style="color: var(--tc-amber);">QUEUED</strong></div>
-        <p class="tc-panel__title" style="font-size: 1rem;">Stats &amp; Injury Sync</p>
-        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">Daily game-log + injury-status pull from stats.nba.com.</p>
-    </div>
-    <div class="tc-panel" style="--i: 3;">
-        <div class="tc-panel__head"><span>SLICE 07</span><strong style="color: var(--tc-amber);">QUEUED</strong></div>
-        <p class="tc-panel__title" style="font-size: 1rem;">Unified Home</p>
-        <p style="color: var(--tc-text-mid); font-size: 0.85rem; line-height: 1.5;">Cross-sport dashboard merging baseball &amp; basketball teams.</p>
-    </div>
+{{if .RecentActivity}}
+<div class="tc-panel" style="margin-bottom: 2rem; padding: 0;">
+    <table class="tc-table">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Player</th>
+                <th>Action</th>
+                <th>Team</th>
+                <th style="text-align: right;">Terms</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .RecentActivity}}
+                <tr>
+                    <td style="color: var(--tc-text-dim); font-size: 0.78rem;">{{if .FinalizedAt}}{{.FinalizedAt.Format "Jan 2 15:04"}}{{else if .DecidedAt}}{{.DecidedAt.Format "Jan 2 15:04"}}{{else}}—{{end}}</td>
+                    <td><a href="/nba/player/{{.PlayerID}}">{{.PlayerName}}</a></td>
+                    <td>{{template "tcOfferStatusTag" .Status}}</td>
+                    <td>
+                        {{if eq .Status "matched"}}{{.BirdRightsTeamName}}<span style="color: var(--tc-text-dim);"> matched</span>
+                        {{else}}{{.OfferingTeamName}}{{end}}
+                    </td>
+                    <td style="text-align: right; font-family: var(--tc-mono); color: var(--tc-cyan-soft);">${{formatMoney .StartingSalary}} × {{.Years}}yr</td>
+                </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div class="tc-empty" style="margin-bottom: 2rem;">
+    <p><strong>League is quiet.</strong></p>
+    <p>No recent signings, walks, or matches. Once free agency activity heats up, the feed will fill in here.<span class="tc-cursor"></span></p>
+</div>
+{{end}}
+
+{{/* ============ QUICK ACCESS ============ */}}
+<div class="tc-section-header">
+    <span class="tc-section-header__id">JUMP</span>
+    <span class="tc-section-header__title">Quick Access</span>
+    <span class="tc-section-header__rule"></span>
 </div>
 
-<div class="tc-footer-serial">
-    FOD/NBA <span>·</span> TELEMETRY CONSOLE <span>·</span> v0.6 LIVE <span>·</span> {{if .User}}SESSION {{.User.Username}}{{else}}NO SESSION{{end}}
+<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 2rem;">
+    <a href="/nba/free-agents" class="tc-panel" style="--i: 0; border: none; text-decoration: none; display: block; transition: background 150ms ease;" onmouseover="this.style.background='var(--tc-surface-2)'" onmouseout="this.style.background='var(--tc-surface)'">
+        <div class="tc-panel__head"><span>FA SCAN</span></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Browse Free Agents</p>
+        <p style="color: var(--tc-text-dim); font-size: 0.78rem;">{{.PoolFAs}} available</p>
+    </a>
+    <a href="/nba/league/rosters" class="tc-panel" style="--i: 1; border: none; text-decoration: none; display: block;">
+        <div class="tc-panel__head"><span>LEAGUE</span></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">League Index</p>
+        <p style="color: var(--tc-text-dim); font-size: 0.78rem;">30 franchises · 6 divisions</p>
+    </a>
+    <a href="/nba/trade-block" class="tc-panel" style="--i: 2; border: none; text-decoration: none; display: block;">
+        <div class="tc-panel__head"><span>MARKET</span></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Trade Block</p>
+        <p style="color: var(--tc-text-dim); font-size: 0.78rem;">Players actively shopped</p>
+    </a>
+    <a href="/nba/my-offers" class="tc-panel" style="--i: 3; border: none; text-decoration: none; display: block;">
+        <div class="tc-panel__head"><span>OFFERS</span></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">My Offers</p>
+        <p style="color: var(--tc-text-dim); font-size: 0.78rem;">Outgoing FA offers tracker</p>
+    </a>
+    {{if .IsAgent}}
+    <a href="/nba/agent" class="tc-panel" style="--i: 4; border: none; text-decoration: none; display: block;">
+        <div class="tc-panel__head"><span>AGENT</span></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Agent Desk</p>
+        <p style="color: var(--tc-text-dim); font-size: 0.78rem;">Pending offer queue</p>
+    </a>
+    {{end}}
+    {{if .IsCommish}}
+    <a href="/admin/nba-roles" class="tc-panel" style="--i: 5; border: none; text-decoration: none; display: block;">
+        <div class="tc-panel__head"><span>ADMIN</span></div>
+        <p class="tc-panel__title" style="font-size: 1rem;">Manage Roles</p>
+        <p style="color: var(--tc-text-dim); font-size: 0.78rem;">Owners + agents</p>
+    </a>
+    {{end}}
 </div>
 
 {{end}}

@@ -657,6 +657,30 @@ type OfferEvent struct {
 	CreatedAt   time.Time
 }
 
+// ListRecentSignings returns recent league activity — offers that finalized, matched,
+// or walked, hydrated for display. Limit caps row count (default 10).
+func ListRecentSignings(nbaDB *pgxpool.Pool, limit int) ([]*Offer, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := nbaDB.Query(context.Background(),
+		offerSelect+` WHERE o.status IN ('finalized','matched','walked')
+		   ORDER BY COALESCE(o.finalized_at, o.decided_at) DESC NULLS LAST LIMIT $1`,
+		limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*Offer
+	for rows.Next() {
+		o, err := scanOffer(rows)
+		if err == nil {
+			out = append(out, o)
+		}
+	}
+	return out, nil
+}
+
 // ListEventsForOffer returns the audit log of a single offer in chronological order.
 func ListEventsForOffer(nbaDB *pgxpool.Pool, offerID string) ([]OfferEvent, error) {
 	rows, err := nbaDB.Query(context.Background(),
