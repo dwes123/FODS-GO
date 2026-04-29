@@ -344,6 +344,97 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 			}
 			return -999
 		},
+		"deref": func(p *int) int {
+			if p == nil {
+				return 0
+			}
+			return *p
+		},
+		"gradeDisplay": func(p *int) template.HTML {
+			if p == nil {
+				return template.HTML("&mdash;")
+			}
+			v := *p
+			cls := "grade-avg"
+			if v >= 60 {
+				cls = "grade-elite"
+			} else if v >= 50 {
+				cls = "grade-plus"
+			} else if v < 40 {
+				cls = "grade-below"
+			}
+			return template.HTML(fmt.Sprintf(`<span class="%s">%d</span>`, cls, v))
+		},
+		"gradeClass": func(p *int) string {
+			if p == nil {
+				return "grade-avg"
+			}
+			v := *p
+			if v >= 60 {
+				return "grade-elite"
+			} else if v >= 50 {
+				return "grade-plus"
+			} else if v < 40 {
+				return "grade-below"
+			}
+			return "grade-avg"
+		},
+		"leagueAbbrev": func(leagueID string) string {
+			switch {
+			case strings.HasPrefix(leagueID, "11111111"):
+				return "MLB"
+			case strings.HasPrefix(leagueID, "22222222"):
+				return "AAA"
+			case strings.HasPrefix(leagueID, "33333333"):
+				return "AA"
+			case strings.HasPrefix(leagueID, "44444444"):
+				return "High-A"
+			default:
+				return "?"
+			}
+		},
+		"leagueBadgeClass": func(leagueID string) string {
+			switch {
+			case strings.HasPrefix(leagueID, "11111111"):
+				return "own-badge-mlb"
+			case strings.HasPrefix(leagueID, "22222222"):
+				return "own-badge-aaa"
+			case strings.HasPrefix(leagueID, "33333333"):
+				return "own-badge-aa"
+			case strings.HasPrefix(leagueID, "44444444"):
+				return "own-badge-ha"
+			default:
+				return ""
+			}
+		},
+		"levelBadgeClass": func(abbrev string) string {
+			switch abbrev {
+			case "AAA":
+				return "level-aaa"
+			case "AA":
+				return "level-aa"
+			case "High-A":
+				return "level-high-a"
+			case "A":
+				return "level-a"
+			default:
+				return ""
+			}
+		},
+		"leagueColorClass": func(leagueID string) string {
+			switch {
+			case strings.HasPrefix(leagueID, "11111111"):
+				return "league-mlb"
+			case strings.HasPrefix(leagueID, "22222222"):
+				return "league-aaa"
+			case strings.HasPrefix(leagueID, "33333333"):
+				return "league-aa"
+			case strings.HasPrefix(leagueID, "44444444"):
+				return "league-ha"
+			default:
+				return ""
+			}
+		},
 		"formatMoney": func(v interface{}) string {
 			p := message.NewPrinter(language.English)
 			switch val := v.(type) {
@@ -358,6 +449,27 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 				return val
 			default: return fmt.Sprintf("%v", v)
 			}
+		},
+		// nbaContract formats a single contract_YYYY value for display.
+		// Dollar amounts ("$30000000") get thousands separators ($30,000,000).
+		// Tag strings ("Team Option", "UFA Year", "G-League Contract", etc.) pass through unchanged.
+		// Empty / nil → "—".
+		"nbaContract": func(v interface{}) string {
+			s, _ := v.(string)
+			s = strings.TrimSpace(s)
+			if s == "" {
+				return "—"
+			}
+			if !strings.HasPrefix(s, "$") {
+				return s
+			}
+			// Dollar amount — strip $ and commas, parse, re-format with commas
+			cleaned := strings.ReplaceAll(strings.TrimPrefix(s, "$"), ",", "")
+			n, err := strconv.ParseFloat(cleaned, 64)
+			if err != nil {
+				return s
+			}
+			return message.NewPrinter(language.English).Sprintf("$%d", int64(n))
 		},
 	}
 

@@ -121,7 +121,7 @@
                     <td><span class="tc-tag tc-tag--cyan">{{.Position}}</span></td>
                     <td style="color: var(--tc-text-mid);">{{if .RealLifeTeam}}{{.RealLifeTeam}}{{else}}&mdash;{{end}}</td>
                     <td>{{if .InjuryStatus}}<span class="tc-tag tc-tag--danger">{{.InjuryStatus}}</span>{{else}}<span style="color: var(--tc-text-faint);">&mdash;</span>{{end}}</td>
-                    <td style="text-align: right;">{{if index .Contracts 2026}}{{index .Contracts 2026}}{{else}}<span style="color: var(--tc-text-faint);">&mdash;</span>{{end}}</td>
+                    <td style="text-align: right;">{{nbaContract (index .Contracts 2026)}}</td>
                 </tr>
             {{end}}
         </tbody>

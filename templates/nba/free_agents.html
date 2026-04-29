@@ -65,7 +65,7 @@
                                 <span class="tc-status"><span class="tc-pulse-dot"></span>Available</span>
                             {{end}}
                         </td>
-                        <td style="text-align: right; font-weight: 500;">{{if index .Contracts 2026}}{{index .Contracts 2026}}{{else}}<span style="color: var(--tc-text-faint);">&mdash;</span>{{end}}</td>
+                        <td style="text-align: right; font-weight: 500;">{{nbaContract (index .Contracts 2026)}}</td>
                         <td style="text-align: right;"><a href="/nba/player/{{.ID}}" class="tc-btn tc-btn--ghost" style="font-size: 0.65rem; padding: 5px 10px;">INTEL &rsaquo;</a></td>
                     </tr>
                 {{end}}

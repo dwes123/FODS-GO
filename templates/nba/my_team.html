@@ -153,10 +153,7 @@
                     </td>
                     <td><span class="tc-tag tc-tag--cyan">{{.Position}}</span></td>
                     {{range $y := (seq 2026 2030)}}
-                        {{$val := index $p.Contracts $y}}
-                        <td style="text-align: right;">
-                            {{if $val}}<span style="color: var(--tc-text);">{{$val}}</span>{{else}}<span style="color: var(--tc-text-faint);">&mdash;</span>{{end}}
-                        </td>
+                        <td style="text-align: right;">{{nbaContract (index $p.Contracts $y)}}</td>
                     {{end}}
                     <td>
                         {{if $annotations}}

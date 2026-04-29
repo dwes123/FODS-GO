@@ -110,7 +110,7 @@
             {{end}}
             <div class="{{$class}}">
                 <span class="tc-contract-cell__year">'{{printf "%02d" (sub $y 2000)}}</span>
-                <span class="tc-contract-cell__value">{{if $val}}{{$val}}{{else}}&mdash;{{end}}</span>
+                <span class="tc-contract-cell__value">{{nbaContract $val}}</span>
                 {{if $ann}}<span class="tc-contract-cell__note">{{len $ann}}</span>{{end}}
             </div>
         {{end}}
