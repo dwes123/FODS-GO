@@ -303,6 +303,47 @@ def extract_team_financials(ws):
         }
 
 
+def extract_team_header_details(wb):
+    """For each team tab, pull the financial header block (rows 8-15).
+    Cell layout (uniform across all 30 team tabs):
+      D8  = Paid Up To (numeric)
+      D9  = Need Billing? (YES/NO)
+      D10 = Cap Level (text)
+      D11 = Free Cap Space? (YES/NO)
+      D12 = MLE or TPMLE? (MLE / TPMLE / NONE)
+      D13 = Bi-Annual Exception? (YES/NO)
+      F13 = Bi-Annual Exception Eligible? (year string like '2026-27')
+      D14 = Trade Restrictions? (descriptive text)
+      I15 = Mid-Level Total Used
+      J15 = Mid-Level Left
+      N15 = Bi-Annual Total Used
+      O15 = Bi-Annual Left
+    """
+    def yn(v):
+        if v is None: return None
+        return str(v).strip().upper() == "YES"
+
+    for tab, abbrev in TEAM_TAB_TO_ABBREV.items():
+        if tab not in wb.sheetnames:
+            continue
+        ws = wb[tab]
+        yield {
+            "abbrev":           abbrev,
+            "paid_up_to":       ws.cell(row=8,  column=4).value,
+            "need_billing":     yn(ws.cell(row=9,  column=4).value),
+            "cap_level":        ws.cell(row=10, column=4).value,
+            "free_cap_space":   yn(ws.cell(row=11, column=4).value),
+            "exception_type":   ws.cell(row=12, column=4).value,
+            "bae_available":    yn(ws.cell(row=13, column=4).value),
+            "bae_eligible_year": ws.cell(row=13, column=6).value,
+            "trade_restriction": ws.cell(row=14, column=4).value,
+            "mle_used":         ws.cell(row=15, column=9).value,
+            "mle_remaining":    ws.cell(row=15, column=10).value,
+            "bae_used":         ws.cell(row=15, column=14).value,
+            "bae_remaining":    ws.cell(row=15, column=15).value,
+        }
+
+
 def extract_league_office(ws):
     """Pluck cap thresholds for 2026-27 from League Office tab. All in col H (idx 7), rows 2-9."""
     return {
@@ -360,6 +401,10 @@ def main():
     fin = list(extract_team_financials(wb["Franchise Financial Status"]))
     sys.stderr.write(f"  {len(fin)} team financial snapshots\n")
 
+    sys.stderr.write("Extracting per-team header details (cap level, MLE/BAE, restrictions)...\n")
+    headers = list(extract_team_header_details(wb))
+    sys.stderr.write(f"  {len(headers)} team header blocks\n")
+
     sys.stderr.write("Extracting league office cap data...\n")
     lo = extract_league_office(wb["League Office"])
 
@@ -397,6 +442,28 @@ WHERE league_id = '{LEAGUE_ID}' AND year = 2026;""")
     trade_exception_balance = {sql_num(f['apron1_space'])},
     g_league_budget       = COALESCE({sql_num(f['g_league_budget'])}, g_league_budget)
 WHERE league_id = '{LEAGUE_ID}' AND abbreviation = '{f['abbrev']}';""")
+    emit()
+
+    # 2c.b Per-team header details (Paid Up To, Cap Level, MLE/TPMLE, BAE, Trade Restrictions)
+    emit("-- Refresh per-team financial header (rows 8-15 of each team tab)")
+    for h in headers:
+        def b(v):
+            if v is None: return "NULL"
+            return "TRUE" if v else "FALSE"
+        emit(f"""UPDATE teams SET
+    paid_up_to        = {sql_num(h['paid_up_to'])},
+    need_billing      = {b(h['need_billing'])},
+    cap_level         = {sql_str(h['cap_level'])},
+    free_cap_space_yn = {b(h['free_cap_space'])},
+    exception_type    = {sql_str(h['exception_type'])},
+    mle_used          = {sql_num(h['mle_used'])},
+    mle_remaining     = {sql_num(h['mle_remaining'])},
+    bae_available     = {b(h['bae_available'])},
+    bae_eligible_year = {sql_str(h['bae_eligible_year'])},
+    bae_used          = {sql_num(h['bae_used'])},
+    bae_remaining     = {sql_num(h['bae_remaining'])},
+    trade_restriction = {sql_str(h['trade_restriction'])}
+WHERE league_id = '{LEAGUE_ID}' AND abbreviation = '{h['abbrev']}';""")
     emit()
 
     # 2d. Players: TRUNCATE + bulk insert

@@ -17,7 +17,7 @@
     </div>
 </header>
 
-<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 2rem;">
+<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 1px;">
     <div class="tc-panel" style="--i: 0; border: none; padding: 1rem 1.25rem;">
         <span class="tc-stat__label">Cap Space</span>
         <p class="tc-stat__value tc-stat__value--cyan" style="margin-top: 0.4rem;">${{formatMoney .Team.CapSpace}}</p>
@@ -35,6 +35,8 @@
         <p class="tc-stat__value tc-stat__value--amber" style="margin-top: 0.4rem;">${{formatMoney .Team.GLeagueBudget}}</p>
     </div>
 </div>
+
+{{template "tcFinancialStatus" .Team}}
 
 <div class="tc-section-header">
     <span class="tc-section-header__id">MOD/02.B</span>
@@ -92,6 +94,75 @@
     <a href="/nba/league/rosters" class="tc-btn tc-btn--ghost">&laquo; LEAGUE INDEX</a>
 </div>
 
+{{end}}
+
+{{/* Financial status panel — duplicated from my_team.html so this template can stand alone.
+     Both share the .Team-shaped data so the field references match. */}}
+{{define "tcFinancialStatus"}}
+<section class="tc-panel" style="margin-bottom: 2rem; border-top: 0;">
+    <div class="tc-panel__head"><span>FINANCIAL STATUS · 2026-27</span><strong>{{if .CapLevel}}{{.CapLevel}}{{else}}—{{end}}</strong></div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.25rem 1.5rem; margin-bottom: 1.25rem;">
+        <div class="tc-stat">
+            <span class="tc-stat__label">Cap Level</span>
+            <span class="tc-stat__value tc-stat__value--cyan" style="font-size: 1.15rem;">{{if .CapLevel}}{{.CapLevel}}{{else}}<span style="color: var(--tc-text-faint);">—</span>{{end}}</span>
+        </div>
+        <div class="tc-stat">
+            <span class="tc-stat__label">Paid Up To</span>
+            <span class="tc-stat__value" style="font-size: 1.4rem;">{{if .PaidUpTo}}${{formatMoney (deref64 .PaidUpTo)}}{{else}}<span style="color: var(--tc-text-faint);">—</span>{{end}}</span>
+        </div>
+        <div class="tc-stat">
+            <span class="tc-stat__label">Need Billing</span>
+            <span class="tc-stat__value" style="font-size: 1.4rem; color: {{if and .NeedBilling (deref64bool .NeedBilling)}}var(--tc-amber){{else}}var(--tc-success){{end}};">{{ynLabel .NeedBilling}}</span>
+        </div>
+        <div class="tc-stat">
+            <span class="tc-stat__label">Free Cap Space</span>
+            <span class="tc-stat__value" style="font-size: 1.4rem; color: {{if and .FreeCapSpaceYN (deref64bool .FreeCapSpaceYN)}}var(--tc-success){{else}}var(--tc-text-mid){{end}};">{{ynLabel .FreeCapSpaceYN}}</span>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+        <div style="background: var(--tc-bg-elev); border: 1px solid var(--tc-line); padding: 0.85rem 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.6rem;">
+                <span class="tc-stat__label">Mid-Level Exception</span>
+                <span class="tc-tag {{if eq .ExceptionType "MLE"}}tc-tag--cyan{{else if eq .ExceptionType "TPMLE"}}tc-tag--amber{{else}}{{end}}">{{if .ExceptionType}}{{.ExceptionType}}{{else}}NONE{{end}}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <div>
+                    <span class="tc-stat__label" style="font-size: 0.6rem;">Used</span>
+                    <p style="font-family: var(--tc-mono); font-size: 1.05rem; color: var(--tc-text); margin: 0.2rem 0 0; font-variant-numeric: tabular-nums;">{{if .MLEUsed}}${{formatMoney (deref64 .MLEUsed)}}{{else}}<span style="color: var(--tc-text-faint);">—</span>{{end}}</p>
+                </div>
+                <div>
+                    <span class="tc-stat__label" style="font-size: 0.6rem;">Remaining</span>
+                    <p style="font-family: var(--tc-mono); font-size: 1.05rem; color: var(--tc-cyan); margin: 0.2rem 0 0; font-variant-numeric: tabular-nums;">{{if .MLERemaining}}${{formatMoney (deref64 .MLERemaining)}}{{else}}<span style="color: var(--tc-text-faint);">—</span>{{end}}</p>
+                </div>
+            </div>
+        </div>
+        <div style="background: var(--tc-bg-elev); border: 1px solid var(--tc-line); padding: 0.85rem 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.6rem;">
+                <span class="tc-stat__label">Bi-Annual Exception</span>
+                {{if .BAEAvailable}}{{if deref64bool .BAEAvailable}}<span class="tc-tag tc-tag--success">ELIGIBLE{{if .BAEEligibleYear}} · {{.BAEEligibleYear}}{{end}}</span>{{else}}<span class="tc-tag">NOT ELIGIBLE</span>{{end}}{{else}}<span class="tc-tag">—</span>{{end}}
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <div>
+                    <span class="tc-stat__label" style="font-size: 0.6rem;">Used</span>
+                    <p style="font-family: var(--tc-mono); font-size: 1.05rem; color: var(--tc-text); margin: 0.2rem 0 0; font-variant-numeric: tabular-nums;">{{if .BAEUsed}}${{formatMoney (deref64 .BAEUsed)}}{{else}}<span style="color: var(--tc-text-faint);">—</span>{{end}}</p>
+                </div>
+                <div>
+                    <span class="tc-stat__label" style="font-size: 0.6rem;">Remaining</span>
+                    <p style="font-family: var(--tc-mono); font-size: 1.05rem; color: var(--tc-amber); margin: 0.2rem 0 0; font-variant-numeric: tabular-nums;">{{if .BAERemaining}}${{formatMoney (deref64 .BAERemaining)}}{{else}}<span style="color: var(--tc-text-faint);">—</span>{{end}}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{if .TradeRestriction}}
+        <div style="display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.75rem 1rem; border-left: 3px solid var(--tc-amber); background: rgba(255, 128, 36, 0.04);">
+            <span class="tc-stat__label" style="white-space: nowrap; padding-top: 2px;">Trade Restrictions</span>
+            <span style="font-family: var(--tc-mono); font-size: 0.85rem; color: var(--tc-text); line-height: 1.5;">{{.TradeRestriction}}</span>
+        </div>
+    {{end}}
+</section>
 {{end}}
 
 {{define "tcUnit"}}

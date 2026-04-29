@@ -350,6 +350,27 @@ func RenderTemplate(c *gin.Context, tmplName string, data interface{}) {
 			}
 			return *p
 		},
+		"deref64": func(p *float64) float64 {
+			if p == nil {
+				return 0
+			}
+			return *p
+		},
+		"deref64bool": func(p *bool) bool {
+			if p == nil {
+				return false
+			}
+			return *p
+		},
+		"ynLabel": func(p *bool) string {
+			if p == nil {
+				return "—"
+			}
+			if *p {
+				return "YES"
+			}
+			return "NO"
+		},
 		"gradeDisplay": func(p *int) template.HTML {
 			if p == nil {
 				return template.HTML("&mdash;")

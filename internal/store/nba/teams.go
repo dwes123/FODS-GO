@@ -21,6 +21,21 @@ type Team struct {
 	GLeagueBudget         float64
 	FantraxURL            string
 
+	// Per-team financial header (rows 8-15 of each team tab in the xlsx).
+	// Curated by commissioners; drives cap-compliance workflows.
+	PaidUpTo         *float64
+	NeedBilling      *bool
+	CapLevel         string  // "Below Salary Floor" / "Below Soft Cap" / "Above Soft Cap" / "Above Luxury Tax" / "Above Apron #1" / "Above Apron #2"
+	FreeCapSpaceYN   *bool   // distinct from numeric CapSpace — the YES/NO flag from the sheet
+	ExceptionType    string  // "MLE" / "TPMLE" / "NONE"
+	MLEUsed          *float64
+	MLERemaining     *float64
+	BAEAvailable     *bool
+	BAEEligibleYear  string
+	BAEUsed          *float64
+	BAERemaining     *float64
+	TradeRestriction string
+
 	// Populated by GetTeamWithRoster only.
 	Roster []Player
 }
@@ -32,7 +47,11 @@ func ListTeams(nbaDB *pgxpool.Pool) ([]Team, error) {
 		       COALESCE(owner_name, ''),
 		       COALESCE(cap_space, 0), COALESCE(luxury_tax_balance, 0), COALESCE(trade_exception_balance, 0),
 		       COALESCE(g_league_budget, 0),
-		       COALESCE(fantrax_url, '')
+		       COALESCE(fantrax_url, ''),
+		       paid_up_to, need_billing, COALESCE(cap_level, ''), free_cap_space_yn,
+		       COALESCE(exception_type, ''), mle_used, mle_remaining,
+		       bae_available, COALESCE(bae_eligible_year, ''), bae_used, bae_remaining,
+		       COALESCE(trade_restriction, '')
 		FROM teams
 		ORDER BY name ASC
 	`)
@@ -45,7 +64,11 @@ func ListTeams(nbaDB *pgxpool.Pool) ([]Team, error) {
 	for rows.Next() {
 		var t Team
 		if err := rows.Scan(&t.ID, &t.LeagueID, &t.Name, &t.Abbreviation, &t.Conference, &t.Division, &t.OwnerName,
-			&t.CapSpace, &t.LuxuryTaxBalance, &t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL); err != nil {
+			&t.CapSpace, &t.LuxuryTaxBalance, &t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL,
+			&t.PaidUpTo, &t.NeedBilling, &t.CapLevel, &t.FreeCapSpaceYN,
+			&t.ExceptionType, &t.MLEUsed, &t.MLERemaining,
+			&t.BAEAvailable, &t.BAEEligibleYear, &t.BAEUsed, &t.BAERemaining,
+			&t.TradeRestriction); err != nil {
 			continue
 		}
 		out = append(out, t)
@@ -61,10 +84,18 @@ func GetTeamByID(nbaDB *pgxpool.Pool, id string) (*Team, error) {
 		       COALESCE(owner_name, ''),
 		       COALESCE(cap_space, 0), COALESCE(luxury_tax_balance, 0), COALESCE(trade_exception_balance, 0),
 		       COALESCE(g_league_budget, 0),
-		       COALESCE(fantrax_url, '')
+		       COALESCE(fantrax_url, ''),
+		       paid_up_to, need_billing, COALESCE(cap_level, ''), free_cap_space_yn,
+		       COALESCE(exception_type, ''), mle_used, mle_remaining,
+		       bae_available, COALESCE(bae_eligible_year, ''), bae_used, bae_remaining,
+		       COALESCE(trade_restriction, '')
 		FROM teams WHERE id = $1
 	`, id).Scan(&t.ID, &t.LeagueID, &t.Name, &t.Abbreviation, &t.Conference, &t.Division, &t.OwnerName,
-		&t.CapSpace, &t.LuxuryTaxBalance, &t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL)
+		&t.CapSpace, &t.LuxuryTaxBalance, &t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL,
+		&t.PaidUpTo, &t.NeedBilling, &t.CapLevel, &t.FreeCapSpaceYN,
+		&t.ExceptionType, &t.MLEUsed, &t.MLERemaining,
+		&t.BAEAvailable, &t.BAEEligibleYear, &t.BAEUsed, &t.BAERemaining,
+		&t.TradeRestriction)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +125,11 @@ func GetManagedNBATeams(nbaDB *pgxpool.Pool, userID string) ([]Team, error) {
 		       COALESCE(t.owner_name, ''),
 		       COALESCE(t.cap_space, 0), COALESCE(t.luxury_tax_balance, 0), COALESCE(t.trade_exception_balance, 0),
 		       COALESCE(t.g_league_budget, 0),
-		       COALESCE(t.fantrax_url, '')
+		       COALESCE(t.fantrax_url, ''),
+		       t.paid_up_to, t.need_billing, COALESCE(t.cap_level, ''), t.free_cap_space_yn,
+		       COALESCE(t.exception_type, ''), t.mle_used, t.mle_remaining,
+		       t.bae_available, COALESCE(t.bae_eligible_year, ''), t.bae_used, t.bae_remaining,
+		       COALESCE(t.trade_restriction, '')
 		FROM teams t
 		JOIN team_owners o ON o.team_id = t.id
 		WHERE o.user_id = $1
@@ -109,7 +144,11 @@ func GetManagedNBATeams(nbaDB *pgxpool.Pool, userID string) ([]Team, error) {
 	for rows.Next() {
 		var t Team
 		if err := rows.Scan(&t.ID, &t.LeagueID, &t.Name, &t.Abbreviation, &t.Conference, &t.Division, &t.OwnerName,
-			&t.CapSpace, &t.LuxuryTaxBalance, &t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL); err != nil {
+			&t.CapSpace, &t.LuxuryTaxBalance, &t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL,
+			&t.PaidUpTo, &t.NeedBilling, &t.CapLevel, &t.FreeCapSpaceYN,
+			&t.ExceptionType, &t.MLEUsed, &t.MLERemaining,
+			&t.BAEAvailable, &t.BAEEligibleYear, &t.BAEUsed, &t.BAERemaining,
+			&t.TradeRestriction); err != nil {
 			continue
 		}
 		out = append(out, t)
