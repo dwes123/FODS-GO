@@ -28,12 +28,16 @@ func RosterHandler(userDB, nbaDB *pgxpool.Pool) gin.HandlerFunc {
 		isOwner, _ := nbastore.IsTeamOwner(nbaDB, teamID, user.ID)
 		adminLeagues, _ := store.GetAdminLeaguesForSport(userDB, user.ID, sport.SportNBA)
 
-		// Bucket players for template-side sectioning
-		var standard, twoWay, inactive []nbastore.Player
+		// Bucket players. Per CBA: 15-man NBA roster (incl. up to 3 two-ways), then a separate
+		// G-League roster (up to 10 players). Two-way contracts count toward the 15-man limit;
+		// G-League contracts do NOT.
+		var standard, twoWay, gleague, inactive []nbastore.Player
 		for _, p := range team.Roster {
 			switch {
 			case p.OnTwoWay:
 				twoWay = append(twoWay, p)
+			case p.OnGLeague:
+				gleague = append(gleague, p)
 			case !p.OnActiveRoster:
 				inactive = append(inactive, p)
 			default:
@@ -52,9 +56,10 @@ func RosterHandler(userDB, nbaDB *pgxpool.Pool) gin.HandlerFunc {
 			}
 			return p
 		}
-		standardPct := pct(len(standard), sport.NBAStandardRosterLimit)
+		// Standard meter: count both standard + two-way against the 15-man limit (per CBA).
+		standardPct := pct(len(standard)+len(twoWay), sport.NBAStandardRosterLimit)
 		twoWayPct := pct(len(twoWay), sport.NBATwoWayLimit)
-		// Inactive has no fixed cap; treat 8 as "a lot" for visual purposes.
+		gleaguePct := pct(len(gleague), 10) // G-League max 10 players total per CBA
 		inactivePct := pct(len(inactive), 8)
 
 		handlers.RenderTemplate(c, "nba/roster.html", gin.H{
@@ -65,11 +70,14 @@ func RosterHandler(userDB, nbaDB *pgxpool.Pool) gin.HandlerFunc {
 			"Team":          team,
 			"Standard":      standard,
 			"TwoWay":        twoWay,
+			"GLeague":       gleague,
 			"Inactive":      inactive,
 			"StandardLimit": sport.NBAStandardRosterLimit,
 			"TwoWayLimit":   sport.NBATwoWayLimit,
+			"GLeagueLimit":  10,
 			"StandardPct":   standardPct,
 			"TwoWayPct":     twoWayPct,
+			"GLeaguePct":    gleaguePct,
 			"InactivePct":   inactivePct,
 		})
 	}

@@ -43,6 +43,7 @@ type Player struct {
 	Annotations map[string][]string
 
 	OnTwoWay        bool
+	OnGLeague       bool
 	OnActiveRoster  bool
 	InjuryStatus    string
 	FAStatus        string
@@ -86,7 +87,7 @@ func GetFreeAgents(nbaDB *pgxpool.Pool, filter FreeAgentFilter) ([]Player, error
 		SELECT p.id, p.nba_id,
 		       p.first_name, p.last_name, COALESCE(p.position, ''), COALESCE(p.real_life_team, ''),
 		       COALESCE(p.fa_status, ''), COALESCE(p.injury_status, ''),
-		       p.on_trade_block, p.on_two_way, p.on_active_roster,
+		       p.on_trade_block, p.on_two_way, p.on_g_league, p.on_active_roster,
 		       ` + allContractYearsSelect + `
 		FROM players p
 		WHERE p.team_id IS NULL
@@ -127,7 +128,7 @@ func GetFreeAgents(nbaDB *pgxpool.Pool, filter FreeAgentFilter) ([]Player, error
 			&p.ID, &p.NBAID,
 			&p.FirstName, &p.LastName, &p.Position, &p.RealLifeTeam,
 			&p.FAStatus, &p.InjuryStatus,
-			&p.OnTradeBlock, &p.OnTwoWay, &p.OnActiveRoster,
+			&p.OnTradeBlock, &p.OnTwoWay, &p.OnGLeague, &p.OnActiveRoster,
 			&contracts[0], &contracts[1], &contracts[2], &contracts[3], &contracts[4],
 			&contracts[5], &contracts[6], &contracts[7], &contracts[8], &contracts[9],
 			&contracts[10], &contracts[11], &contracts[12], &contracts[13], &contracts[14],
@@ -169,7 +170,7 @@ func GetPlayerByID(nbaDB *pgxpool.Pool, id string) (*Player, error) {
 		       p.height_inches, p.weight_lbs, p.age,
 		       COALESCE(p.college, ''), p.draft_year, p.draft_pick, COALESCE(p.real_life_team, ''),
 		       COALESCE(p.fa_status, ''), COALESCE(p.injury_status, ''),
-		       p.on_trade_block, p.on_two_way, p.on_active_roster,
+		       p.on_trade_block, p.on_two_way, p.on_g_league, p.on_active_roster,
 		       p.bid_end_time, p.waiver_end_time,
 		       COALESCE(p.contract_annotations, '{}'::jsonb),
 		       COALESCE(t.name, ''),
@@ -188,7 +189,7 @@ func GetPlayerByID(nbaDB *pgxpool.Pool, id string) (*Player, error) {
 		&p.HeightInches, &p.WeightLbs, &p.Age,
 		&p.College, &p.DraftYear, &p.DraftPick, &p.RealLifeTeam,
 		&p.FAStatus, &p.InjuryStatus,
-		&p.OnTradeBlock, &p.OnTwoWay, &p.OnActiveRoster,
+		&p.OnTradeBlock, &p.OnTwoWay, &p.OnGLeague, &p.OnActiveRoster,
 		&p.BidEndTime, &p.WaiverEndTime,
 		&annotationsJSON,
 		&p.TeamName,
@@ -214,7 +215,7 @@ func GetTradeBlockPlayers(nbaDB *pgxpool.Pool) ([]Player, error) {
 		SELECT p.id, p.nba_id,
 		       p.first_name, p.last_name, COALESCE(p.position, ''), COALESCE(p.real_life_team, ''),
 		       COALESCE(p.fa_status, ''), COALESCE(p.injury_status, ''),
-		       p.on_trade_block, p.on_two_way, p.on_active_roster,
+		       p.on_trade_block, p.on_two_way, p.on_g_league, p.on_active_roster,
 		       COALESCE(t.name, ''),
 		       ` + allContractYearsSelect + `
 		FROM players p
@@ -236,7 +237,7 @@ func GetTradeBlockPlayers(nbaDB *pgxpool.Pool) ([]Player, error) {
 			&p.ID, &p.NBAID,
 			&p.FirstName, &p.LastName, &p.Position, &p.RealLifeTeam,
 			&p.FAStatus, &p.InjuryStatus,
-			&p.OnTradeBlock, &p.OnTwoWay, &p.OnActiveRoster,
+			&p.OnTradeBlock, &p.OnTwoWay, &p.OnGLeague, &p.OnActiveRoster,
 			&p.TeamName,
 			&contracts[0], &contracts[1], &contracts[2], &contracts[3], &contracts[4],
 			&contracts[5], &contracts[6], &contracts[7], &contracts[8], &contracts[9],
@@ -257,7 +258,7 @@ func GetTeamRoster(nbaDB *pgxpool.Pool, teamID string) ([]Player, error) {
 		SELECT p.id, p.nba_id,
 		       p.first_name, p.last_name, COALESCE(p.position, ''), COALESCE(p.real_life_team, ''),
 		       COALESCE(p.fa_status, ''), COALESCE(p.injury_status, ''),
-		       p.on_trade_block, p.on_two_way, p.on_active_roster,
+		       p.on_trade_block, p.on_two_way, p.on_g_league, p.on_active_roster,
 		       ` + allContractYearsSelect + `
 		FROM players p
 		WHERE p.team_id = $1
@@ -277,7 +278,7 @@ func GetTeamRoster(nbaDB *pgxpool.Pool, teamID string) ([]Player, error) {
 			&p.ID, &p.NBAID,
 			&p.FirstName, &p.LastName, &p.Position, &p.RealLifeTeam,
 			&p.FAStatus, &p.InjuryStatus,
-			&p.OnTradeBlock, &p.OnTwoWay, &p.OnActiveRoster,
+			&p.OnTradeBlock, &p.OnTwoWay, &p.OnGLeague, &p.OnActiveRoster,
 			&contracts[0], &contracts[1], &contracts[2], &contracts[3], &contracts[4],
 			&contracts[5], &contracts[6], &contracts[7], &contracts[8], &contracts[9],
 			&contracts[10], &contracts[11], &contracts[12], &contracts[13], &contracts[14],

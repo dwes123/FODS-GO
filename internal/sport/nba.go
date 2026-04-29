@@ -13,17 +13,17 @@ const (
 	SportNBA = "nba"
 )
 
-// NBA position codes. A player's `position` column may hold a single code or a comma list (e.g., "PG,SG").
+// NBA position codes. The Dynasty Association uses Fantrax-style G/F/C eligibility
+// (matching the G/F/C/FLEX starting-lineup slots), not the more granular PG/SG/SF/PF/C.
+// A player's `position` column may hold a single code or a comma list (e.g., "G,F", "F,C").
 const (
-	PositionPG = "PG"
-	PositionSG = "SG"
-	PositionSF = "SF"
-	PositionPF = "PF"
-	PositionC  = "C"
+	PositionG = "G"
+	PositionF = "F"
+	PositionC = "C"
 )
 
-// NBAPositions is the canonical ordered list of NBA positions for UI tabs.
-var NBAPositions = []string{PositionPG, PositionSG, PositionSF, PositionPF, PositionC}
+// NBAPositions is the canonical ordered list of NBA positions for UI filter tabs.
+var NBAPositions = []string{PositionG, PositionF, PositionC}
 
 // NBA contract tags. Stored as the value of a contract_YYYY column when not a dollar amount.
 const (

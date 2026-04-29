@@ -40,15 +40,15 @@
     <span class="tc-section-header__id">MOD/02.B</span>
     <span class="tc-section-header__title">Roster Capacity</span>
     <span class="tc-section-header__rule"></span>
-    <span class="tc-section-header__count">{{add (len .Standard) (len .TwoWay)}} / {{add .StandardLimit .TwoWayLimit}} TOTAL</span>
+    <span class="tc-section-header__count">{{add (add (len .Standard) (len .TwoWay)) (len .GLeague)}} TOTAL</span>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
     <div class="tc-panel">
-        <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.5rem;">PRIMARY UNIT</p>
+        <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.5rem;">15-MAN ROSTER</p>
         <div class="tc-meter">
-            <div class="tc-meter__bar"><div class="tc-meter__fill{{if eq (len .Standard) .StandardLimit}} tc-meter__fill--full{{end}}" style="width: {{.StandardPct}}%;"></div></div>
-            <span class="tc-meter__count">{{len .Standard}}/{{.StandardLimit}}</span>
+            <div class="tc-meter__bar"><div class="tc-meter__fill{{if ge (add (len .Standard) (len .TwoWay)) .StandardLimit}} tc-meter__fill--full{{end}}" style="width: {{.StandardPct}}%;"></div></div>
+            <span class="tc-meter__count">{{add (len .Standard) (len .TwoWay)}}/{{.StandardLimit}}</span>
         </div>
     </div>
     <div class="tc-panel">
@@ -59,16 +59,26 @@
         </div>
     </div>
     <div class="tc-panel">
+        <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.5rem;">G-LEAGUE</p>
+        <div class="tc-meter">
+            <div class="tc-meter__bar"><div class="tc-meter__fill" style="width: {{.GLeaguePct}}%;"></div></div>
+            <span class="tc-meter__count">{{len .GLeague}}/{{.GLeagueLimit}}</span>
+        </div>
+    </div>
+    {{if .Inactive}}
+    <div class="tc-panel">
         <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.5rem;">INACTIVE / IR</p>
         <div class="tc-meter">
             <div class="tc-meter__bar"><div class="tc-meter__fill" style="width: {{.InactivePct}}%;"></div></div>
             <span class="tc-meter__count">{{len .Inactive}}</span>
         </div>
     </div>
+    {{end}}
 </div>
 
 {{template "tcUnit" dict "Title" "Primary Unit" "ID" "P-15" "Players" .Standard "EmptyMsg" "No primary roster players assigned."}}
 {{template "tcUnit" dict "Title" "Two-Way Unit" "ID" "TW-3" "Players" .TwoWay "EmptyMsg" "No two-way contracts active."}}
+{{template "tcUnit" dict "Title" "G-League Unit" "ID" "GL" "Players" .GLeague "EmptyMsg" ""}}
 {{if .Inactive}}{{template "tcUnit" dict "Title" "Inactive / IR" "ID" "IR" "Players" .Inactive "EmptyMsg" ""}}{{end}}
 
 {{if not .Team.Roster}}
