@@ -1,0 +1,176 @@
+{{define "title"}}NBA / MY TEAM{{end}}
+{{define "content"}}
+
+{{if .NoTeam}}
+    <header class="tc-page-header">
+        <div class="tc-page-header__id">MOD/MT<br><strong>MY TEAM</strong></div>
+        <h1 class="tc-page-header__title">My <em>Team</em></h1>
+        <div class="tc-page-header__meta">
+            <div><span class="tc-pulse-dot tc-pulse-dot--amber"></span>NO ASSIGNMENT</div>
+        </div>
+    </header>
+
+    <div class="tc-empty">
+        <p><strong>NO NBA FRANCHISE ASSIGNED.</strong></p>
+        <p>You're not yet listed as the GM of any NBA team in The Dynasty Association.</p>
+        <p>Contact a commissioner to be assigned a franchise.<span class="tc-cursor"></span></p>
+        <p style="margin-top: 2rem;"><a href="/nba/league/rosters" class="tc-btn">BROWSE LEAGUE INDEX &rsaquo;</a></p>
+    </div>
+{{else}}
+    <header class="tc-page-header">
+        <div class="tc-page-header__id">MOD/MT<br><strong>MY TEAM</strong></div>
+        <div>
+            <h1 class="tc-page-header__title">{{.Team.Name}}</h1>
+            <p style="font-family: var(--tc-mono); font-size: 0.78rem; color: var(--tc-text-dim); letter-spacing: 0.16em; text-transform: uppercase; margin: 0.25rem 0 0;">
+                {{.Team.Conference}} CONF &middot; {{.Team.Division}} DIV
+                &middot; <span style="color: var(--tc-text-mid);">GM {{.User.Username}}</span>
+            </p>
+        </div>
+        <div class="tc-page-header__meta">
+            <div><span class="tc-status" style="color: var(--tc-success);"><span class="tc-pulse-dot"></span>YOU MANAGE THIS UNIT</span></div>
+            {{if gt .OwnedCount 1}}<div style="margin-top: 4px;">{{.OwnedCount}} TEAMS OWNED</div>{{end}}
+        </div>
+    </header>
+
+    {{if .OtherTeams}}
+        <div class="tc-panel" style="margin-bottom: 1.5rem;">
+            <div class="tc-panel__head"><span>SWITCH FRANCHISE</span><strong>{{.OwnedCount}} TEAMS</strong></div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.5rem;">
+                {{range .OtherTeams}}
+                    <a href="/nba/my-team?team={{.ID}}" class="tc-btn tc-btn--ghost" style="justify-content: center;">{{.Abbreviation}} &middot; {{.Name}}</a>
+                {{end}}
+            </div>
+        </div>
+    {{end}}
+
+    {{/* Financial dashboard */}}
+    <div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 2rem;">
+        <div class="tc-panel" style="--i: 0; border: none; padding: 1rem 1.25rem;">
+            <span class="tc-stat__label">Cap Space</span>
+            <p class="tc-stat__value tc-stat__value--cyan" style="margin-top: 0.4rem;">${{formatMoney .Team.CapSpace}}</p>
+        </div>
+        <div class="tc-panel" style="--i: 1; border: none; padding: 1rem 1.25rem;">
+            <span class="tc-stat__label">Lux Tax Bal.</span>
+            <p class="tc-stat__value" style="margin-top: 0.4rem;">${{formatMoney .Team.LuxuryTaxBalance}}</p>
+        </div>
+        <div class="tc-panel" style="--i: 2; border: none; padding: 1rem 1.25rem;">
+            <span class="tc-stat__label">Trade Exception</span>
+            <p class="tc-stat__value" style="margin-top: 0.4rem;">${{formatMoney .Team.TradeExceptionBalance}}</p>
+        </div>
+        <div class="tc-panel" style="--i: 3; border: none; padding: 1rem 1.25rem;">
+            <span class="tc-stat__label">G-League Budget</span>
+            <p class="tc-stat__value tc-stat__value--amber" style="margin-top: 0.4rem;">${{formatMoney .Team.GLeagueBudget}}</p>
+        </div>
+    </div>
+
+    {{/* Capacity meters */}}
+    <div class="tc-section-header">
+        <span class="tc-section-header__id">MOD/MT.A</span>
+        <span class="tc-section-header__title">Roster Capacity</span>
+        <span class="tc-section-header__rule"></span>
+        <span class="tc-section-header__count">{{add (add (len .Standard) (len .TwoWay)) (len .GLeague)}} TOTAL</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        <div class="tc-panel">
+            <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.5rem;">15-MAN ROSTER</p>
+            <div class="tc-meter">
+                <div class="tc-meter__bar"><div class="tc-meter__fill{{if ge (add (len .Standard) (len .TwoWay)) .StandardLimit}} tc-meter__fill--full{{end}}" style="width: {{.StandardPct}}%;"></div></div>
+                <span class="tc-meter__count">{{add (len .Standard) (len .TwoWay)}}/{{.StandardLimit}}</span>
+            </div>
+        </div>
+        <div class="tc-panel">
+            <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.5rem;">TWO-WAY UNIT</p>
+            <div class="tc-meter">
+                <div class="tc-meter__bar"><div class="tc-meter__fill{{if eq (len .TwoWay) .TwoWayLimit}} tc-meter__fill--full{{end}}" style="width: {{.TwoWayPct}}%;"></div></div>
+                <span class="tc-meter__count">{{len .TwoWay}}/{{.TwoWayLimit}}</span>
+            </div>
+        </div>
+        <div class="tc-panel">
+            <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.5rem;">G-LEAGUE</p>
+            <div class="tc-meter">
+                <div class="tc-meter__bar"><div class="tc-meter__fill" style="width: {{.GLeaguePct}}%;"></div></div>
+                <span class="tc-meter__count">{{len .GLeague}}/{{.GLeagueLimit}}</span>
+            </div>
+        </div>
+        {{if .Inactive}}
+        <div class="tc-panel">
+            <p style="font-family: var(--tc-mono); font-size: 0.65rem; color: var(--tc-text-dim); letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 0.5rem;">INACTIVE / IR</p>
+            <div class="tc-meter">
+                <div class="tc-meter__bar"><div class="tc-meter__fill" style="width: {{.InactivePct}}%;"></div></div>
+                <span class="tc-meter__count">{{len .Inactive}}</span>
+            </div>
+        </div>
+        {{end}}
+    </div>
+
+    {{/* Roster sections — each shows full multi-year contract grid for the user's contract planning */}}
+    {{template "tcMyTeamUnit" dict "Title" "Primary Unit" "ID" "P-15" "Players" .Standard "EmptyMsg" "No primary roster players."}}
+    {{template "tcMyTeamUnit" dict "Title" "Two-Way Unit" "ID" "TW-3" "Players" .TwoWay "EmptyMsg" "No two-way contracts active."}}
+    {{template "tcMyTeamUnit" dict "Title" "G-League Unit" "ID" "GL" "Players" .GLeague "EmptyMsg" ""}}
+    {{if .Inactive}}{{template "tcMyTeamUnit" dict "Title" "Inactive / IR" "ID" "IR" "Players" .Inactive "EmptyMsg" ""}}{{end}}
+
+    <div style="margin-top: 2rem;">
+        <a href="/nba/league/rosters" class="tc-btn tc-btn--ghost">&laquo; LEAGUE INDEX</a>
+        <a href="/nba/free-agents" class="tc-btn">FREE AGENT SCAN &rsaquo;</a>
+    </div>
+{{end}}
+
+{{end}}
+
+{{/* Roster section showing 5 contract years (2026-2030) per player + flags */}}
+{{define "tcMyTeamUnit"}}
+{{if .Players}}
+<section class="tc-unit">
+    <div class="tc-unit__head">
+        <span class="tc-unit__id">{{.ID}}</span>
+        <span class="tc-unit__title">{{.Title}}</span>
+        <span style="font-family: var(--tc-mono); font-size: 0.7rem; color: var(--tc-text-dim); letter-spacing: 0.16em;">{{len .Players}} ENTRIES</span>
+    </div>
+    <table class="tc-table">
+        <thead>
+            <tr>
+                <th style="width: 36px;">#</th>
+                <th>Player</th>
+                <th>Pos</th>
+                <th style="text-align: right;">2026</th>
+                <th style="text-align: right;">2027</th>
+                <th style="text-align: right;">2028</th>
+                <th style="text-align: right;">2029</th>
+                <th style="text-align: right;">2030</th>
+                <th>Flags</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $i, $p := .Players}}
+                {{$annotations := $p.Annotations}}
+                <tr>
+                    <td style="color: var(--tc-text-dim); font-size: 0.7rem;">{{printf "%02d" (add $i 1)}}</td>
+                    <td>
+                        <a href="/nba/player/{{.ID}}" style="font-family: var(--tc-sans); font-size: 0.95rem; font-weight: 500;">{{.FirstName}} {{.LastName}}</a>
+                        {{if .OnTradeBlock}} <span class="tc-tag tc-tag--amber" style="margin-left: 4px;">TB</span>{{end}}
+                        {{if .RealLifeTeam}}<span style="color: var(--tc-text-faint); font-size: 0.7rem; letter-spacing: 0.12em; margin-left: 6px;">{{.RealLifeTeam}}</span>{{end}}
+                    </td>
+                    <td><span class="tc-tag tc-tag--cyan">{{.Position}}</span></td>
+                    {{range $y := (seq 2026 2030)}}
+                        {{$val := index $p.Contracts $y}}
+                        <td style="text-align: right;">
+                            {{if $val}}<span style="color: var(--tc-text);">{{$val}}</span>{{else}}<span style="color: var(--tc-text-faint);">&mdash;</span>{{end}}
+                        </td>
+                    {{end}}
+                    <td>
+                        {{if $annotations}}
+                            {{range $y, $list := $annotations}}
+                                {{range $list}}
+                                    <span class="tc-tag tc-tag--amber" style="margin-right: 3px; margin-bottom: 2px; font-size: 0.55rem;">{{$y}} {{.}}</span>
+                                {{end}}
+                            {{end}}
+                        {{end}}
+                    </td>
+                </tr>
+            {{end}}
+        </tbody>
+    </table>
+</section>
+{{end}}
+{{end}}

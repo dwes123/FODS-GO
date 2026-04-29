@@ -31,7 +31,12 @@
                                 {{if .Roster}}
                                     <div class="tc-franchise__roster">
                                         {{range .Roster}}
-                                            <div style="display: flex; justify-content: space-between; gap: 0.5rem;"><a href="/nba/player/{{.ID}}">{{.FirstName}} {{.LastName}}</a><span style="color: var(--tc-text-faint);">{{.Position}}</span></div>
+                                            {{$val := index .Contracts 2026}}
+                                            <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 0.5rem; align-items: baseline;">
+                                                <a href="/nba/player/{{.ID}}" title="{{.FirstName}} {{.LastName}}">{{.FirstName}} {{.LastName}}</a>
+                                                <span style="color: var(--tc-text-faint); font-size: 0.7rem;">{{.Position}}</span>
+                                                <span style="color: var(--tc-cyan-soft); font-size: 0.7rem; font-variant-numeric: tabular-nums; min-width: 70px; text-align: right;">{{if $val}}{{$val}}{{else}}&mdash;{{end}}</span>
+                                            </div>
                                         {{end}}
                                     </div>
                                 {{else}}

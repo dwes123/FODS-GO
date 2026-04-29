@@ -102,6 +102,11 @@ func main() {
 		authorized.POST("/real-life-extension", handlers.SubmitRealLifeExtensionHandler(database))
 		authorized.POST("/restructure", handlers.ProcessRestructureHandler(database))
 
+		// On the Farm (Team Top 10 Prospects)
+		authorized.GET("/prospects", handlers.ProspectsHandler(database))
+		authorized.GET("/prospects/edit", handlers.ProspectsEditHandler(database))
+		authorized.POST("/prospects/save", handlers.ProspectsSaveHandler(database))
+
 		// Standings & Financials
 		authorized.GET("/standings", handlers.StandingsHandler(database))
 		authorized.GET("/league/financials", handlers.LeagueFinancialsHandler(database))
@@ -241,6 +246,7 @@ func main() {
 			nba.GET("/home", nbahandlers.HomeHandler(database, nbaDB))
 
 			// Slice 2 — read-only player/team pages
+			nba.GET("/my-team", nbahandlers.MyTeamHandler(database, nbaDB))
 			nba.GET("/free-agents", nbahandlers.FreeAgentHandler(database, nbaDB))
 			nba.GET("/player/:id", nbahandlers.PlayerProfileHandler(database, nbaDB))
 			nba.GET("/roster/:id", nbahandlers.RosterHandler(database, nbaDB))
