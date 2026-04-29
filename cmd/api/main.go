@@ -72,8 +72,9 @@ func main() {
 	{
 		public.GET("/test", handlers.TestTemplateHandler(database))
 		public.GET("/", func(c *gin.Context) {
-			c.Redirect(http.StatusMovedPermanently, "/home")
+			c.Redirect(http.StatusFound, "/portal")
 		})
+		public.GET("/portal", handlers.PortalHandler())
 		public.GET("/dashboard", func(c *gin.Context) {
 			c.Redirect(http.StatusMovedPermanently, "/home")
 		})

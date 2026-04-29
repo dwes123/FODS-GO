@@ -90,6 +90,7 @@ func HomeHandler(db *pgxpool.Pool) gin.HandlerFunc {
 		waiverSpotlight := getWaiverSpotlight(db)
 
 		data := gin.H{
+			"Sport":           "mlb",
 			"Leagues":         leagues,
 			"MyTeams":         myTeams,
 			"User":            userVal,

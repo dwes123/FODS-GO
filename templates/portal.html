@@ -1,0 +1,312 @@
+{{define "title"}}Front Office Dynasty Sports{{end}}
+{{define "content"}}
+
+<style>
+    .portal-wrap {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 4vh 1rem 6vh;
+    }
+    .portal-mast {
+        text-align: center;
+        margin-bottom: 4rem;
+    }
+    .portal-mast__caption {
+        font-family: var(--portal-mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: var(--portal-amber);
+        margin-bottom: 1.25rem;
+    }
+    .portal-mast__caption .pulse {
+        display: inline-block;
+        width: 7px; height: 7px;
+        background: var(--portal-amber);
+        border-radius: 50%;
+        margin-right: 8px;
+        vertical-align: middle;
+        box-shadow: 0 0 10px var(--portal-amber);
+        animation: portal-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes portal-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    .portal-mast__title {
+        font-family: var(--portal-display);
+        font-weight: 400;
+        font-size: clamp(2.4rem, 7vw, 5.5rem);
+        line-height: 0.95;
+        color: var(--portal-text);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        margin: 0;
+    }
+    .portal-mast__title em {
+        color: var(--portal-amber);
+        font-style: normal;
+        text-shadow: 0 0 32px rgba(229, 168, 44, 0.45);
+    }
+    .portal-mast__sub {
+        font-family: var(--portal-sans);
+        font-style: italic;
+        font-size: clamp(1.05rem, 1.6vw, 1.4rem);
+        color: var(--portal-text-mid);
+        margin: 1.25rem auto 0;
+        max-width: 56ch;
+        line-height: 1.55;
+    }
+
+    .portal-divider {
+        font-family: var(--portal-mono);
+        font-size: 0.7rem;
+        letter-spacing: 0.36em;
+        color: var(--portal-text-mid);
+        text-transform: uppercase;
+        text-align: center;
+        margin: 0 0 2rem;
+        position: relative;
+    }
+    .portal-divider::before,
+    .portal-divider::after {
+        content: "";
+        display: inline-block;
+        width: 60px;
+        height: 1px;
+        background: var(--portal-text-mid);
+        opacity: 0.35;
+        vertical-align: middle;
+        margin: 0 1rem;
+    }
+
+    .portal-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+    }
+    @media (max-width: 820px) {
+        .portal-cards { grid-template-columns: 1fr; }
+    }
+
+    .portal-card {
+        position: relative;
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        padding: 2rem 2rem 2.5rem;
+        min-height: 460px;
+        border: 1px solid rgba(245, 239, 224, 0.08);
+        overflow: hidden;
+        transition: transform 350ms cubic-bezier(.2,.8,.2,1), border-color 250ms ease;
+    }
+    .portal-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(229, 168, 44, 0.4);
+    }
+
+    .portal-card--baseball {
+        background:
+            radial-gradient(ellipse 100% 80% at 100% 100%, rgba(229, 168, 44, 0.20) 0%, transparent 60%),
+            radial-gradient(ellipse 80% 60% at 0% 0%, rgba(200, 48, 46, 0.10) 0%, transparent 60%),
+            linear-gradient(160deg, #0E2418 0%, #0B1722 100%);
+    }
+    .portal-card--baseball::before {
+        /* Stadium silhouette hint at the bottom */
+        content: "";
+        position: absolute;
+        left: 0; right: 0; bottom: 0; height: 140px;
+        background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 140' preserveAspectRatio='none'><g fill='%23050C14'><path d='M0,140 L0,90 L60,90 L60,80 L130,80 L130,55 Q130,40 200,40 L600,40 Q670,40 670,55 L670,80 L740,80 L740,90 L800,90 L800,140 Z'/></g><g stroke='%23E5A82C' stroke-width='1.5' fill='none' opacity='0.6'><line x1='40' y1='80' x2='40' y2='25'/><line x1='760' y1='80' x2='760' y2='25'/></g><g fill='%23F2C158'><circle cx='40' cy='25' r='2.5'/><circle cx='760' cy='25' r='2.5'/></g></svg>") no-repeat center bottom / 100% 140px;
+        opacity: 0.85;
+        pointer-events: none;
+    }
+    .portal-card--baseball::after {
+        /* Field-light glow */
+        content: "";
+        position: absolute;
+        left: 0; right: 0; bottom: 0; height: 140px;
+        background: radial-gradient(ellipse 80% 60% at 50% 100%, rgba(229, 168, 44, 0.30) 0%, transparent 60%);
+        mix-blend-mode: screen;
+        pointer-events: none;
+    }
+
+    .portal-card--basketball {
+        background:
+            radial-gradient(ellipse 100% 80% at 0% 100%, rgba(255, 128, 36, 0.20) 0%, transparent 60%),
+            radial-gradient(ellipse 80% 60% at 100% 0%, rgba(255, 199, 44, 0.12) 0%, transparent 60%),
+            linear-gradient(160deg, #0E1330 0%, #0B1722 100%);
+    }
+    .portal-card--basketball::before {
+        /* City skyline hint at the bottom */
+        content: "";
+        position: absolute;
+        left: 0; right: 0; bottom: 0; height: 140px;
+        background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 140' preserveAspectRatio='none'><g fill='%23050C14'><polygon points='0,140 0,90 30,90 30,80 60,80 60,70 100,70 100,50 140,50 140,85 175,85 175,40 200,30 225,40 225,75 270,75 270,55 320,55 320,90 360,90 360,30 380,30 380,15 395,15 395,30 410,30 410,80 460,80 460,55 510,55 510,75 560,75 560,40 600,40 600,80 640,80 640,60 700,60 700,85 740,85 740,75 780,75 780,90 800,90 800,140'/></g></svg>") no-repeat center bottom / 100% 140px;
+        opacity: 0.85;
+        pointer-events: none;
+    }
+    .portal-card--basketball::after {
+        content: "";
+        position: absolute;
+        left: 0; right: 0; bottom: 0; height: 140px;
+        background: radial-gradient(ellipse 80% 60% at 50% 100%, rgba(255, 128, 36, 0.30) 0%, transparent 60%);
+        mix-blend-mode: screen;
+        pointer-events: none;
+    }
+
+    .portal-card__body {
+        position: relative;
+        z-index: 2;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .portal-card__caption {
+        font-family: var(--portal-mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--portal-text-mid);
+        margin-bottom: 1rem;
+    }
+    .portal-card--baseball .portal-card__caption { color: var(--portal-amber); }
+    .portal-card--basketball .portal-card__caption { color: #FFC72C; }
+
+    .portal-card__title {
+        font-family: var(--portal-display);
+        font-weight: 400;
+        font-size: clamp(2.4rem, 4vw, 3.6rem);
+        line-height: 0.95;
+        color: var(--portal-text);
+        text-transform: uppercase;
+        letter-spacing: 0.01em;
+        margin: 0 0 0.5rem;
+    }
+    .portal-card__leagues {
+        font-family: var(--portal-mono);
+        font-size: 0.78rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--portal-text-mid);
+        margin: 0 0 1.5rem;
+    }
+    .portal-card__leagues span {
+        display: inline-block;
+        margin-right: 0.5rem;
+        padding: 4px 9px;
+        border: 1px solid rgba(245, 239, 224, 0.16);
+        margin-bottom: 6px;
+    }
+    .portal-card__desc {
+        font-family: var(--portal-sans);
+        color: var(--portal-text-mid);
+        line-height: 1.6;
+        max-width: 36ch;
+        margin: 0 0 auto;
+    }
+
+    .portal-card__cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 1.5rem;
+        padding: 12px 20px;
+        background: rgba(245, 239, 224, 0.08);
+        border: 1px solid rgba(245, 239, 224, 0.25);
+        font-family: var(--portal-mono);
+        font-size: 0.8rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--portal-text);
+        font-weight: 600;
+        align-self: flex-start;
+        transition: all 200ms ease;
+    }
+    .portal-card--baseball .portal-card__cta:hover {
+        background: var(--portal-amber);
+        border-color: var(--portal-amber);
+        color: #0B1722;
+        box-shadow: 0 0 24px rgba(229, 168, 44, 0.5);
+    }
+    .portal-card--basketball .portal-card__cta:hover {
+        background: #FFC72C;
+        border-color: #FFC72C;
+        color: #0B1722;
+        box-shadow: 0 0 24px rgba(255, 199, 44, 0.5);
+    }
+    .portal-card__cta-arrow {
+        font-size: 1.2em;
+        transition: transform 200ms ease;
+    }
+    .portal-card:hover .portal-card__cta-arrow { transform: translateX(4px); }
+
+    .portal-meta {
+        margin-top: 4rem;
+        text-align: center;
+        font-family: var(--portal-mono);
+        font-size: 0.7rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--portal-text-mid);
+        opacity: 0.5;
+    }
+    .portal-meta a { color: var(--portal-amber); text-decoration: none; }
+
+    .portal-fade-in > * {
+        opacity: 0;
+        transform: translateY(12px);
+        animation: portal-fade-in 700ms cubic-bezier(.2,.8,.2,1) forwards;
+        animation-delay: calc(var(--i, 0) * 120ms + 200ms);
+    }
+    @keyframes portal-fade-in { to { opacity: 1; transform: translateY(0); } }
+</style>
+
+<div class="portal-wrap">
+    <div class="portal-mast portal-fade-in">
+        <p class="portal-mast__caption" style="--i: 0;"><span class="pulse"></span>FRONT OFFICE DYNASTY SPORTS · EST. 2021</p>
+        <h1 class="portal-mast__title" style="--i: 1;">Choose your <em>sport</em></h1>
+        <p class="portal-mast__sub" style="--i: 2;">
+            Two leagues. Thousands of contracts. One front office.
+            {{if .User}}Welcome back, <strong style="color: var(--portal-amber);">{{.User.Username}}</strong>.{{else}}Sign in to enter your league.{{end}}
+        </p>
+    </div>
+
+    <p class="portal-divider">Pick a side</p>
+
+    <div class="portal-cards portal-fade-in">
+        <a href="/home" class="portal-card portal-card--baseball" style="--i: 3;">
+            <div class="portal-card__body">
+                <p class="portal-card__caption">/01 · Baseball</p>
+                <h2 class="portal-card__title">Diamond<br>Club</h2>
+                <p class="portal-card__leagues">
+                    <span>MLB</span><span>AAA</span><span>AA</span><span>High-A</span>
+                </p>
+                <p class="portal-card__desc">
+                    Four-tier dynasty league. Contracts, options, arbitration, banked starts,
+                    rotation duty, and the ISBP &amp; MiLB markets. Where the diamond is sacred.
+                </p>
+                <span class="portal-card__cta">Enter Diamond <span class="portal-card__cta-arrow">→</span></span>
+            </div>
+        </a>
+
+        <a href="/nba/home" class="portal-card portal-card--basketball" style="--i: 4;">
+            <div class="portal-card__body">
+                <p class="portal-card__caption">/02 · Basketball</p>
+                <h2 class="portal-card__title">Dynasty<br>Association</h2>
+                <p class="portal-card__leagues">
+                    <span>NBA</span><span>30 FRANCHISES</span><span>2 AGENCIES</span>
+                </p>
+                <p class="portal-card__desc">
+                    Salary-cap dynasty with apron tiers, MLE / TPMLE / BAE exceptions, agent-mediated
+                    free agency, RFA matching, and a city skyline you can almost see from your seats.
+                </p>
+                <span class="portal-card__cta">Enter Association <span class="portal-card__cta-arrow">→</span></span>
+            </div>
+        </a>
+    </div>
+
+    <p class="portal-meta">
+        Single account works on both sides &middot;
+        {{if .User}}<a href="/logout">Sign Out</a>{{else}}<a href="/login">Sign In</a>{{end}}
+    </p>
+</div>
+
+{{end}}

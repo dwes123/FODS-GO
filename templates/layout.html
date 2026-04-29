@@ -2009,15 +2009,521 @@
                 radial-gradient(ellipse 50% 40% at 50% 50%, rgba(143, 168, 230, 0.025), transparent 70%);
         }
 
+
+        /* ==========================================================
+           MLB MODE — "FRONT OFFICE DIAMOND CLUB"
+           Loaded only when body.mlb-mode (Sport == "mlb").
+           Aesthetic: night-game stadium / premium sports magazine.
+           Scoreboard amber + cream + classic crimson, used sparingly.
+           ========================================================== */
+
+        body.mlb-mode {
+            --mlb-bg:           #0B1722;
+            --mlb-bg-elev:      #11202E;
+            --mlb-surface:      #14202C;
+            --mlb-surface-2:    #1E2D3D;
+            --mlb-line:         #2A3F52;
+            --mlb-line-bright:  #3D5670;
+
+            --mlb-text:         #F5EFE0;
+            --mlb-text-mid:     #B8B0A0;
+            --mlb-text-dim:     #76705F;
+            --mlb-text-faint:   #4F4A40;
+
+            --mlb-amber:        #E5A82C;        /* scoreboard amber */
+            --mlb-amber-soft:   #F2C158;
+            --mlb-amber-glow:   rgba(229, 168, 44, 0.42);
+            --mlb-red:          #C8302E;        /* classic crimson — sparingly */
+            --mlb-red-soft:     #DD4A48;
+            --mlb-red-glow:     rgba(200, 48, 46, 0.35);
+            --mlb-field:        #2D5F3F;        /* outfield green */
+            --mlb-chalk:        #F8F4E8;        /* foul-line chalk */
+
+            --mlb-display: "Saira Stencil One", "Anton", "Oswald", sans-serif;
+            --mlb-sans:    "Crimson Pro", "PT Serif", Georgia, serif;
+            --mlb-mono:    "DM Mono", "JetBrains Mono", "SF Mono", Consolas, monospace;
+
+            background: var(--mlb-bg);
+            color: var(--mlb-text);
+            font-family: var(--mlb-sans);
+            font-size: 17px;
+            line-height: 1.55;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Atmospheric: subtle stadium-light haze + grain */
+        body.mlb-mode::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 70% 40% at 50% 100%, rgba(229, 168, 44, 0.10), transparent 60%),
+                radial-gradient(ellipse 60% 50% at 0% 0%, rgba(229, 168, 44, 0.04), transparent 60%),
+                radial-gradient(ellipse 60% 50% at 100% 0%, rgba(45, 95, 63, 0.06), transparent 60%);
+        }
+
+        /* Stadium silhouette — pinned to viewport bottom, parallel to NBA's tc-skyline. */
+        .mlb-stadium {
+            position: fixed;
+            left: 0; right: 0; bottom: 0;
+            height: 460px;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 1;
+            mask-image: linear-gradient(180deg, transparent 0%, #000 12%, #000 100%);
+            -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 12%, #000 100%);
+            background-repeat: no-repeat;
+            background-position: center bottom;
+        }
+        body.mlb-mode .mlb-stadium {
+            background-image:
+                /* FRONT — grandstand silhouette with scoreboard, foul poles, light banks */
+                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 460' preserveAspectRatio='none'><g fill='%23050C14'><path d='M0,460 L0,360 L100,360 L100,310 L160,310 L160,300 L1440,300 L1440,310 L1500,310 L1500,360 L1600,360 L1600,460 Z M40,360 L40,330 L80,330 L80,360 Z M1520,360 L1520,330 L1560,330 L1560,360 Z'/></g><g fill='%23070F1B'><path d='M120,310 L120,210 Q120,180 200,180 L1400,180 Q1480,180 1480,210 L1480,310 Z'/></g><g fill='%23030810'><rect x='190' y='220' width='1220' height='80'/></g><g fill='%23050B16' opacity='0.85'><polygon points='190,220 250,200 1350,200 1410,220'/></g><g stroke='%23E5A82C' stroke-width='2' opacity='0.75' fill='none'><line x1='80' y1='180' x2='80' y2='80'/><line x1='1520' y1='180' x2='1520' y2='80'/></g><g fill='%23F2C158'><circle cx='80' cy='80' r='3'/><circle cx='1520' cy='80' r='3'/></g><g stroke='%23E5A82C' stroke-width='1.5' opacity='0.85' fill='none'><line x1='250' y1='180' x2='250' y2='110'/><line x1='480' y1='180' x2='480' y2='95'/><line x1='820' y1='180' x2='820' y2='80'/><line x1='1130' y1='180' x2='1130' y2='95'/><line x1='1370' y1='180' x2='1370' y2='110'/></g><g fill='%23F2C158'><rect x='240' y='100' width='20' height='12'/><rect x='470' y='85' width='20' height='12'/><rect x='810' y='70' width='20' height='12'/><rect x='1120' y='85' width='20' height='12'/><rect x='1360' y='100' width='20' height='12'/></g><g fill='%23F2C158' opacity='0.45'><rect x='243' y='102' width='3' height='2'/><rect x='248' y='102' width='3' height='2'/><rect x='253' y='102' width='3' height='2'/><rect x='243' y='106' width='3' height='2'/><rect x='248' y='106' width='3' height='2'/><rect x='253' y='106' width='3' height='2'/><rect x='473' y='87' width='3' height='2'/><rect x='478' y='87' width='3' height='2'/><rect x='483' y='87' width='3' height='2'/><rect x='473' y='91' width='3' height='2'/><rect x='478' y='91' width='3' height='2'/><rect x='483' y='91' width='3' height='2'/><rect x='813' y='72' width='3' height='2'/><rect x='818' y='72' width='3' height='2'/><rect x='823' y='72' width='3' height='2'/><rect x='813' y='76' width='3' height='2'/><rect x='818' y='76' width='3' height='2'/><rect x='823' y='76' width='3' height='2'/><rect x='1123' y='87' width='3' height='2'/><rect x='1128' y='87' width='3' height='2'/><rect x='1133' y='87' width='3' height='2'/><rect x='1123' y='91' width='3' height='2'/><rect x='1128' y='91' width='3' height='2'/><rect x='1133' y='91' width='3' height='2'/><rect x='1363' y='102' width='3' height='2'/><rect x='1368' y='102' width='3' height='2'/><rect x='1373' y='102' width='3' height='2'/><rect x='1363' y='106' width='3' height='2'/><rect x='1368' y='106' width='3' height='2'/><rect x='1373' y='106' width='3' height='2'/></g><g fill='%23E5A82C' opacity='0.85'><rect x='1330' y='225' width='130' height='55'/></g><g fill='%23050C14'><rect x='1336' y='230' width='118' height='12'/><rect x='1336' y='246' width='55' height='10'/><rect x='1395' y='246' width='59' height='10'/><rect x='1336' y='260' width='118' height='14'/></g><g fill='%23F2C158' opacity='0.85' font-family='monospace' font-size='8'><text x='1342' y='240'>HOME 4 GUEST 2</text><text x='1342' y='254'>BTM 7TH 2 OUT</text><text x='1342' y='270'>FRONT OFFICE DYNASTY</text></g><g fill='%23E5A82C' opacity='0.55'><rect x='240' y='235' width='2' height='2'/><rect x='250' y='235' width='2' height='2'/><rect x='260' y='235' width='2' height='2'/><rect x='270' y='235' width='2' height='2'/><rect x='280' y='235' width='2' height='2'/><rect x='240' y='245' width='2' height='2'/><rect x='250' y='245' width='2' height='2'/><rect x='260' y='245' width='2' height='2'/><rect x='270' y='245' width='2' height='2'/><rect x='280' y='245' width='2' height='2'/><rect x='400' y='235' width='2' height='2'/><rect x='410' y='235' width='2' height='2'/><rect x='420' y='235' width='2' height='2'/><rect x='430' y='235' width='2' height='2'/><rect x='400' y='245' width='2' height='2'/><rect x='410' y='245' width='2' height='2'/><rect x='420' y='245' width='2' height='2'/><rect x='430' y='245' width='2' height='2'/><rect x='580' y='235' width='2' height='2'/><rect x='590' y='235' width='2' height='2'/><rect x='600' y='235' width='2' height='2'/><rect x='610' y='235' width='2' height='2'/><rect x='580' y='245' width='2' height='2'/><rect x='590' y='245' width='2' height='2'/><rect x='600' y='245' width='2' height='2'/><rect x='610' y='245' width='2' height='2'/><rect x='760' y='235' width='2' height='2'/><rect x='770' y='235' width='2' height='2'/><rect x='780' y='235' width='2' height='2'/><rect x='760' y='245' width='2' height='2'/><rect x='770' y='245' width='2' height='2'/><rect x='780' y='245' width='2' height='2'/><rect x='940' y='235' width='2' height='2'/><rect x='950' y='235' width='2' height='2'/><rect x='960' y='235' width='2' height='2'/><rect x='940' y='245' width='2' height='2'/><rect x='950' y='245' width='2' height='2'/><rect x='960' y='245' width='2' height='2'/><rect x='1110' y='235' width='2' height='2'/><rect x='1120' y='235' width='2' height='2'/><rect x='1130' y='235' width='2' height='2'/><rect x='1110' y='245' width='2' height='2'/><rect x='1120' y='245' width='2' height='2'/><rect x='1130' y='245' width='2' height='2'/></g></svg>"),
+                /* GROUND — outfield wall + grass field implied at the very bottom */
+                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 460' preserveAspectRatio='none'><g fill='%23091622' opacity='0.85'><rect x='0' y='360' width='1600' height='100'/></g><g fill='%23071018'><rect x='0' y='358' width='1600' height='4'/></g></svg>");
+            background-size: 100% 460px, 100% 460px;
+            background-position: bottom, bottom;
+        }
+        body.mlb-mode .mlb-stadium::before {
+            /* Field-light pollution — warm amber glow rising from the stadium top */
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% 75%, rgba(229, 168, 44, 0.22) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 60% at 20% 80%, rgba(229, 168, 44, 0.12) 0%, transparent 55%),
+                radial-gradient(ellipse 40% 60% at 80% 80%, rgba(229, 168, 44, 0.12) 0%, transparent 55%);
+            pointer-events: none;
+            mix-blend-mode: screen;
+            z-index: -1;
+        }
+
+        /* Header & nav restyle for mlb-mode */
+        body.mlb-mode header {
+            background: linear-gradient(180deg, rgba(20, 32, 44, 0.95), rgba(11, 23, 34, 0.85)) !important;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--mlb-line) !important;
+            box-shadow: 0 1px 0 rgba(229, 168, 44, 0.18), 0 12px 24px rgba(0, 0, 0, 0.6) !important;
+            position: relative;
+            z-index: 10;
+        }
+        body.mlb-mode header::after {
+            content: "";
+            position: absolute;
+            left: 0; right: 0; bottom: -3px; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--mlb-amber) 20%, var(--mlb-red) 50%, var(--mlb-amber) 80%, transparent);
+            opacity: 0.6;
+            filter: blur(1px);
+        }
+        body.mlb-mode .logo {
+            font-family: var(--mlb-display) !important;
+            font-weight: 400 !important;
+            letter-spacing: 0.06em !important;
+            color: var(--mlb-text) !important;
+            text-transform: uppercase;
+            font-size: 1.4rem !important;
+        }
+        body.mlb-mode nav a, body.mlb-mode .nav-dropdown-label {
+            font-family: var(--mlb-mono) !important;
+            font-size: 0.78rem !important;
+            text-transform: uppercase;
+            letter-spacing: 0.16em !important;
+            color: var(--mlb-text-mid) !important;
+            font-weight: 500 !important;
+            transition: color 120ms ease, text-shadow 120ms ease;
+        }
+        body.mlb-mode nav a:hover, body.mlb-mode .nav-dropdown-label:hover {
+            color: var(--mlb-amber) !important;
+            text-shadow: 0 0 8px var(--mlb-amber-glow);
+        }
+        body.mlb-mode .nav-dropdown-menu {
+            background: var(--mlb-surface) !important;
+            border: 1px solid var(--mlb-line-bright) !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7) !important;
+            border-radius: 0 !important;
+        }
+        body.mlb-mode .nav-dropdown-menu a {
+            color: var(--mlb-text-mid) !important;
+            font-family: var(--mlb-mono) !important;
+            font-size: 0.74rem !important;
+            border-left: 2px solid transparent;
+        }
+        body.mlb-mode .nav-dropdown-menu a:hover {
+            background: rgba(229, 168, 44, 0.08) !important;
+            color: var(--mlb-amber) !important;
+            border-left-color: var(--mlb-amber);
+        }
+        body.mlb-mode main {
+            position: relative;
+            z-index: 1;
+            max-width: 1480px;
+            padding: 1.5rem 1.75rem 4rem;
+        }
+        body.mlb-mode h1, body.mlb-mode h2, body.mlb-mode h3 {
+            font-family: var(--mlb-display);
+            color: var(--mlb-text);
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            font-weight: 400;
+            border: none !important;
+        }
+
+        /* === MLB components for the redesigned home === */
+        .mlb-hero {
+            position: relative;
+            padding: 2.5rem 2rem 2.75rem;
+            border: 1px solid var(--mlb-line);
+            background:
+                radial-gradient(ellipse 80% 100% at 100% 0%, rgba(229, 168, 44, 0.20) 0%, transparent 55%),
+                radial-gradient(ellipse 70% 80% at 0% 100%, rgba(200, 48, 46, 0.10) 0%, transparent 55%),
+                linear-gradient(180deg, var(--mlb-surface-2), var(--mlb-surface));
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        .mlb-hero::after {
+            content: "";
+            position: absolute;
+            left: 0; right: 0; bottom: 0; height: 3px;
+            background: linear-gradient(90deg, var(--mlb-amber) 0%, var(--mlb-red) 50%, var(--mlb-amber) 100%);
+            opacity: 0.85;
+        }
+        .mlb-hero__caption {
+            font-family: var(--mlb-mono);
+            font-size: 0.72rem;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            color: var(--mlb-amber);
+            margin-bottom: 0.75rem;
+        }
+        .mlb-hero__title {
+            font-family: var(--mlb-display);
+            font-weight: 400;
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+            line-height: 1.0;
+            color: var(--mlb-text);
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            margin: 0 0 0.5rem;
+        }
+        .mlb-hero__title em {
+            color: var(--mlb-amber);
+            font-style: normal;
+            text-shadow: 0 0 28px var(--mlb-amber-glow);
+        }
+        .mlb-hero__sub {
+            font-family: var(--mlb-sans);
+            font-style: italic;
+            color: var(--mlb-text-mid);
+            font-size: 1.1rem;
+            line-height: 1.55;
+            max-width: 60ch;
+        }
+
+        .mlb-panel {
+            background: var(--mlb-surface);
+            border: 1px solid var(--mlb-line);
+            padding: 1.25rem 1.5rem;
+            position: relative;
+            transition: border-color 200ms ease;
+        }
+        .mlb-panel:hover { border-color: var(--mlb-line-bright); }
+        .mlb-panel__head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--mlb-mono);
+            font-size: 0.68rem;
+            letter-spacing: 0.20em;
+            text-transform: uppercase;
+            color: var(--mlb-text-dim);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--mlb-line);
+        }
+        .mlb-panel__head strong { color: var(--mlb-amber); font-weight: 500; }
+        .mlb-panel__title {
+            font-family: var(--mlb-display);
+            font-weight: 400;
+            font-size: 1.4rem;
+            color: var(--mlb-text);
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            margin: 0 0 0.6rem;
+        }
+        .mlb-stat__label {
+            font-family: var(--mlb-mono);
+            font-size: 0.62rem;
+            color: var(--mlb-text-dim);
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+        .mlb-stat__value {
+            font-family: var(--mlb-display);
+            font-weight: 400;
+            font-size: clamp(1.5rem, 3vw, 2.2rem);
+            line-height: 1.05;
+            color: var(--mlb-text);
+            font-variant-numeric: tabular-nums;
+        }
+        .mlb-stat__value--amber { color: var(--mlb-amber); }
+        .mlb-stat__value--red { color: var(--mlb-red); }
+        .mlb-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--mlb-mono);
+            font-size: 0.74rem;
+            font-weight: 500;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            padding: 10px 16px;
+            background: transparent;
+            border: 1px solid var(--mlb-line-bright);
+            color: var(--mlb-text);
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 160ms ease;
+        }
+        .mlb-btn:hover {
+            background: rgba(229, 168, 44, 0.08);
+            border-color: var(--mlb-amber);
+            color: var(--mlb-amber);
+            box-shadow: 0 0 18px var(--mlb-amber-glow);
+        }
+        .mlb-btn--primary {
+            background: var(--mlb-amber);
+            color: var(--mlb-bg);
+            border-color: var(--mlb-amber);
+            font-weight: 600;
+        }
+        .mlb-btn--primary:hover {
+            background: var(--mlb-amber-soft);
+            color: var(--mlb-bg);
+            box-shadow: 0 0 24px var(--mlb-amber-glow);
+        }
+        .mlb-btn--red {
+            background: var(--mlb-red);
+            color: var(--mlb-text);
+            border-color: var(--mlb-red);
+        }
+        .mlb-btn--red:hover { background: var(--mlb-red-soft); box-shadow: 0 0 18px var(--mlb-red-glow); }
+
+        .mlb-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: var(--mlb-mono);
+            font-size: 0.62rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            padding: 3px 7px;
+            border: 1px solid currentColor;
+            color: var(--mlb-text-mid);
+            background: rgba(245, 239, 224, 0.04);
+            line-height: 1;
+        }
+        .mlb-tag--amber { color: var(--mlb-amber); background: rgba(229, 168, 44, 0.08); }
+        .mlb-tag--red { color: var(--mlb-red); background: rgba(200, 48, 46, 0.08); }
+
+        body.mlb-mode table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-family: var(--mlb-mono);
+            font-size: 0.85rem;
+        }
+        body.mlb-mode table thead th {
+            background: transparent !important;
+            color: var(--mlb-text-dim) !important;
+            font-family: var(--mlb-mono) !important;
+            font-weight: 500 !important;
+            font-size: 0.66rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            text-align: left;
+            padding: 0.65rem 1rem;
+            border-bottom: 1px solid var(--mlb-line) !important;
+            border-top: 1px solid var(--mlb-line);
+        }
+        body.mlb-mode table tbody td {
+            padding: 0.7rem 1rem;
+            border-bottom: 1px solid rgba(42, 63, 82, 0.5);
+            color: var(--mlb-text);
+        }
+        body.mlb-mode table tbody tr:hover { background: rgba(229, 168, 44, 0.05) !important; }
+        body.mlb-mode table tbody a {
+            color: var(--mlb-text);
+            text-decoration: none;
+            border-bottom: 1px dashed transparent;
+        }
+        body.mlb-mode table tbody a:hover {
+            color: var(--mlb-amber);
+            border-bottom-color: var(--mlb-amber);
+        }
+
+        .mlb-section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 2rem 0 1rem;
+        }
+        .mlb-section-header__id {
+            font-family: var(--mlb-mono);
+            font-size: 0.68rem;
+            color: var(--mlb-amber);
+            letter-spacing: 0.20em;
+            background: rgba(229, 168, 44, 0.08);
+            border: 1px solid rgba(229, 168, 44, 0.25);
+            padding: 4px 9px;
+            text-transform: uppercase;
+        }
+        .mlb-section-header__title {
+            font-family: var(--mlb-display);
+            font-weight: 400;
+            font-size: 1.1rem;
+            color: var(--mlb-text);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+        .mlb-section-header__rule {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, var(--mlb-line) 0%, transparent 100%);
+            position: relative;
+        }
+        .mlb-section-header__rule::before {
+            content: "";
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 22px;
+            background: var(--mlb-amber);
+            box-shadow: 0 0 8px var(--mlb-amber-glow);
+        }
+        .mlb-section-header__count {
+            font-family: var(--mlb-mono);
+            font-size: 0.74rem;
+            color: var(--mlb-text-mid);
+            letter-spacing: 0.10em;
+        }
+
+        .mlb-stagger > * {
+            opacity: 0;
+            transform: translateY(8px);
+            animation: mlb-rise 600ms cubic-bezier(.2,.8,.2,1) forwards;
+            animation-delay: calc(var(--i, 0) * 60ms + 80ms);
+        }
+        @keyframes mlb-rise { to { opacity: 1; transform: translateY(0); } }
+
+        .mlb-empty {
+            text-align: center;
+            padding: 3.5rem 2rem;
+            border: 1px dashed var(--mlb-line);
+            background: linear-gradient(180deg, transparent, rgba(229, 168, 44, 0.03));
+            font-family: var(--mlb-sans);
+            font-style: italic;
+            color: var(--mlb-text-mid);
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+
+        body.mlb-mode .welcome-banner,
+        body.mlb-mode .home-section,
+        body.mlb-mode .meta-card,
+        body.mlb-mode .team-roster-card,
+        body.mlb-mode .league-date-card,
+        body.mlb-mode .waiver-spotlight {
+            background: var(--mlb-surface) !important;
+            border: 1px solid var(--mlb-line) !important;
+            color: var(--mlb-text) !important;
+        }
+
+        /* ==========================================================
+           PORTAL MODE — sport picker landing
+           ========================================================== */
+        body.portal-mode {
+            --portal-bg-1: #0B1722;
+            --portal-bg-2: #0E1330;
+            --portal-text: #F5EFE0;
+            --portal-text-mid: #B8B0A0;
+            --portal-amber: #E5A82C;
+            --portal-cyan: #FFC72C;
+            --portal-display: "Saira Stencil One", "Anton", sans-serif;
+            --portal-sans:    "Crimson Pro", Georgia, serif;
+            --portal-mono:    "DM Mono", monospace;
+
+            background:
+                radial-gradient(ellipse 70% 100% at 0% 0%, rgba(200, 48, 46, 0.18) 0%, transparent 50%),
+                radial-gradient(ellipse 70% 100% at 100% 100%, rgba(255, 199, 44, 0.18) 0%, transparent 50%),
+                linear-gradient(135deg, var(--portal-bg-1), var(--portal-bg-2));
+            color: var(--portal-text);
+            font-family: var(--portal-sans);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        body.portal-mode::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(245, 239, 224, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(245, 239, 224, 0.03) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: radial-gradient(ellipse 100% 80% at 50% 50%, #000 50%, transparent 100%);
+        }
+        body.portal-mode header {
+            background: transparent !important;
+            border-bottom: none !important;
+            box-shadow: none !important;
+        }
+        body.portal-mode header::after { display: none; }
+        body.portal-mode .logo {
+            font-family: var(--portal-display) !important;
+            color: var(--portal-text) !important;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        body.portal-mode nav a {
+            color: var(--portal-text-mid) !important;
+            font-family: var(--portal-mono) !important;
+            font-size: 0.75rem !important;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+        body.portal-mode nav a:hover { color: var(--portal-amber) !important; }
+        body.portal-mode main {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            padding: 2rem 1.5rem 4rem;
+        }
+        body.portal-mode h1, body.portal-mode h2 {
+            font-family: var(--portal-display);
+            color: var(--portal-text);
+            text-transform: uppercase;
+            border: none !important;
+        }
     </style>
 {{if eq .Sport "nba"}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+{{else if or (eq .Sport "mlb") (eq .Sport "portal")}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&family=Saira+Stencil+One&display=swap" rel="stylesheet">
 {{end}}
 </head>
-<body class="{{if and .User (eq .User.ThemePreference "dark")}}dark-mode {{end}}{{if eq .Sport "nba"}}nba-mode{{end}}">
+<body class="{{if and .User (eq .User.ThemePreference "dark")}}dark-mode {{end}}{{if eq .Sport "nba"}}nba-mode{{else if eq .Sport "mlb"}}mlb-mode{{else if eq .Sport "portal"}}portal-mode{{end}}">
     {{if eq .Sport "nba"}}<div class="tc-skyline" aria-hidden="true"></div>{{end}}
+    {{if eq .Sport "mlb"}}<div class="mlb-stadium" aria-hidden="true"></div>{{end}}
     <header>
         <a href="{{if eq .Sport "nba"}}/nba/home{{else}}/{{end}}" class="logo">Front Office Dynasty{{if eq .Sport "nba"}} <span style="font-size: 0.7em; color: var(--fod-orange-accent);">NBA</span>{{end}}</a>
         <nav>
