@@ -223,6 +223,7 @@
                     <td style="color: var(--tc-text-dim); font-size: 0.7rem;">{{printf "%02d" (add $i 1)}}</td>
                     <td>
                         <a href="/nba/player/{{.ID}}" style="font-family: var(--tc-sans); font-size: 0.95rem; font-weight: 500;">{{.FirstName}} {{.LastName}}</a>
+                        {{if eq .FAClass "Pending"}} <span class="tc-tag tc-tag--amber" style="margin-left: 4px;" title="Pending free agent — cap hold or QO active">PENDING FA</span>{{end}}
                         {{if .OnTradeBlock}} <span class="tc-tag tc-tag--amber" style="margin-left: 4px;">TB</span>{{end}}
                         {{if .RealLifeTeam}}<span style="color: var(--tc-text-faint); font-size: 0.7rem; letter-spacing: 0.12em; margin-left: 6px;">{{.RealLifeTeam}}</span>{{end}}
                     </td>

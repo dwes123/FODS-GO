@@ -8,7 +8,9 @@
         {{if .Player.OnTradeBlock}}<div><span class="tc-tag tc-tag--amber">TRADE BLOCK</span></div>{{end}}
         {{if .Player.OnTwoWay}}<div style="margin-top: 4px;"><span class="tc-tag tc-tag--cyan">TWO-WAY</span></div>{{end}}
         {{if .Player.InjuryStatus}}<div style="margin-top: 4px;"><span class="tc-tag tc-tag--danger">{{.Player.InjuryStatus}}</span></div>{{end}}
-        {{if not (or .Player.OnTradeBlock .Player.OnTwoWay .Player.InjuryStatus)}}
+        {{if eq .Player.FAClass "Pending"}}<div style="margin-top: 4px;"><span class="tc-tag tc-tag--amber" title="Pending free agent — cap hold or QO active">PENDING FA</span></div>{{end}}
+        {{if eq .Player.FAClass "Free Agent"}}<div style="margin-top: 4px;"><span class="tc-tag tc-tag--success">FREE AGENT</span></div>{{end}}
+        {{if not (or .Player.OnTradeBlock .Player.OnTwoWay .Player.InjuryStatus (eq .Player.FAClass "Pending") (eq .Player.FAClass "Free Agent"))}}
             <div><span class="tc-status"><span class="tc-pulse-dot"></span>NOMINAL</span></div>
         {{end}}
     </div>

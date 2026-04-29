@@ -15,6 +15,7 @@ import (
 	"github.com/dwes123/fantasy-baseball-go/internal/middleware"
 	"github.com/dwes123/fantasy-baseball-go/internal/notification"
 	"github.com/dwes123/fantasy-baseball-go/internal/worker"
+	nbaworker "github.com/dwes123/fantasy-baseball-go/internal/worker/nba"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -42,6 +43,9 @@ func main() {
 	worker.StartMinorLeaguerWorker(ctx, database)
 	worker.StartComplianceWorker(ctx, database)
 	worker.StartWaiverPriorityWorker(ctx, database)
+
+	// NBA workers
+	nbaworker.StartFAClassWorker(ctx, nbaDB)
 
 	// 3. Initialize Router
 	r := gin.Default()
