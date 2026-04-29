@@ -288,6 +288,13 @@ func main() {
 		// NBA AI commissioner agent — placeholder until Slice 5
 		authorized.GET("/admin/nba-agent", nbahandlers.ComingSoonHandler(
 			"NBA Commissioner Agent", "The NBA-side AI commissioner agent ships in Slice 5."))
+
+		// NBA admin: roles management (team owners + agency members)
+		authorized.GET("/admin/nba-roles", nbahandlers.AdminNBARolesHandler(database, nbaDB))
+		authorized.POST("/admin/nba-roles/team-owner/add", nbahandlers.AdminAddNBATeamOwnerHandler(database, nbaDB))
+		authorized.POST("/admin/nba-roles/team-owner/remove", nbahandlers.AdminRemoveNBATeamOwnerHandler(database, nbaDB))
+		authorized.POST("/admin/nba-roles/agency/add", nbahandlers.AdminAddAgencyMemberHandler(database, nbaDB))
+		authorized.POST("/admin/nba-roles/agency/remove", nbahandlers.AdminRemoveAgencyMemberHandler(database, nbaDB))
 	}
 
 	// --- API ROUTES ---

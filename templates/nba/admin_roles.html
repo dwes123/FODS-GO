@@ -1,0 +1,124 @@
+{{define "title"}}NBA / ADMIN · ROLES{{end}}
+{{define "content"}}
+
+<header class="tc-page-header">
+    <div class="tc-page-header__id">MOD/ADMIN<br><strong>NBA ROLES</strong></div>
+    <h1 class="tc-page-header__title">NBA <em>Roles</em></h1>
+    <div class="tc-page-header__meta">
+        <div><span class="tc-pulse-dot tc-pulse-dot--cyan"></span>COMMISSIONER ACCESS</div>
+    </div>
+</header>
+
+<p style="font-family: var(--tc-mono); font-size: 0.78rem; color: var(--tc-text-mid); margin-bottom: 2rem;">
+    Manage who owns each NBA franchise and who serves as agent for each Agency.
+    Adding a role requires the target user to already exist (search by email or username).
+</p>
+
+{{/* ============ TEAM OWNERS ============ */}}
+<div class="tc-section-header">
+    <span class="tc-section-header__id">P-30</span>
+    <span class="tc-section-header__title">Team Owners</span>
+    <span class="tc-section-header__rule"></span>
+    <span class="tc-section-header__count">{{len .TeamGroups}} FRANCHISES</span>
+</div>
+
+<div class="tc-panel" style="padding: 0;">
+    <table class="tc-table">
+        <thead>
+            <tr>
+                <th>Franchise</th>
+                <th>Owners</th>
+                <th style="width: 360px;">Add Owner</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $g := .TeamGroups}}
+                <tr>
+                    <td><strong>{{$g.Name}}</strong></td>
+                    <td>
+                        {{if $g.Members}}
+                            {{range $m := $g.Members}}
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 4px;">
+                                    <span style="color: var(--tc-cyan); font-family: var(--tc-mono);">{{if $m.Username}}{{$m.Username}}{{else}}<em style="color: var(--tc-text-faint);">unknown</em>{{end}}</span>
+                                    {{if $m.Email}}<span style="color: var(--tc-text-dim); font-size: 0.78rem;">&lt;{{$m.Email}}&gt;</span>{{end}}
+                                    <form method="POST" action="/admin/nba-roles/team-owner/remove" style="display: inline; margin-left: auto;" onsubmit="return confirm('Remove this owner?');">
+                                        <input type="hidden" name="team_id" value="{{$g.ID}}">
+                                        <input type="hidden" name="user_id" value="{{$m.UserID}}">
+                                        <button type="submit" class="tc-btn" style="font-size: 0.6rem; padding: 3px 8px;">REMOVE</button>
+                                    </form>
+                                </div>
+                            {{end}}
+                        {{else}}
+                            <span style="color: var(--tc-text-faint); font-style: italic;">no owners</span>
+                        {{end}}
+                    </td>
+                    <td>
+                        <form method="POST" action="/admin/nba-roles/team-owner/add" style="display: flex; gap: 0.5rem;">
+                            <input type="hidden" name="team_id" value="{{$g.ID}}">
+                            <input type="text" name="identifier" placeholder="email or username" required style="flex: 1;">
+                            <button type="submit" class="tc-btn tc-btn--primary" style="font-size: 0.65rem; padding: 5px 10px;">ADD</button>
+                        </form>
+                    </td>
+                </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+{{/* ============ AGENCY MEMBERS ============ */}}
+<div class="tc-section-header" style="margin-top: 2.5rem;">
+    <span class="tc-section-header__id">A-2</span>
+    <span class="tc-section-header__title">Agency Members</span>
+    <span class="tc-section-header__rule"></span>
+    <span class="tc-section-header__count">{{len .AgencyGroups}} AGENCIES</span>
+</div>
+
+<div class="tc-panel" style="padding: 0;">
+    <table class="tc-table">
+        <thead>
+            <tr>
+                <th>Agency</th>
+                <th>Members</th>
+                <th style="width: 360px;">Add Agent</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $g := .AgencyGroups}}
+                <tr>
+                    <td><strong>{{$g.Name}}</strong></td>
+                    <td>
+                        {{if $g.Members}}
+                            {{range $m := $g.Members}}
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 4px;">
+                                    <span style="color: var(--tc-cyan); font-family: var(--tc-mono);">{{if $m.Username}}{{$m.Username}}{{else}}<em style="color: var(--tc-text-faint);">unknown</em>{{end}}</span>
+                                    {{if $m.Email}}<span style="color: var(--tc-text-dim); font-size: 0.78rem;">&lt;{{$m.Email}}&gt;</span>{{end}}
+                                    <form method="POST" action="/admin/nba-roles/agency/remove" style="display: inline; margin-left: auto;" onsubmit="return confirm('Remove this agent?');">
+                                        <input type="hidden" name="agency_id" value="{{$g.ID}}">
+                                        <input type="hidden" name="user_id" value="{{$m.UserID}}">
+                                        <button type="submit" class="tc-btn" style="font-size: 0.6rem; padding: 3px 8px;">REMOVE</button>
+                                    </form>
+                                </div>
+                            {{end}}
+                        {{else}}
+                            <span style="color: var(--tc-text-faint); font-style: italic;">no agents</span>
+                        {{end}}
+                    </td>
+                    <td>
+                        <form method="POST" action="/admin/nba-roles/agency/add" style="display: flex; gap: 0.5rem;">
+                            <input type="hidden" name="agency_id" value="{{$g.ID}}">
+                            <input type="text" name="identifier" placeholder="email or username" required style="flex: 1;">
+                            <button type="submit" class="tc-btn tc-btn--primary" style="font-size: 0.65rem; padding: 5px 10px;">ADD</button>
+                        </form>
+                    </td>
+                </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+
+<p style="margin-top: 2rem; font-family: var(--tc-mono); font-size: 0.7rem; color: var(--tc-text-dim); letter-spacing: 0.14em;">
+    NOTE: Adding a user here does NOT email them. If they're a placeholder account from the seed,
+    issue a password reset separately before they can log in.
+</p>
+
+{{end}}

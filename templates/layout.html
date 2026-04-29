@@ -2053,7 +2053,13 @@
                     </div>
                     <a href="/bug-report">Report Bug</a>
                     {{if or (eq .User.Role "admin") .IsCommish}}
-                        <a href="/admin/nba-agent" style="color: #d9534f;">Commissioner</a>
+                        <div class="nav-dropdown">
+                            <span class="nav-dropdown-label" style="color: #d9534f;">Commissioner &#9662;</span>
+                            <div class="nav-dropdown-menu">
+                                <a href="/admin/nba-roles">Manage Roles</a>
+                                <a href="/admin/nba-agent">AI Agent</a>
+                            </div>
+                        </div>
                     {{end}}
                     <a href="/home" style="margin-left: 20px; color: var(--fod-orange-accent);" title="Switch to Baseball">&#9776; Baseball</a>
                     <span style="margin-left: 20px; color: #888;">Hello, {{.User.Username}}</span>
