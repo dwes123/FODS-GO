@@ -1599,9 +1599,13 @@
         /* === Player profile-specific === */
         .tc-contract-strip {
             display: grid;
-            grid-template-columns: repeat(15, 1fr);
+            /* Column count is set inline by the template based on the number of years
+               with data — collapsed strip never shows blank trailing cells. Default
+               here is a fallback in case nothing inlines it. */
+            grid-template-columns: repeat(auto-fill, minmax(72px, 100px));
             gap: 2px;
             margin-top: 0.75rem;
+            justify-content: start;
         }
         .tc-contract-cell {
             aspect-ratio: 1.1 / 1;

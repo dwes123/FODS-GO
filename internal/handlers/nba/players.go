@@ -86,16 +86,25 @@ func PlayerProfileHandler(userDB, nbaDB *pgxpool.Pool) gin.HandlerFunc {
 			isOwner, _ = nbastore.IsTeamOwner(nbaDB, teamIDStr, user.ID)
 		}
 
-		// Pre-compute contract year list and "any contracts present" flag, since Go templates
-		// can't mutate variables across range scopes.
+		// Build the contract year list — only include years that have a contract value
+		// OR an annotation. Empty years are dropped from the strip entirely so the visual
+		// matches the player's actual deal length.
 		years := make([]int, 0, 15)
-		hasContracts := false
 		for y := 2026; y <= 2040; y++ {
-			years = append(years, y)
+			yKey := fmt.Sprintf("%d", y)
+			hasContract := false
 			if v, ok := player.Contracts[y]; ok && v != "" {
-				hasContracts = true
+				hasContract = true
+			}
+			hasAnnotation := false
+			if anns, ok := player.Annotations[yKey]; ok && len(anns) > 0 {
+				hasAnnotation = true
+			}
+			if hasContract || hasAnnotation {
+				years = append(years, y)
 			}
 		}
+		hasContracts := len(years) > 0
 
 		handlers.RenderTemplate(c, "nba/player_profile.html", gin.H{
 			"Sport":         sport.SportNBA,

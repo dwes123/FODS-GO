@@ -93,7 +93,7 @@
         <span class="tc-section-header__count">{{if .HasContracts}}LIVE DATA{{else}}NO CONTRACT ON RECORD{{end}}</span>
     </div>
 
-    <div class="tc-contract-strip">
+    <div class="tc-contract-strip" style="grid-template-columns: repeat({{len .ContractYears}}, minmax(72px, 100px));">
         {{$annotations := .Player.Annotations}}
         {{range .ContractYears}}
             {{$y := .}}
