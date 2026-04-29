@@ -15,9 +15,13 @@ type Team struct {
 	Conference            string  // "East" / "West"
 	Division              string  // "Atlantic" / "Central" / "Southeast" / "Northwest" / "Pacific" / "Southwest"
 	OwnerName             string  // free-text fallback when no team_owners row exists
-	CapSpace              float64
-	LuxuryTaxBalance      float64
-	TradeExceptionBalance float64
+	// All four of these are "space below threshold" values from Franchise Financial Status —
+	// negative = over the threshold by that amount, positive = headroom remaining.
+	CapSpace              float64  // space below soft cap
+	LuxuryTaxBalance      float64  // space below luxury tax line (NB: name is "balance" for legacy reasons; semantically a space)
+	Apron1Space           float64  // space below apron #1
+	Apron2Space           float64  // space below apron #2
+	TradeExceptionBalance float64  // actual TPE — separate concept, not yet populated by importer
 	GLeagueBudget         float64
 	FantraxURL            string
 
@@ -45,7 +49,9 @@ func ListTeams(nbaDB *pgxpool.Pool) ([]Team, error) {
 	rows, err := nbaDB.Query(context.Background(), `
 		SELECT id, league_id, name, COALESCE(abbreviation, ''), COALESCE(conference, ''), COALESCE(division, ''),
 		       COALESCE(owner_name, ''),
-		       COALESCE(cap_space, 0), COALESCE(luxury_tax_balance, 0), COALESCE(trade_exception_balance, 0),
+		       COALESCE(cap_space, 0), COALESCE(luxury_tax_balance, 0),
+		       COALESCE(apron1_space, 0), COALESCE(apron2_space, 0),
+		       COALESCE(trade_exception_balance, 0),
 		       COALESCE(g_league_budget, 0),
 		       COALESCE(fantrax_url, ''),
 		       paid_up_to, need_billing, COALESCE(cap_level, ''), free_cap_space_yn,
@@ -64,7 +70,9 @@ func ListTeams(nbaDB *pgxpool.Pool) ([]Team, error) {
 	for rows.Next() {
 		var t Team
 		if err := rows.Scan(&t.ID, &t.LeagueID, &t.Name, &t.Abbreviation, &t.Conference, &t.Division, &t.OwnerName,
-			&t.CapSpace, &t.LuxuryTaxBalance, &t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL,
+			&t.CapSpace, &t.LuxuryTaxBalance,
+		&t.Apron1Space, &t.Apron2Space,
+		&t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL,
 			&t.PaidUpTo, &t.NeedBilling, &t.CapLevel, &t.FreeCapSpaceYN,
 			&t.ExceptionType, &t.MLEUsed, &t.MLERemaining,
 			&t.BAEAvailable, &t.BAEEligibleYear, &t.BAEUsed, &t.BAERemaining,
@@ -82,7 +90,9 @@ func GetTeamByID(nbaDB *pgxpool.Pool, id string) (*Team, error) {
 	err := nbaDB.QueryRow(context.Background(), `
 		SELECT id, league_id, name, COALESCE(abbreviation, ''), COALESCE(conference, ''), COALESCE(division, ''),
 		       COALESCE(owner_name, ''),
-		       COALESCE(cap_space, 0), COALESCE(luxury_tax_balance, 0), COALESCE(trade_exception_balance, 0),
+		       COALESCE(cap_space, 0), COALESCE(luxury_tax_balance, 0),
+		       COALESCE(apron1_space, 0), COALESCE(apron2_space, 0),
+		       COALESCE(trade_exception_balance, 0),
 		       COALESCE(g_league_budget, 0),
 		       COALESCE(fantrax_url, ''),
 		       paid_up_to, need_billing, COALESCE(cap_level, ''), free_cap_space_yn,
@@ -91,7 +101,9 @@ func GetTeamByID(nbaDB *pgxpool.Pool, id string) (*Team, error) {
 		       COALESCE(trade_restriction, '')
 		FROM teams WHERE id = $1
 	`, id).Scan(&t.ID, &t.LeagueID, &t.Name, &t.Abbreviation, &t.Conference, &t.Division, &t.OwnerName,
-		&t.CapSpace, &t.LuxuryTaxBalance, &t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL,
+		&t.CapSpace, &t.LuxuryTaxBalance,
+		&t.Apron1Space, &t.Apron2Space,
+		&t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL,
 		&t.PaidUpTo, &t.NeedBilling, &t.CapLevel, &t.FreeCapSpaceYN,
 		&t.ExceptionType, &t.MLEUsed, &t.MLERemaining,
 		&t.BAEAvailable, &t.BAEEligibleYear, &t.BAEUsed, &t.BAERemaining,
@@ -123,7 +135,9 @@ func GetManagedNBATeams(nbaDB *pgxpool.Pool, userID string) ([]Team, error) {
 	rows, err := nbaDB.Query(context.Background(), `
 		SELECT t.id, t.league_id, t.name, COALESCE(t.abbreviation, ''), COALESCE(t.conference, ''), COALESCE(t.division, ''),
 		       COALESCE(t.owner_name, ''),
-		       COALESCE(t.cap_space, 0), COALESCE(t.luxury_tax_balance, 0), COALESCE(t.trade_exception_balance, 0),
+		       COALESCE(t.cap_space, 0), COALESCE(t.luxury_tax_balance, 0),
+		       COALESCE(t.apron1_space, 0), COALESCE(t.apron2_space, 0),
+		       COALESCE(t.trade_exception_balance, 0),
 		       COALESCE(t.g_league_budget, 0),
 		       COALESCE(t.fantrax_url, ''),
 		       t.paid_up_to, t.need_billing, COALESCE(t.cap_level, ''), t.free_cap_space_yn,
@@ -144,7 +158,9 @@ func GetManagedNBATeams(nbaDB *pgxpool.Pool, userID string) ([]Team, error) {
 	for rows.Next() {
 		var t Team
 		if err := rows.Scan(&t.ID, &t.LeagueID, &t.Name, &t.Abbreviation, &t.Conference, &t.Division, &t.OwnerName,
-			&t.CapSpace, &t.LuxuryTaxBalance, &t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL,
+			&t.CapSpace, &t.LuxuryTaxBalance,
+		&t.Apron1Space, &t.Apron2Space,
+		&t.TradeExceptionBalance, &t.GLeagueBudget, &t.FantraxURL,
 			&t.PaidUpTo, &t.NeedBilling, &t.CapLevel, &t.FreeCapSpaceYN,
 			&t.ExceptionType, &t.MLEUsed, &t.MLERemaining,
 			&t.BAEAvailable, &t.BAEEligibleYear, &t.BAEUsed, &t.BAERemaining,

@@ -17,20 +17,24 @@
     </div>
 </header>
 
-<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 1px;">
+<div class="tc-stagger" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; background: var(--tc-line); border: 1px solid var(--tc-line); margin-bottom: 1px;">
     <div class="tc-panel" style="--i: 0; border: none; padding: 1rem 1.25rem;">
-        <span class="tc-stat__label">Cap Space</span>
+        <span class="tc-stat__label">Soft Cap Space</span>
         <p class="tc-stat__value tc-stat__value--cyan" style="margin-top: 0.4rem;">${{formatMoney .Team.CapSpace}}</p>
     </div>
     <div class="tc-panel" style="--i: 1; border: none; padding: 1rem 1.25rem;">
-        <span class="tc-stat__label">Lux Tax Bal.</span>
+        <span class="tc-stat__label">Lux Tax Space</span>
         <p class="tc-stat__value" style="margin-top: 0.4rem;">${{formatMoney .Team.LuxuryTaxBalance}}</p>
     </div>
     <div class="tc-panel" style="--i: 2; border: none; padding: 1rem 1.25rem;">
-        <span class="tc-stat__label">Trade Exception</span>
-        <p class="tc-stat__value" style="margin-top: 0.4rem;">${{formatMoney .Team.TradeExceptionBalance}}</p>
+        <span class="tc-stat__label">Apron #1 Space</span>
+        <p class="tc-stat__value" style="margin-top: 0.4rem;">${{formatMoney .Team.Apron1Space}}</p>
     </div>
     <div class="tc-panel" style="--i: 3; border: none; padding: 1rem 1.25rem;">
+        <span class="tc-stat__label">Apron #2 Space</span>
+        <p class="tc-stat__value" style="margin-top: 0.4rem;">${{formatMoney .Team.Apron2Space}}</p>
+    </div>
+    <div class="tc-panel" style="--i: 4; border: none; padding: 1rem 1.25rem;">
         <span class="tc-stat__label">G-League Budget</span>
         <p class="tc-stat__value tc-stat__value--amber" style="margin-top: 0.4rem;">${{formatMoney .Team.GLeagueBudget}}</p>
     </div>

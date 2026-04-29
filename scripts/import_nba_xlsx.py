@@ -433,14 +433,18 @@ def main():
 WHERE league_id = '{LEAGUE_ID}' AND year = 2026;""")
     emit()
 
-    # 2c. Team financials
+    # 2c. Team financials. Note: cap_space, luxury_tax_balance, apron1_space, apron2_space
+    # are all "space below threshold" values (room before hitting the cap line). Negative =
+    # over the line. trade_exception_balance is a separate concept (actual TPE) — left alone
+    # by this importer; manage via admin UI.
     emit("-- Refresh team financials from Franchise Financial Status tab")
     for f in fin:
         emit(f"""UPDATE teams SET
-    cap_space             = {sql_num(f['soft_cap_space'])},
-    luxury_tax_balance    = {sql_num(f['luxury_tax_space'])},
-    trade_exception_balance = {sql_num(f['apron1_space'])},
-    g_league_budget       = COALESCE({sql_num(f['g_league_budget'])}, g_league_budget)
+    cap_space          = {sql_num(f['soft_cap_space'])},
+    luxury_tax_balance = {sql_num(f['luxury_tax_space'])},
+    apron1_space       = {sql_num(f['apron1_space'])},
+    apron2_space       = {sql_num(f['apron2_space'])},
+    g_league_budget    = COALESCE({sql_num(f['g_league_budget'])}, g_league_budget)
 WHERE league_id = '{LEAGUE_ID}' AND abbreviation = '{f['abbrev']}';""")
     emit()
 
