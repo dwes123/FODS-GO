@@ -1935,15 +1935,50 @@
             left: 0;
             right: 0;
             bottom: 0;
-            height: 360px;
+            height: 480px;
             pointer-events: none;
             z-index: 0;
-            opacity: 0.92;
-            mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 100%);
-            -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 100%);
+            opacity: 1;
+            mask-image: linear-gradient(180deg, transparent 0%, #000 10%, #000 100%);
+            -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 10%, #000 100%);
             background-repeat: no-repeat;
             background-position: center bottom;
             transition: opacity 200ms ease;
+        }
+        /* City-light pollution glow rising from the skyline base. Warm orange→gold horizon
+           that fades up into the sky. Sits between the skyline div (z-index 0) and the page
+           content (z-index 1) by rendering as a body::before layer that's keyed off nba-mode. */
+        body.nba-mode .tc-skyline::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 0 0;
+            background:
+                radial-gradient(ellipse 90% 60% at 50% 100%, rgba(255, 128, 36, 0.32) 0%, transparent 65%),
+                radial-gradient(ellipse 60% 80% at 30% 100%, rgba(255, 199, 44, 0.18) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 80% at 75% 100%, rgba(255, 128, 36, 0.18) 0%, transparent 55%);
+            pointer-events: none;
+            mix-blend-mode: screen;
+            z-index: -1;
+        }
+        /* Thin horizon glow line just above the skyline base */
+        body.nba-mode .tc-skyline::after {
+            content: "";
+            position: absolute;
+            left: 0; right: 0; bottom: 80px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 199, 44, 0.32) 30%, rgba(255, 128, 36, 0.4) 50%, rgba(255, 199, 44, 0.32) 70%, transparent);
+            filter: blur(1px);
+            pointer-events: none;
+            z-index: -1;
+        }
+        body.nba-mode:not(.dark-mode) .tc-skyline::before {
+            background:
+                radial-gradient(ellipse 90% 60% at 50% 100%, rgba(212, 75, 15, 0.18) 0%, transparent 65%),
+                radial-gradient(ellipse 60% 80% at 30% 100%, rgba(184, 135, 13, 0.10) 0%, transparent 60%);
+            mix-blend-mode: multiply;
+        }
+        body.nba-mode:not(.dark-mode) .tc-skyline::after {
+            background: linear-gradient(90deg, transparent, rgba(184, 135, 13, 0.25) 50%, transparent);
         }
         /* Three layered SVG skylines for depth: deep back row + mid row (silhouette + windows) + dramatic front row with iconic landmarks. */
         body.nba-mode .tc-skyline {
@@ -1954,15 +1989,15 @@
                 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 360' preserveAspectRatio='none'><g fill='%23070C24' opacity='0.85'><polygon points='0,360 0,260 35,260 35,240 65,240 65,255 95,255 95,220 125,220 125,200 150,200 150,230 180,230 180,260 215,260 215,210 245,210 245,250 280,250 280,180 310,180 310,240 340,240 340,210 370,210 370,260 400,260 400,200 425,200 425,260 460,260 460,230 490,230 490,250 520,250 520,200 550,200 550,260 580,260 580,180 610,180 610,240 645,240 645,260 675,260 675,200 705,200 705,250 735,250 735,210 770,210 770,250 800,250 800,180 830,180 830,240 860,240 860,260 890,260 890,200 920,200 920,250 950,250 950,210 985,210 985,260 1015,260 1015,230 1050,230 1050,200 1080,200 1080,250 1115,250 1115,180 1145,180 1145,240 1180,240 1180,260 1210,260 1210,200 1240,200 1240,250 1275,250 1275,180 1305,180 1305,240 1340,240 1340,260 1370,260 1370,210 1400,210 1400,250 1435,250 1435,200 1465,200 1465,260 1495,260 1495,230 1530,230 1530,250 1560,250 1560,210 1590,210 1590,260 1600,260 1600,360'/></g></svg>"),
                 /* BACK (deepest, smallest, lowest contrast — distant haze layer) */
                 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 360' preserveAspectRatio='none'><g fill='%23131845' opacity='0.55'><polygon points='0,360 0,290 30,290 30,278 70,278 70,295 110,295 110,270 150,270 150,285 195,285 195,260 240,260 240,295 285,295 285,275 325,275 325,290 365,290 365,265 410,265 410,290 455,290 455,275 500,275 500,290 545,290 545,265 590,265 590,290 635,290 635,275 680,275 680,290 725,290 725,265 770,265 770,290 815,290 815,275 860,275 860,290 905,290 905,265 950,265 950,290 995,290 995,275 1040,275 1040,290 1085,290 1085,265 1130,265 1130,290 1175,290 1175,275 1220,275 1220,290 1265,290 1265,265 1310,265 1310,290 1355,290 1355,275 1400,275 1400,290 1445,290 1445,265 1490,265 1490,290 1535,290 1535,275 1580,275 1580,290 1600,290 1600,360'/></g></svg>");
-            background-size: 100% 360px, 100% 360px, 100% 360px;
+            background-size: 100% 480px, 100% 480px, 100% 480px;
             background-position: bottom, bottom, bottom;
         }
         body.nba-mode:not(.dark-mode) .tc-skyline {
-            opacity: 0.40;
+            opacity: 0.55;
             background-image:
                 /* Light mode keeps just the front silhouette, recolored to brand navy with subtle gold/orange glints */
                 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 360' preserveAspectRatio='none'><g fill='%230E1330'><path d='M0,360 L0,250 L40,250 L40,235 L70,235 L70,250 L100,250 L100,210 L130,210 L130,170 L155,170 L155,200 L185,200 L185,150 L210,150 L210,250 L240,250 L240,180 L270,180 L270,140 L295,140 L295,128 L305,128 L305,140 L330,140 L330,80 L335,80 L335,60 L345,60 L345,80 L350,80 L350,210 L380,210 L380,170 L405,170 L405,130 L420,130 L420,115 L445,115 L445,130 L470,130 L470,260 L500,260 L500,220 L525,220 L525,180 L555,180 L555,250 L585,250 L585,150 L605,150 L605,135 L630,135 L630,150 L650,150 L650,210 L680,210 L680,180 L705,180 L705,90 L725,80 L745,90 L745,150 L770,150 L770,200 L800,200 L800,170 L830,170 L830,210 L860,210 L860,150 L885,150 L885,40 L890,40 L890,15 L900,15 L900,40 L905,40 L905,180 L935,180 L935,140 L965,140 L965,180 L995,180 L995,210 L1025,210 L1025,160 L1055,160 L1055,210 L1085,210 L1085,80 L1105,80 L1105,160 L1130,160 L1130,180 L1160,180 L1160,140 L1185,140 L1185,200 L1215,200 L1215,160 L1245,160 L1245,250 L1275,250 L1275,210 L1305,210 L1305,170 L1325,170 L1325,135 L1345,135 L1345,90 L1355,75 L1370,90 L1370,170 L1400,170 L1400,140 L1430,140 L1430,200 L1460,200 L1460,160 L1490,160 L1490,210 L1520,210 L1520,180 L1545,180 L1545,150 L1575,150 L1575,200 L1600,200 L1600,360 Z'/></g><g fill='%23B8870D' opacity='0.4'><rect x='192' y='178' width='2' height='2'/><rect x='280' y='168' width='2' height='2'/><rect x='280' y='204' width='2' height='2'/><rect x='338' y='106' width='2' height='2'/><rect x='338' y='160' width='2' height='2'/><rect x='714' y='120' width='2' height='2'/><rect x='714' y='160' width='2' height='2'/><rect x='894' y='80' width='2' height='2'/><rect x='894' y='140' width='2' height='2'/><rect x='1090' y='110' width='2' height='2'/><rect x='1090' y='150' width='2' height='2'/><rect x='1350' y='120' width='2' height='2'/><rect x='1350' y='160' width='2' height='2'/></g></svg>");
-            background-size: 100% 360px;
+            background-size: 100% 480px;
             background-position: bottom;
         }
         /* Subtle orange→gold ground glow that picks up where the skyline sits */
