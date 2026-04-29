@@ -907,26 +907,32 @@
            =========================================================== */
 
         body.nba-mode {
-            --tc-bg:           #050B14;
-            --tc-bg-elev:      #0A1422;
-            --tc-surface:      #0F1B2C;
-            --tc-surface-2:    #142436;
-            --tc-line:         #1E3147;
-            --tc-line-bright:  #2A4566;
-            --tc-text:         #E8F0FF;
-            --tc-text-mid:     #A7B5CC;
-            --tc-text-dim:     #5A6B85;
-            --tc-text-faint:   #36465E;
+            /* Dynasty Association brand: deep midnight navy + warm gold + vibrant orange.
+               Variable names retain the original "cyan/amber" labels for code stability —
+               --tc-cyan now holds gold (#FFC72C), --tc-amber holds court orange (#FF8024). */
+            --tc-bg:           #0E1330;
+            --tc-bg-elev:      #161B40;
+            --tc-surface:      #1A2050;
+            --tc-surface-2:    #232A60;
+            --tc-line:         #2C3470;
+            --tc-line-bright:  #3D4790;
+            --tc-text:         #F4F1E8;
+            --tc-text-mid:     #B8B5D8;
+            --tc-text-dim:     #6E6F9C;
+            --tc-text-faint:   #4D4F76;
 
-            --tc-cyan:         #00F0FF;
-            --tc-cyan-soft:    #4ADCEC;
-            --tc-cyan-glow:    rgba(0, 240, 255, 0.35);
-            --tc-amber:        #FFB000;
-            --tc-amber-glow:   rgba(255, 176, 0, 0.4);
+            --tc-cyan:         #FFC72C;   /* championship gold (was cyan) */
+            --tc-cyan-soft:    #FFD96A;   /* lighter gold */
+            --tc-cyan-glow:    rgba(255, 199, 44, 0.42);
+            --tc-amber:        #FF8024;   /* court orange (was amber) */
+            --tc-amber-soft:   #FFA255;
+            --tc-amber-glow:   rgba(255, 128, 36, 0.5);
+            --tc-blue:         #8FA8E6;   /* periwinkle (subtitle accent from logo) */
+            --tc-blue-glow:    rgba(143, 168, 230, 0.35);
             --tc-magenta:      #FF3D8B;
-            --tc-success:      #00FF9C;
-            --tc-warn:         #FFD600;
-            --tc-danger:       #FF3D5A;
+            --tc-success:      #5BD394;
+            --tc-warn:         #FFC72C;
+            --tc-danger:       #FF5A6E;
 
             --tc-mono: "IBM Plex Mono", "JetBrains Mono", "SF Mono", Consolas, monospace;
             --tc-sans: "IBM Plex Sans Condensed", "Inter Tight", system-ui, sans-serif;
@@ -945,7 +951,7 @@
             overflow-x: hidden;
         }
 
-        /* === Atmospheric background: grid, scanlines, noise === */
+        /* === Atmospheric background: court-line grid + warm radial wash === */
         body.nba-mode::before {
             content: "";
             position: fixed;
@@ -953,8 +959,8 @@
             pointer-events: none;
             z-index: 0;
             background-image:
-                linear-gradient(rgba(0, 240, 255, 0.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+                linear-gradient(rgba(143, 168, 230, 0.045) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(143, 168, 230, 0.045) 1px, transparent 1px);
             background-size: 32px 32px, 32px 32px;
             background-position: -1px -1px;
             mask-image: radial-gradient(ellipse 110% 90% at 50% 30%, #000 50%, transparent 100%);
@@ -966,8 +972,9 @@
             pointer-events: none;
             z-index: 0;
             background:
-                radial-gradient(ellipse 80% 50% at 0% 0%, rgba(0, 240, 255, 0.05), transparent 60%),
-                radial-gradient(ellipse 60% 60% at 100% 100%, rgba(255, 176, 0, 0.04), transparent 60%);
+                radial-gradient(ellipse 70% 50% at 80% 0%, rgba(255, 128, 36, 0.08), transparent 60%),
+                radial-gradient(ellipse 60% 60% at 0% 100%, rgba(255, 199, 44, 0.05), transparent 60%),
+                radial-gradient(ellipse 50% 40% at 50% 50%, rgba(143, 168, 230, 0.025), transparent 70%);
         }
 
         /* === Override default app chrome on NBA pages === */
@@ -984,8 +991,8 @@
             content: "";
             position: absolute;
             left: 0; right: 0; bottom: -3px; height: 2px;
-            background: linear-gradient(90deg, transparent, var(--tc-cyan) 20%, var(--tc-cyan) 80%, transparent);
-            opacity: 0.5;
+            background: linear-gradient(90deg, transparent, var(--tc-cyan) 20%, var(--tc-amber) 50%, var(--tc-cyan) 80%, transparent);
+            opacity: 0.55;
             filter: blur(1px);
         }
         body.nba-mode .logo {
@@ -1526,9 +1533,9 @@
             padding: 2rem 2rem 2.25rem;
             border: 1px solid var(--tc-line);
             background:
-                linear-gradient(135deg, rgba(0, 240, 255, 0.04) 0%, transparent 40%),
-                linear-gradient(225deg, rgba(255, 176, 0, 0.03) 0%, transparent 50%),
-                var(--tc-surface);
+                radial-gradient(ellipse 80% 100% at 100% 0%, rgba(255, 128, 36, 0.18) 0%, transparent 55%),
+                radial-gradient(ellipse 70% 80% at 0% 100%, rgba(255, 199, 44, 0.10) 0%, transparent 55%),
+                linear-gradient(180deg, var(--tc-surface-2), var(--tc-surface));
             margin-bottom: 2rem;
             overflow: hidden;
         }
@@ -1537,14 +1544,23 @@
             position: absolute;
             inset: 0;
             background-image:
-                repeating-linear-gradient(0deg, transparent 0, transparent 23px, rgba(0, 240, 255, 0.03) 23px, rgba(0, 240, 255, 0.03) 24px);
+                repeating-linear-gradient(0deg, transparent 0, transparent 23px, rgba(143, 168, 230, 0.025) 23px, rgba(143, 168, 230, 0.025) 24px);
             pointer-events: none;
+        }
+        .tc-hero::after {
+            /* Bottom championship-bar accent — gold→orange→gold */
+            content: "";
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--tc-cyan) 0%, var(--tc-amber) 50%, var(--tc-cyan) 100%);
+            opacity: 0.85;
         }
         .tc-hero__sweep {
             position: absolute;
             left: -50%; top: 0; bottom: 0;
             width: 30%;
-            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.08), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255, 199, 44, 0.10), transparent);
             transform: skewX(-20deg);
             animation: tc-sweep 6s ease-in-out infinite;
         }
@@ -1837,32 +1853,42 @@
             text-transform: uppercase;
         }
 
-        /* === Light-mode adaptations for NBA pages === */
+        /* === Light mode — Dynasty Association cream/navy variant === */
         body.nba-mode:not(.dark-mode) {
-            --tc-bg:           #F2F4F7;
+            --tc-bg:           #FBF5E6;   /* warm cream paper */
             --tc-bg-elev:      #FFFFFF;
             --tc-surface:      #FFFFFF;
-            --tc-surface-2:    #F7F9FC;
-            --tc-line:         #D8DFEA;
-            --tc-line-bright:  #B6C0D2;
-            --tc-text:         #0E1A2E;
-            --tc-text-mid:     #495569;
-            --tc-text-dim:     #6E7B91;
-            --tc-text-faint:   #A0ABBE;
-            --tc-cyan:         #006B8C;
-            --tc-cyan-soft:    #0E94B5;
-            --tc-cyan-glow:    rgba(0, 107, 140, 0.25);
-            --tc-amber:        #B8650A;
-            --tc-amber-glow:   rgba(184, 101, 10, 0.25);
+            --tc-surface-2:    #FAF3DD;
+            --tc-line:         #E5DBC0;
+            --tc-line-bright:  #C9BC93;
+            --tc-text:         #0E1330;   /* brand navy */
+            --tc-text-mid:     #4A5078;
+            --tc-text-dim:     #7A7E9C;
+            --tc-text-faint:   #ACAEC0;
+            --tc-cyan:         #B8870D;   /* deep gold (readable on cream) */
+            --tc-cyan-soft:    #D69E0F;
+            --tc-cyan-glow:    rgba(184, 135, 13, 0.25);
+            --tc-amber:        #D44B0F;   /* burnt orange */
+            --tc-amber-soft:   #E8651D;
+            --tc-amber-glow:   rgba(212, 75, 15, 0.30);
+            --tc-blue:         #4A5BC4;
+            --tc-blue-glow:    rgba(74, 91, 196, 0.20);
             color: var(--tc-text);
         }
         body.nba-mode:not(.dark-mode)::before {
             background-image:
-                linear-gradient(rgba(14, 26, 46, 0.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(14, 26, 46, 0.04) 1px, transparent 1px);
+                linear-gradient(rgba(14, 19, 48, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(14, 19, 48, 0.035) 1px, transparent 1px);
+        }
+        body.nba-mode:not(.dark-mode)::after {
+            background:
+                radial-gradient(ellipse 70% 50% at 80% 0%, rgba(212, 75, 15, 0.06), transparent 60%),
+                radial-gradient(ellipse 60% 60% at 0% 100%, rgba(184, 135, 13, 0.04), transparent 60%);
         }
         body.nba-mode:not(.dark-mode) header {
-            background: linear-gradient(180deg, #FFFFFF, #F7F9FC) !important;
+            background: linear-gradient(180deg, #FFFFFF, #FAF3DD) !important;
+            border-bottom: 1px solid var(--tc-line) !important;
+            box-shadow: 0 1px 0 rgba(184, 135, 13, 0.18), 0 4px 18px rgba(14, 19, 48, 0.08) !important;
         }
         body.nba-mode:not(.dark-mode) .tc-pending,
         body.nba-mode:not(.dark-mode) .tc-panel,
@@ -1870,6 +1896,77 @@
         body.nba-mode:not(.dark-mode) .tc-unit,
         body.nba-mode:not(.dark-mode) .tc-franchise,
         body.nba-mode:not(.dark-mode) .tc-filter-bar { background: var(--tc-surface); }
+        body.nba-mode:not(.dark-mode) .tc-hero {
+            background:
+                radial-gradient(ellipse 80% 100% at 100% 0%, rgba(212, 75, 15, 0.13) 0%, transparent 55%),
+                radial-gradient(ellipse 70% 80% at 0% 100%, rgba(184, 135, 13, 0.08) 0%, transparent 55%),
+                linear-gradient(180deg, #FFFFFF, var(--tc-surface-2));
+        }
+        body.nba-mode:not(.dark-mode) .tc-meter__bar {
+            background: rgba(14, 19, 48, 0.04);
+        }
+        body.nba-mode:not(.dark-mode) table.tc-table tbody tr:nth-child(even) {
+            background: rgba(14, 19, 48, 0.018) !important;
+        }
+        body.nba-mode:not(.dark-mode) table.tc-table tbody tr:hover {
+            background: rgba(184, 135, 13, 0.07) !important;
+        }
+        body.nba-mode:not(.dark-mode) .tc-empty {
+            background: linear-gradient(180deg, transparent, rgba(184, 135, 13, 0.04));
+        }
+        body.nba-mode:not(.dark-mode) .tc-btn--primary {
+            background: var(--tc-amber);
+            color: #FFFFFF;
+            border-color: var(--tc-amber);
+        }
+        body.nba-mode:not(.dark-mode) .tc-btn--primary:hover {
+            background: var(--tc-amber-soft);
+            color: #FFFFFF;
+            box-shadow: 0 0 18px var(--tc-amber-glow);
+        }
+
+        /* === City skyline silhouette — pinned to bottom of viewport === */
+        .tc-skyline {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 220px;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.55;
+            mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 100%);
+            -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 100%);
+            background-repeat: no-repeat;
+            background-position: center bottom;
+            background-size: 100% 100%, 100% 100%;
+            transition: opacity 200ms ease;
+        }
+        /* Two layered SVG skylines: a back row (lighter) + front row (darker, with a few lit gold windows). */
+        body.nba-mode .tc-skyline {
+            background-image:
+                /* FRONT (darker silhouette, taller skyscrapers + a few lit windows + radio antenna) */
+                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 220' preserveAspectRatio='none'><g fill='%23070A1F'><polygon points='0,220 0,150 30,150 30,140 50,140 50,150 70,150 70,130 90,130 90,160 110,160 110,120 140,120 140,180 160,180 160,100 175,90 190,100 190,170 220,170 220,140 250,140 250,180 280,180 280,90 310,90 310,160 340,160 340,130 380,130 380,165 410,165 410,80 430,68 450,80 450,120 480,120 480,180 510,180 510,150 540,150 540,170 580,170 580,110 605,100 630,110 630,160 660,160 660,130 700,130 700,90 730,90 730,180 760,180 760,140 790,140 790,170 820,170 820,100 850,90 880,100 880,150 910,150 910,180 940,180 940,120 970,120 970,160 1000,160 1000,140 1030,140 1030,170 1060,170 1060,90 1090,90 1090,160 1120,160 1120,130 1150,130 1150,180 1180,180 1180,150 1210,150 1210,110 1240,110 1240,170 1280,170 1280,140 1310,140 1310,170 1340,170 1340,100 1365,90 1390,100 1390,160 1420,160 1420,130 1455,130 1455,180 1485,180 1485,150 1515,150 1515,165 1550,165 1550,140 1580,140 1580,170 1600,170 1600,220'/></g><g fill='%23FFC72C' opacity='0.55'><rect x='42' y='154' width='2' height='2'/><rect x='42' y='148' width='2' height='2'/><rect x='98' y='140' width='2' height='2'/><rect x='98' y='148' width='2' height='2'/><rect x='124' y='128' width='2' height='2'/><rect x='124' y='140' width='2' height='2'/><rect x='124' y='148' width='2' height='2'/><rect x='148' y='112' width='2' height='2'/><rect x='148' y='124' width='2' height='2'/><rect x='148' y='148' width='2' height='2'/><rect x='178' y='110' width='2' height='2'/><rect x='178' y='130' width='2' height='2'/><rect x='178' y='150' width='2' height='2'/><rect x='234' y='150' width='2' height='2'/><rect x='262' y='100' width='2' height='2'/><rect x='262' y='130' width='2' height='2'/><rect x='262' y='160' width='2' height='2'/><rect x='292' y='100' width='2' height='2'/><rect x='292' y='118' width='2' height='2'/><rect x='292' y='140' width='2' height='2'/><rect x='322' y='140' width='2' height='2'/><rect x='358' y='150' width='2' height='2'/><rect x='394' y='95' width='2' height='2'/><rect x='394' y='115' width='2' height='2'/><rect x='394' y='140' width='2' height='2'/><rect x='434' y='80' width='2' height='2'/><rect x='434' y='100' width='2' height='2'/><rect x='434' y='130' width='2' height='2'/><rect x='466' y='148' width='2' height='2'/><rect x='524' y='160' width='2' height='2'/><rect x='524' y='170' width='2' height='2'/><rect x='588' y='118' width='2' height='2'/><rect x='618' y='118' width='2' height='2'/><rect x='618' y='140' width='2' height='2'/><rect x='714' y='100' width='2' height='2'/><rect x='714' y='130' width='2' height='2'/><rect x='714' y='160' width='2' height='2'/><rect x='772' y='148' width='2' height='2'/><rect x='802' y='148' width='2' height='2'/><rect x='862' y='100' width='2' height='2'/><rect x='862' y='128' width='2' height='2'/><rect x='862' y='148' width='2' height='2'/><rect x='894' y='130' width='2' height='2'/><rect x='894' y='148' width='2' height='2'/><rect x='952' y='130' width='2' height='2'/><rect x='980' y='140' width='2' height='2'/><rect x='1042' y='148' width='2' height='2'/><rect x='1072' y='100' width='2' height='2'/><rect x='1072' y='118' width='2' height='2'/><rect x='1072' y='140' width='2' height='2'/><rect x='1100' y='140' width='2' height='2'/><rect x='1132' y='140' width='2' height='2'/><rect x='1162' y='148' width='2' height='2'/><rect x='1224' y='118' width='2' height='2'/><rect x='1224' y='140' width='2' height='2'/><rect x='1294' y='148' width='2' height='2'/><rect x='1352' y='100' width='2' height='2'/><rect x='1352' y='118' width='2' height='2'/><rect x='1352' y='140' width='2' height='2'/><rect x='1378' y='110' width='2' height='2'/><rect x='1378' y='130' width='2' height='2'/><rect x='1378' y='150' width='2' height='2'/><rect x='1432' y='140' width='2' height='2'/><rect x='1500' y='148' width='2' height='2'/></g><g stroke='%23FFC72C' stroke-width='1' opacity='0.7'><line x1='180' y1='100' x2='180' y2='80'/><circle cx='180' cy='78' r='1.5' fill='%23FF8024' stroke='none'/><line x1='420' y1='80' x2='420' y2='62'/><circle cx='420' cy='60' r='1.5' fill='%23FF8024' stroke='none'/><line x1='870' y1='100' x2='870' y2='80'/><circle cx='870' cy='78' r='1.5' fill='%23FF8024' stroke='none'/><line x1='1380' y1='100' x2='1380' y2='80'/><circle cx='1380' cy='78' r='1.5' fill='%23FF8024' stroke='none'/></g></svg>"),
+                /* BACK (lighter, smaller buildings, slightly behind) */
+                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 220' preserveAspectRatio='none'><g fill='%231A2050' opacity='0.7'><polygon points='0,220 0,180 25,180 25,170 60,170 60,160 95,160 95,175 130,175 130,150 165,150 165,170 200,170 200,160 240,160 240,140 275,140 275,170 310,170 310,165 350,165 350,150 385,150 385,170 420,170 420,155 460,155 460,175 495,175 495,160 535,160 535,170 575,170 575,150 615,150 615,170 655,170 655,160 695,160 695,170 735,170 735,155 775,155 775,170 815,170 815,160 855,160 855,150 895,150 895,170 935,170 935,160 975,160 975,170 1015,170 1015,150 1055,150 1055,170 1095,170 1095,160 1135,160 1135,150 1175,150 1175,170 1215,170 1215,160 1255,160 1255,170 1295,170 1295,150 1335,150 1335,170 1375,170 1375,160 1415,160 1415,150 1455,150 1455,170 1495,170 1495,160 1535,160 1535,170 1575,170 1575,160 1600,160 1600,220'/></g></svg>");
+            background-size: 100% 220px, 100% 220px;
+            background-position: bottom, bottom;
+        }
+        body.nba-mode:not(.dark-mode) .tc-skyline {
+            opacity: 0.18;
+            background-image:
+                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 220' preserveAspectRatio='none'><g fill='%230E1330'><polygon points='0,220 0,150 30,150 30,140 50,140 50,150 70,150 70,130 90,130 90,160 110,160 110,120 140,120 140,180 160,180 160,100 175,90 190,100 190,170 220,170 220,140 250,140 250,180 280,180 280,90 310,90 310,160 340,160 340,130 380,130 380,165 410,165 410,80 430,68 450,80 450,120 480,120 480,180 510,180 510,150 540,150 540,170 580,170 580,110 605,100 630,110 630,160 660,160 660,130 700,130 700,90 730,90 730,180 760,180 760,140 790,140 790,170 820,170 820,100 850,90 880,100 880,150 910,150 910,180 940,180 940,120 970,120 970,160 1000,160 1000,140 1030,140 1030,170 1060,170 1060,90 1090,90 1090,160 1120,160 1120,130 1150,130 1150,180 1180,180 1180,150 1210,150 1210,110 1240,110 1240,170 1280,170 1280,140 1310,140 1310,170 1340,170 1340,100 1365,90 1390,100 1390,160 1420,160 1420,130 1455,130 1455,180 1485,180 1485,150 1515,150 1515,165 1550,165 1550,140 1580,140 1580,170 1600,170 1600,220'/></g></svg>");
+            background-size: 100% 220px;
+            background-position: bottom;
+        }
+        /* Subtle orange→gold ground glow that picks up where the skyline sits */
+        body.nba-mode::after {
+            background:
+                radial-gradient(ellipse 70% 50% at 80% 0%, rgba(255, 128, 36, 0.08), transparent 60%),
+                radial-gradient(ellipse 60% 60% at 0% 100%, rgba(255, 199, 44, 0.05), transparent 60%),
+                radial-gradient(ellipse 80% 30% at 50% 100%, rgba(255, 128, 36, 0.08), transparent 70%),
+                radial-gradient(ellipse 50% 40% at 50% 50%, rgba(143, 168, 230, 0.025), transparent 70%);
+        }
 
     </style>
 {{if eq .Sport "nba"}}
@@ -1879,6 +1976,7 @@
 {{end}}
 </head>
 <body class="{{if and .User (eq .User.ThemePreference "dark")}}dark-mode {{end}}{{if eq .Sport "nba"}}nba-mode{{end}}">
+    {{if eq .Sport "nba"}}<div class="tc-skyline" aria-hidden="true"></div>{{end}}
     <header>
         <a href="{{if eq .Sport "nba"}}/nba/home{{else}}/{{end}}" class="logo">Front Office Dynasty{{if eq .Sport "nba"}} <span style="font-size: 0.7em; color: var(--fod-orange-accent);">NBA</span>{{end}}</a>
         <nav>
